@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MyCustomBoard Dashboard</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <h1>MyCustomBoard Steuerung</h1>
+    
+    <div class="status">
+        <h2 class="status-header">Status <span id="toggleStatus" class="toggle-button">▼</span></h2>
+        <div class="status-content">
+            <p>Batteriespannung: <span id="batteryVoltage">-</span> V</p>
+            <p>Batterie-Level: <span id="batteryPercentage">-</span> %</p>
+            <p>Servo-Winkel: <span id="servoAngles">-</span></p>
+            <h3>Motoren</h3>
+            <div id="motorStatus">
+                <p>Motor A: <span id="motor0PWM">0</span>, Fault: <span id="motor0Fault">False</span></p>
+                <p>Motor B: <span id="motor1PWM">0</span>, Fault: <span id="motor1Fault">False</span></p>
+                <p>Motor C: <span id="motor2PWM">0</span>, Fault: <span id="motor2Fault">False</span></p>
+                <p>Motor D: <span id="motor3PWM">0</span>, Fault: <span id="motor3Fault">False</span></p>
+            </div>
+            <h3>WS2812 LED</h3>
+            <p>Erste LED Farbe: <span id="firstLEDR">0</span>, <span id="firstLEDG">0</span>, <span id="firstLEDB">0</span></p>
+        </div>
+    </div>
+
+    <div class="controls">
+        <h2>Steuerung</h2>
+        <canvas id="touchCanvas" width="300" height="300"></canvas>
+        <div class="slider-container">
+            <label class="slider-label" for="servoSlider">Servo Steuerung</label>
+            <input type="range" id="servoSlider" class="slider" min="0" max="180" value="90">
+        </div>
+        <div class="motor-controls">
+            <h3>Motor C Steuerung</h3>
+            <div class="button-container">
+                <button id="motorCForward" class="control-button">Vorwärts</button>
+                <button id="motorCBackward" class="control-button">Rückwärts</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

@@ -1,0 +1,137 @@
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    user-select: none; /* Verhindert Textauswahl für alle Elemente */
+    -webkit-user-select: none; /* Für Safari */
+    -ms-user-select: none; /* Für Internet Explorer/Edge */
+}
+
+body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh;
+    background-color: #f0f0f0;
+    font-family: Arial, sans-serif;
+    padding: 20px;
+}
+
+h1, h2, h3 {
+    text-align: center;
+    margin-bottom: 10px;
+}
+
+.status, .controls {
+    width: 90%;
+    max-width: 800px;
+    background: #fff;
+    padding: 20px;
+    border-radius: 5px;
+    box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+}
+
+.status-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    user-select: none; /* Verhindert Textauswahl beim Klicken auf den Header */
+}
+
+.toggle-button {
+    font-size: 18px;
+    transition: transform 0.3s ease;
+}
+
+.status-content {
+    display: block;
+    transition: max-height 0.3s ease, opacity 0.3s ease;
+    max-height: 1000px; /* Großer Wert, um den Inhalt vollständig anzuzeigen */
+    opacity: 1;
+}
+
+.status-content.collapsed {
+    max-height: 0;
+    opacity: 0;
+    overflow: hidden;
+}
+
+.controls .slider-container, .controls .motor-controls {
+    margin-top: 20px;
+}
+
+.slider-label {
+    display: block;
+    margin-bottom: 10px;
+    font-size: 18px;
+}
+
+.slider {
+    width: 100%;
+    height: 25px;
+    background: #ddd;
+    border-radius: 5px;
+    outline: none;
+    -webkit-appearance: none;
+}
+
+.slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 25px;
+    height: 25px;
+    background: #4285f4;
+    cursor: pointer;
+    border-radius: 50%;
+}
+
+.slider::-moz-range-thumb {
+    width: 25px;
+    height: 25px;
+    background: #4285f4;
+    cursor: pointer;
+    border-radius: 50%;
+}
+
+.motor-controls .button-container {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    margin-top: 10px;
+}
+
+.control-button {
+    padding: 15px 30px;
+    font-size: 16px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    background-color: #4285f4;
+    color: #fff;
+    transition: background-color 0.3s ease;
+}
+
+.control-button:hover {
+    background-color: #306acb;
+}
+
+#touchCanvas {
+    display: block;
+    margin: 0 auto;
+    border: 2px solid #000;
+    border-radius: 50%;
+    background-color: #fff;
+    touch-action: none;
+}
+
+#motorStatus p {
+    margin-bottom: 5px;
+    font-size: 16px;
+}
+
+.status p, .status h3 {
+    margin-bottom: 10px;
+    font-size: 16px;
+}
