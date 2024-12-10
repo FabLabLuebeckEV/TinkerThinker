@@ -109,9 +109,12 @@ void WebServerManager::sendStatusUpdate() {
         }
         
         // Motor Fehlerstatus
-        JsonArray motorFaults = doc.createNestedArray("motorFaults");
-        for (int i = 0; i < 4; i++) {
-            motorFaults.add(board->isMotorInFault(i));
+        doc["motorFaults"] = board->isMotorInFault();
+
+        // Motorstrom
+        JsonArray motorCurrents = doc.createNestedArray("motorCurrents");
+        for (int i = 0; i < 2; i++) {
+            motorCurrents.add(board->getHBridgeAmps(i));
         }
         
         // Farbe der ersten WS2812

@@ -9,9 +9,9 @@ const motor2PWMElem = document.getElementById('motor2PWM');
 const motor3PWMElem = document.getElementById('motor3PWM');
 
 const motor0FaultElem = document.getElementById('motor0Fault');
-const motor1FaultElem = document.getElementById('motor1Fault');
-const motor2FaultElem = document.getElementById('motor2Fault');
-const motor3FaultElem = document.getElementById('motor3Fault');
+
+const motor0CurrentElem = document.getElementById('motor0Current');
+const motor1CurrentElem = document.getElementById('motor1Current');
 
 const firstLEDR = document.getElementById('firstLEDR');
 const firstLEDG = document.getElementById('firstLEDG');
@@ -75,10 +75,11 @@ socket.onmessage = (event) => {
         motor3PWMElem.textContent = data.motorPWMs[3];
     }
     if (data.motorFaults) {
-        motor0FaultElem.textContent = data.motorFaults[0] ? 'True' : 'False';
-        motor1FaultElem.textContent = data.motorFaults[1] ? 'True' : 'False';
-        motor2FaultElem.textContent = data.motorFaults[2] ? 'True' : 'False';
-        motor3FaultElem.textContent = data.motorFaults[3] ? 'True' : 'False';
+        motor0FaultElem.textContent = data.motorFaults ? 'True' : 'False';
+    }
+    if (data.motorCurrents) {
+        motor0CurrentElem.textContent = Math.round(data.motorCurrents[0]*1000);
+        motor1CurrentElem.textContent = Math.round(data.motorCurrents[1]*1000);
     }
     if (data.firstLED) {
         firstLEDR.textContent = data.firstLED.r;

@@ -36,7 +36,8 @@ public:
     
     // Systemüberwachung
     void checkFaults();
-    bool isMotorInFault(int motorIndex);
+    bool isMotorInFault();
+    float getHBridgeAmps(int motorIndex);
     
     // Webserver-Update
     void updateWebClients();

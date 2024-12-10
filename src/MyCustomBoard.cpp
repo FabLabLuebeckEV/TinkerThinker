@@ -2,8 +2,9 @@
 
 // Pin-Konfigurationen
 #define POWER_ON_PIN 26
-#define GPIO_FAULT_1 36
-#define GPIO_FAULT_2 34
+#define GPIO_FAULT_1 39
+#define GPIO_CURRENT_1 34
+#define GPIO_CURRENT_2 36
 #define LED_PIN 2
 #define BATTERY_PIN 35 // Beispielkanal, anpassen
 
@@ -24,7 +25,7 @@ MyCustomBoard::MyCustomBoard() {
     servoController = new ServoController(servos, SERVO_COUNT);
     ledController = new LEDController();
     batteryMonitor = new BatteryMonitor(BATTERY_PIN);
-    systemMonitor = new SystemMonitor(GPIO_FAULT_1, GPIO_FAULT_2);
+    systemMonitor = new SystemMonitor(GPIO_FAULT_1, GPIO_CURRENT_1, GPIO_CURRENT_2);
     webServerManager = new WebServerManager(this, "MyBoardAP", "12345678");
 }
 
@@ -113,6 +114,10 @@ int MyCustomBoard::getMotorPWM(int motorIndex) {
     return motorController->getMotorPWM(motorIndex);
 }
 
-bool MyCustomBoard::isMotorInFault(int motorIndex) {
-    return systemMonitor->isMotorInFault(motorIndex);
+bool MyCustomBoard::isMotorInFault() {
+    return systemMonitor->isMotorInFault();
+}
+
+float MyCustomBoard::getHBridgeAmps(int motorIndex) {
+    return systemMonitor->getHBridgeAmps(motorIndex);
 }

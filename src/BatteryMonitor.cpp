@@ -8,7 +8,14 @@ void BatteryMonitor::init() {
 }
 
 float BatteryMonitor::readVoltage() {
-    int adc_reading = analogRead(pin);
+    // Mesure mittelwert
+    int adc_reading = 0;
+    for (int i = 0; i < 5; i++) {
+        adc_reading += analogRead(pin);
+        delay(1);
+    }
+    adc_reading /= 5;
+    
     // Annahme: 3.3V Referenz und Spannungsteiler
     float voltage = (adc_reading / 4095.0) * 3.3 * 2; // Beispiel: Spannungsteilung x2
     return voltage;
