@@ -7,20 +7,18 @@
 #include <WiFi.h>
 #include <ArduinoJson.h>
 
-class MyCustomBoard; // Forward Declaration
+class TinkerThinkerBoard; 
+class ConfigManager;
 
 class WebServerManager {
 public:
-    WebServerManager(MyCustomBoard* board, const char* apSSID = "MyBoard", const char* apPassword = "12345678");
+    WebServerManager(TinkerThinkerBoard* board, ConfigManager* config);
     void init();
-    void handleClient(); // Falls benötigt, in diesem Fall meist nicht, da async
-    void sendStatusUpdate(); // Aufrufbar z.B. jede Sekunde, um den Clients Status zu senden
-    
-private:
-    MyCustomBoard* board;
-    const char* ssid;
-    const char* password;
+    void sendStatusUpdate();
 
+private:
+    TinkerThinkerBoard* board;
+    ConfigManager* config;
     AsyncWebServer server;
     AsyncWebSocket ws;
 
@@ -28,6 +26,8 @@ private:
                           AwsEventType type, void *arg, uint8_t *data, size_t len);
     void setupRoutes();
     void setupWebSocket();
+    void startWifi();
+    void handleConfig(AsyncWebServerRequest* request);
 };
 
 #endif

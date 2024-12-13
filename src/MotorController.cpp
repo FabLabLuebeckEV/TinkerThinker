@@ -1,26 +1,37 @@
+// MotorController.cpp
 #include "MotorController.h"
 
 #define MAX_PWM_VALUE 255
-#define DEAD_BAND 50
-#define MAX_JOYSTICK_VALUE 512 // Beispielwert, anpassen
+#define MAX_JOYSTICK_VALUE 512
 
-MotorController::MotorController(Motor motors[], size_t motorCount) : motors(motors), count(motorCount) {}
+MotorController::MotorController(Motor motors[], size_t motorCount, const int motorFrequencies[], const int motorDeadbands[], const bool motorInvertArr[], bool motorSwap)
+: motors(motors), count(motorCount), motorSwap(motorSwap)
+{
+    for (int i = 0; i < (int)count; i++) {
+        freq[i] = motorFrequencies[i];
+        deadband[i] = motorDeadbands[i];
+        motorInvertArray[i] = motorInvertArr[i];
+    }
+}
 
 void MotorController::init() {
     for (size_t i = 0; i < count; i++) {
         pinMode(motors[i].pin1, OUTPUT);
         pinMode(motors[i].pin2, OUTPUT);
-        ledcSetup(motors[i].channel_forward, 5000, 8); // PWM-Frequenz anpassen
-        ledcSetup(motors[i].channel_reverse, 5000, 8);
+        ledcSetup(motors[i].channel_forward, freq[i], 8);
+        ledcSetup(motors[i].channel_reverse, freq[i], 8);
         ledcAttachPin(motors[i].pin1, motors[i].channel_forward);
         ledcAttachPin(motors[i].pin2, motors[i].channel_reverse);
     }
 }
 
 void MotorController::controlMotor(int index, int pwmValue) {
-    if (index >= count) return;
-    
+    if (index >= (int)count) return;
+    // Invertierung berücksichtigen
+    if (motorInvertArray[index]) pwmValue = -pwmValue;
+
     pwmValue = constrain(pwmValue, -MAX_PWM_VALUE, MAX_PWM_VALUE);
+
     if (pwmValue >= 0) {
         ledcWrite(motors[index].channel_forward, pwmValue);
         ledcWrite(motors[index].channel_reverse, 0);
@@ -31,9 +42,9 @@ void MotorController::controlMotor(int index, int pwmValue) {
 }
 
 int MotorController::scaleMovementToPWM(float movement) {
-    if (movement > 0.0) {
+    if (movement > 0.0f) {
         return 110 + (int)(movement * (255 - 110));
-    } else if (movement < 0.0) {
+    } else if (movement < 0.0f) {
         return -110 - (int)(abs(movement) * (255 - 110));
     } else {
         return 0;
@@ -41,10 +52,22 @@ int MotorController::scaleMovementToPWM(float movement) {
 }
 
 void MotorController::handleMotorControl(int axisX, int axisY, int leftMotorIndex, int rightMotorIndex) {
-    int normX = (abs(axisX) < DEAD_BAND) ? 0 : axisX;
-    int normY = (abs(axisY) < DEAD_BAND) ? 0 : axisY;
+    // Wir nehmen hier an, dass der erste Motor seine deadband[i] betrifft
+    // Allerdings ist das joystick-basierte Handling komplexer,
+    // da wir für jeden Motor unterschiedliche Deadbands haben.
+    // Der Einfachheit halber gilt: Wir nutzen den gleichen deadband
+    // für die X/Y Berechnung. Man kann dies weiter anpassen.
+    
+    // Für ein differenziertes Handling müsste man überlegen, wie man die Deadband pro Motor anwendet.
+    // Hier ein vereinfachter Ansatz:
+    int db = deadband[leftMotorIndex]; // Annahme: gleicher Deadband für beide Motoren, oder du nimmst einen Mittelwert
+    // Alternativ könnte man so etwas tun:
+    // int db = (deadband[leftMotorIndex] + deadband[rightMotorIndex]) / 2;
 
-    float maxMovement = (float)(MAX_JOYSTICK_VALUE - DEAD_BAND);
+    int normX = (abs(axisX) < db) ? 0 : axisX;
+    int normY = (abs(axisY) < db) ? 0 : axisY;
+
+    float maxMovement = (float)(MAX_JOYSTICK_VALUE - db);
     float movementLeft = (float)(normY + normX) / maxMovement;
     float movementRight = (float)(normY - normX) / maxMovement;
 
@@ -54,41 +77,45 @@ void MotorController::handleMotorControl(int axisX, int axisY, int leftMotorInde
     leftPWM = constrain(leftPWM, -MAX_PWM_VALUE, MAX_PWM_VALUE);
     rightPWM = constrain(rightPWM, -MAX_PWM_VALUE, MAX_PWM_VALUE);
 
-    controlMotor(leftMotorIndex, leftPWM);
-    controlMotor(rightMotorIndex, rightPWM);
+    int motorLeft = motorSwap ? rightMotorIndex : leftMotorIndex;
+    int motorRight = motorSwap ? leftMotorIndex : rightMotorIndex;
 
-    #ifdef DEBUG_OUTPUT
-    Serial.println(rightPWM);
-    Serial.println(leftPWM);
-    #endif
+    controlMotor(motorLeft, leftPWM);
+    controlMotor(motorRight, rightPWM);
 }
 
 void MotorController::controlMotorForward(int motorIndex) {
-    if (motorIndex >= count) return;
-    ledcWrite(motors[motorIndex].channel_forward, MAX_PWM_VALUE);
-    ledcWrite(motors[motorIndex].channel_reverse, 0);
+    if (motorIndex >= (int)count) return;
+    int val = motorInvertArray[motorIndex] ? 0 : MAX_PWM_VALUE;
+    int rev = motorInvertArray[motorIndex] ? MAX_PWM_VALUE : 0;
+    ledcWrite(motors[motorIndex].channel_forward, val);
+    ledcWrite(motors[motorIndex].channel_reverse, rev);
 }
 
 void MotorController::controlMotorBackward(int motorIndex) {
-    if (motorIndex >= count) return;
-    ledcWrite(motors[motorIndex].channel_forward, 0);
-    ledcWrite(motors[motorIndex].channel_reverse, MAX_PWM_VALUE);
+    if (motorIndex >= (int)count) return;
+    int val = motorInvertArray[motorIndex] ? MAX_PWM_VALUE : 0;
+    int rev = motorInvertArray[motorIndex] ? 0 : MAX_PWM_VALUE;
+    ledcWrite(motors[motorIndex].channel_forward, val);
+    ledcWrite(motors[motorIndex].channel_reverse, rev);
 }
 
 void MotorController::controlMotorStop(int motorIndex) {
-    if (motorIndex >= count) return;
+    if (motorIndex >= (int)count) return;
     ledcWrite(motors[motorIndex].channel_forward, 0);
     ledcWrite(motors[motorIndex].channel_reverse, 0);
 }
 
 int MotorController::getMotorPWM(int motorIndex) {
-    if (motorIndex >= count) return 0;
+    if (motorIndex >= (int)count) return 0;
     int pwmForward = ledcRead(motors[motorIndex].channel_forward);
     int pwmReverse = ledcRead(motors[motorIndex].channel_reverse);
+    int val = 0;
     if (pwmForward > 0) {
-        return pwmForward;
+        val = pwmForward;
     } else if (pwmReverse > 0) {
-        return -pwmReverse;
+        val = -pwmReverse;
     }
-    return 0;
+    if (motorInvertArray[motorIndex]) val = -val;
+    return val;
 }

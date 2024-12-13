@@ -1,3 +1,4 @@
+// MotorController.h
 #ifndef MOTOR_CONTROLLER_H
 #define MOTOR_CONTROLLER_H
 
@@ -12,22 +13,26 @@ struct Motor {
 
 class MotorController {
 public:
-    MotorController(Motor motors[], size_t motorCount);
+    // Neuer Konstruktor erwartet Arrays für Frequenz und Deadband
+    MotorController(Motor motors[], size_t motorCount, const int motorFrequencies[], const int motorDeadbands[], const bool motorInvert[], bool motorSwap);
     void init();
     void controlMotor(int index, int pwmValue);
     void handleMotorControl(int axisX, int axisY, int leftMotorIndex, int rightMotorIndex);
-    
-    // Neue Methoden für Motor C Steuerung
+
     void controlMotorForward(int motorIndex);
     void controlMotorBackward(int motorIndex);
     void controlMotorStop(int motorIndex);
-    
-    // Statusabfragen
     int getMotorPWM(int motorIndex);
-    
+
 private:
     Motor* motors;
     size_t count;
+    bool motorInvertArray[4];
+    bool motorSwap;
+
+    int freq[4];
+    int deadband[4];
+
     int scaleMovementToPWM(float movement);
 };
 

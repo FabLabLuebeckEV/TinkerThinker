@@ -1,14 +1,21 @@
 #include <Arduino.h>
-#include "MyCustomBoard.h"
+#include "TinkerThinkerBoard.h"
+#include "ConfigManager.h"
 
-// Initialisiere MyCustomBoard
-MyCustomBoard board;
+// Erzeuge globalen Board- und ConfigManager
+ConfigManager configManager;
+TinkerThinkerBoard board(&configManager);
 
 void setup() {
+    Serial.begin(115200);
+    if (!configManager.init()) {
+        Serial.println("Failed to init ConfigManager!");
+    }
     board.begin();
 }
 
 void loop() {
-    Serial.println("Hello, World!");
-    sleep(1000);
+    // Hier können weitere Logiken rein, falls nötig.
+    // Der WebServer läuft asynchron.
+    delay(1000);
 }

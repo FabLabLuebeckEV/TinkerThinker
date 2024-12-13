@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Configuration</title>
+<link rel="stylesheet" href="/config.css">
+</head>
+<body>
+<h1>TinkerThinker Configuration</h1>
+<form id="configForm" method="post" action="/config">
+  
+  <h2>WiFi Settings</h2>
+  <label>WiFi Mode: </label>
+  <select name="wifi_mode" id="wifi_mode">
+    <option value="AP">AP</option>
+    <option value="STA">Client</option>
+  </select><br>
+  <label>WiFi SSID: </label><input type="text" name="wifi_ssid" id="wifi_ssid"><br>
+  <label>WiFi Password: </label><input type="text" name="wifi_password" id="wifi_password"><br>
+  <label>Hotspot SSID: </label><input type="text" name="hotspot_ssid" id="hotspot_ssid"><br>
+  <label>Hotspot Password: </label><input type="text" name="hotspot_password" id="hotspot_password"><br>
+
+  <h2>Motor Settings</h2>
+  <label>Motor Swap (L/R): </label><input type="checkbox" name="motor_swap" id="motor_swap"><br>
+  <div id="motors">
+    <!-- Dynamisch per JS befüllt: Für jeden Motor: Invert, Deadband, Frequency -->
+  </div>
+  
+  <h2>LED Settings</h2>
+  <label>LED Count: </label><input type="number" name="led_count" id="led_count" min="1"><br>
+
+  <h2>Advanced Settings</h2>
+  <label>OTA Enabled: </label><input type="checkbox" name="ota_enabled" id="ota_enabled"><br>
+  
+  <h3>Servo Settings</h3>
+  <div id="servos">
+    <!-- Auch per JS für jeden Servo min/max einfügen -->
+  </div>
+
+  <input type="submit" value="Save & Reboot">
+</form>
+
+<br>
+<a href="/resetconfig">Reset to defaults</a><br>
+<a href="/reboot">Reboot</a>
+
+<script>
+async function loadConfig() {
+  let res = await fetch('/getConfig');
+  let data = await res.json();
+
+  // WiFi
+  document.getElementById('wifi_mode').value = data.wifi_mode;
+  document.getElementById('wifi_ssid').value = data.wifi_ssid;
+  document.getElementById('wifi_password').value = data.wifi_password;
+  document.getElementById('hotspot_ssid').value = data.hotspot_ssid;
+  document.getElementById('hotspot_password').value = data.hotspot_password;
+
+  // Motoren
+  const motorsDiv = document.getElementById('motors');
+  let motor_invert = data.motor_invert;
+  let motor_deadband = data.motor_deadband;
+  let motor_frequency = data.motor_frequency;
+  document.getElementById('motor_swap').checked = data.motor_swap;
+
+  for (let i=0; i<4; i++) {
+    let mDiv = document.createElement('div');
+    mDiv.classList.add('motor-block');
+    mDiv.innerHTML = `
+      <h4>Motor ${i}</h4>
+      <label>Invert:</label> <input type="checkbox" name="motor_invert_${i}" ${motor_invert[i]?'checked':''}><br>
+      <label>Deadband:</label> <input type="number" name="motor_deadband_${i}" value="${motor_deadband[i]}" min="0" max="1024"><br>
+      <label>Frequency:</label> <input type="number" name="motor_frequency_${i}" value="${motor_frequency[i]}" min="100" max="100000"><br>
+    `;
+    motorsDiv.appendChild(mDiv);
+  }
+
+  // LED
+  document.getElementById('led_count').value = data.led_count;
+
+  // OTA
+  document.getElementById('ota_enabled').checked = data.ota_enabled;
+
+  // Servos
+  const servosDiv = document.getElementById('servos');
+  data.servo_settings.forEach((servo, idx) => {
+    let sDiv = document.createElement('div');
+    sDiv.innerHTML = `
+      <h4>Servo ${idx}</h4>
+      <label>Min Pulse:</label> <input type="number" name="servo${idx}_min" value="${servo.min_pulsewidth}" min="100" max="3000"><br>
+      <label>Max Pulse:</label> <input type="number" name="servo${idx}_max" value="${servo.max_pulsewidth}" min="100" max="3000"><br>
+    `;
+    servosDiv.appendChild(sDiv);
+  });
+}
+
+document.getElementById('configForm').addEventListener('submit', function(e) {
+  // Validierung WLAN Passwort
+  let pass = document.getElementById('wifi_password').value;
+  if (pass.length < 8) {
+    alert("WiFi Password must be at least 8 characters long!");
+    e.preventDefault();
+    return;
+  }
+
+  // Optional: weitere Validierungen
+  // z.B. Deadband >= 0
+  // Frequenzen in sinnvollem Bereich
+  // usw.
+});
+
+// Beim Laden Seite Config holen
+loadConfig();
+</script>
+</body>
+</html>
