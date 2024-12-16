@@ -2,165 +2,162 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Konfiguration</title>
   <link rel="stylesheet" href="/config.css">
 </head>
 <body>
+  <!-- Navigationsmenü -->
   <nav>
-    <a href="/">Steuerung</a>
-    <a href="/config">Konfiguration</a>
-    <a href="/setup">Setup</a>
+    <ul>
+      <li><a href="/">Steuerung</a></li>
+      <li><a href="/config">Konfiguration</a></li>
+      <li><a href="/setup">Setup</a></li>
+    </ul>
   </nav>
+
+  <!-- Verbindungsstatus anzeigen (optional) -->
+  <div id="connectionStatus" style="margin-bottom: 20px; font-weight: bold;">
+    WebSocket Status: <span style="color: green;">verbunden</span>
+  </div>
+
   <h1>TinkerThinker Konfiguration</h1>
+  
   <form id="configForm" method="post" action="/config">
-    <h2>WLAN Einstellungen</h2>
-    <label>WLAN Modus:</label>
-    <select name="wifi_mode" id="wifi_mode">
-      <option value="AP">AP (Access Point)</option>
-      <option value="STA">Client</option>
-    </select><br>
-    <div id="wifiSettings" class="collapsible">
-      <label>WiFi SSID:</label>
-      <input type="text" name="wifi_ssid" id="wifi_ssid"><br>
-      <label>WiFi Passwort:</label>
-      <input type="text" name="wifi_password" id="wifi_password"><br>
-    </div>
-    <div id="apSettings" class="collapsible">
-      <label>Hotspot SSID:</label>
-      <input type="text" name="hotspot_ssid" id="hotspot_ssid"><br>
-      <label>Hotspot Passwort:</label>
-      <input type="text" name="hotspot_password" id="hotspot_password"><br>
-    </div>
+    
+    <!-- WLAN Einstellungen -->
+    <section>
+      <h2>WLAN Einstellungen</h2>
+      <label for="wifi_mode">
+        WLAN Modus:
+        <span class="tooltip">i
+          <span class="tooltiptext">
+            Wähle den WLAN-Modus: AP (Access Point) erstellt ein eigenes Netzwerk, STA (Client) verbindet das Gerät mit einem bestehenden Netzwerk.
+          </span>
+        </span>
+      </label>
+      <select name="wifi_mode" id="wifi_mode" onchange="toggleWifiFields()">
+        <option value="AP">AP (Access Point)</option>
+        <option value="STA">STA (Client)</option>
+      </select><br>
 
-    <h2>Motor Einstellungen</h2>
-    <label>Seitenwechsel (Links/Rechts):</label>
-    <input type="checkbox" name="motor_swap" id="motor_swap"><br>
-    <div id="motors">
-      <!-- Dynamisch per JS befüllt -->
-    </div>
-    <button type="button" id="testMotorAForward">Motor A vorwärts</button>
-    <button type="button" id="testMotorAReverse">Motor A rückwärts</button>
-    <button type="button" id="testMotorBForward">Motor B vorwärts</button>
-    <button type="button" id="testMotorBReverse">Motor B rückwärts</button>
-    <button type="button" id="testMotorCForward">Motor C vorwärts</button>
-    <button type="button" id="testMotorCReverse">Motor C rückwärts</button>
-    <button type="button" id="testMotorDForward">Motor D vorwärts</button>
-    <button type="button" id="testMotorDReverse">Motor D rückwärts</button>
+      <div id="sta_fields">
+        <label for="wifi_ssid">
+          WiFi SSID:
+          <span class="tooltip">i
+            <span class="tooltiptext">
+              Gib die SSID deines bestehenden WiFi-Netzwerks ein, mit dem das Gerät verbunden werden soll.
+            </span>
+          </span>
+        </label>
+        <input type="text" name="wifi_ssid" id="wifi_ssid"><br>
+        <label for="wifi_password">
+          WiFi Passwort:
+          <span class="tooltip">i
+            <span class="tooltiptext">
+              Das Passwort deines WiFi-Netzwerks. Muss mindestens 8 Zeichen lang sein.
+            </span>
+          </span>
+        </label>
+        <input type="password" name="wifi_password" id="wifi_password"><br>
+      </div>
 
-    <h2>Servo Einstellungen</h2>
-    <div id="servos">
-      <!-- Dynamisch per JS befüllt -->
-    </div>
-    <button type="button" id="testServo0">Servo auf 0° testen</button>
-    <button type="button" id="testServo180">Servo auf 180° testen</button>
+      <div id="ap_fields" style="display: none;">
+        <label for="hotspot_ssid">
+          Hotspot SSID:
+          <span class="tooltip">i
+            <span class="tooltiptext">
+              Der Name des von deinem Gerät erstellten Hotspots.
+            </span>
+          </span>
+        </label>
+        <input type="text" name="hotspot_ssid" id="hotspot_ssid"><br>
+        <label for="hotspot_password">
+          Hotspot Passwort:
+          <span class="tooltip">i
+            <span class="tooltiptext">
+              Das Passwort für den von deinem Gerät erstellten Hotspot. Optional, aber wenn, dann 8 oder mehr Zeichen.
+            </span>
+          </span>
+        </label>
+        <input type="password" name="hotspot_password" id="hotspot_password"><br>
+      </div>
+    </section>
 
-    <h2>LED Einstellungen</h2>
-    <label>Anzahl der LEDs:</label>
-    <input type="number" name="led_count" id="led_count" min="1"><br>
+    <!-- Motor Einstellungen -->
+    <section>
+      <h2>Motor Einstellungen</h2>
+      <label for="motor_swap">
+        Motor seiten wechseln (C/D):
+        <span class="tooltip">i
+          <span class="tooltiptext">
+            Aktiviert die Vertauschung der Motoren C und D, also der linken und rechten Seite. Nützlich, wenn die Motoren physisch vertauscht sind zur Webseite.
+          </span>
+        </span>
+      </label>
+      <input type="checkbox" name="motor_swap" id="motor_swap"><br>
+      <div id="motors">
+        <!-- Dynamisch per JS befüllt -->
+      </div>
+    </section>
+    
+    <!-- LED Einstellungen -->
+    <section>
+      <h2>LED Einstellungen</h2>
+      <label for="led_count">
+        LED Anzahl:
+        <span class="tooltip">i
+          <span class="tooltiptext">
+            Die Anzahl der LEDs, die das Gerät steuern soll.
+          </span>
+        </span>
+      </label>
+      <input type="number" name="led_count" id="led_count" min="1"><br>
+    </section>
 
-    <h2>Erweiterte Einstellungen</h2>
-    <div id="advancedSettings" class="collapsible">
-      <label>OTA aktivieren:</label>
-      <input type="checkbox" name="ota_enabled" id="ota_enabled"><br>
-    </div>
+    <!-- Erweiterte Einstellungen -->
+    <section>
+      <h2>
+        <button type="button" class="collapsible">Erweiterte Einstellungen</button>
+      </h2>
+      <div class="content">
+        <label for="ota_enabled">
+          OTA Aktivieren:
+          <span class="tooltip">i
+            <span class="tooltiptext">
+              Ermöglicht Over-The-Air (OTA) Updates für die Firmware des Geräts.
+            </span>
+          </span>
+        </label>
+        <input type="checkbox" name="ota_enabled" id="ota_enabled"><br>
+        
+        <h3>Servo Einstellungen</h3>
+        <div id="servos">
+          <!-- Dynamisch per JS befüllt -->
+        </div>
+      </div>
+    </section>
 
     <input type="submit" value="Speichern">
   </form>
-  <div class="button-bar">
+  
+  <!-- Reset und Reboot Buttons -->
+  <div class="action-buttons">
     <button onclick="resetConfig()">Auf Werkseinstellungen zurücksetzen</button>
     <button onclick="reboot()">Neustarten</button>
   </div>
 
-  <script>
-    async function loadConfig() {
-      let res = await fetch('/getConfig');
-      let data = await res.json();
+  <!-- Popup für Neustart -->
+  <div id="restartPopup" class="modal">
+    <div class="modal-content">
+      <span class="close" onclick="closePopup()">&times;</span>
+      <p>WLAN Einstellungen wurden geändert. Das Gerät wird neu gestartet.</p>
+      <p><strong>Neues WLAN:</strong></p>
+      <p id="newWifiInfo"></p>
+    </div>
+  </div>
 
-      document.getElementById('wifi_mode').value = data.wifi_mode;
-      document.getElementById('wifi_ssid').value = data.wifi_ssid;
-      document.getElementById('wifi_password').value = data.wifi_password;
-      document.getElementById('hotspot_ssid').value = data.hotspot_ssid;
-      document.getElementById('hotspot_password').value = data.hotspot_password;
-
-      const motorsDiv = document.getElementById('motors');
-      let motorLabels = ['A', 'B', 'C', 'D'];
-      data.motor_invert.forEach((invert, i) => {
-        let div = document.createElement('div');
-        div.innerHTML = `
-          <h4>Motor ${motorLabels[i]}</h4>
-          <label>Umkehren:</label> <input type="checkbox" name="motor_invert_${i}" ${invert ? 'checked' : ''}><br>
-        `;
-        motorsDiv.appendChild(div);
-      });
-
-      document.getElementById('motor_swap').checked = data.motor_swap;
-
-      const servosDiv = document.getElementById('servos');
-      data.servo_settings.forEach((servo, i) => {
-        let div = document.createElement('div');
-        div.innerHTML = `
-          <h4>Servo ${i}</h4>
-          <label>Min Pulse:</label> <input type="number" name="servo${i}_min" value="${servo.min_pulsewidth}"><br>
-          <label>Max Pulse:</label> <input type="number" name="servo${i}_max" value="${servo.max_pulsewidth}"><br>
-        `;
-        servosDiv.appendChild(div);
-      });
-
-      document.getElementById('led_count').value = data.led_count;
-      document.getElementById('ota_enabled').checked = data.ota_enabled;
-    }
-
-    function sendWebSocketCommand(payload) {
-      const ws = new WebSocket(`ws://${location.host}/ws`);
-      ws.onopen = () => ws.send(JSON.stringify(payload));
-    }
-
-    document.getElementById('testMotorAForward').addEventListener('click', () => {
-      sendWebSocketCommand({ motorA: 'forward' });
-    });
-    document.getElementById('testMotorAReverse').addEventListener('click', () => {
-      sendWebSocketCommand({ motorA: 'backward' });
-    });
-    document.getElementById('testMotorBForward').addEventListener('click', () => {
-      sendWebSocketCommand({ motorB: 'forward' });
-    });
-    document.getElementById('testMotorBReverse').addEventListener('click', () => {
-      sendWebSocketCommand({ motorB: 'backward' });
-    });
-    document.getElementById('testMotorCForward').addEventListener('click', () => {
-      sendWebSocketCommand({ motorC: 'forward' });
-    });
-    document.getElementById('testMotorCReverse').addEventListener('click', () => {
-      sendWebSocketCommand({ motorC: 'backward' });
-    });
-    document.getElementById('testMotorDForward').addEventListener('click', () => {
-      sendWebSocketCommand({ motorD: 'forward' });
-    });
-    document.getElementById('testMotorDReverse').addEventListener('click', () => {
-      sendWebSocketCommand({ motorD: 'backward' });
-    });
-
-    document.getElementById('testServo0').addEventListener('click', () => {
-      sendWebSocketCommand({ servo: 0 });
-    });
-    document.getElementById('testServo180').addEventListener('click', () => {
-      sendWebSocketCommand({ servo: 180 });
-    });
-
-    loadConfig();
-
-    function resetConfig() {
-      if (confirm('Möchten Sie wirklich die Werkseinstellungen wiederherstellen?')) {
-        fetch('/resetconfig').then(() => location.reload());
-      }
-    }
-
-    function reboot() {
-      if (confirm('Das Gerät wird jetzt neu gestartet. Fortfahren?')) {
-        fetch('/reboot').then(() => location.reload());
-      }
-    }
-  </script>
+  <!-- Einbindung der externen JavaScript-Datei -->
+  <script src="/config.js"></script>
 </body>
 </html>

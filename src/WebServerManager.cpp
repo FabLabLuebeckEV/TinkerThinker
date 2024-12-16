@@ -58,6 +58,10 @@ void WebServerManager::setupRoutes() {
         request->send(LittleFS, "/config.css", "text/css");
     });
 
+    server.on("/setup", HTTP_GET, [this](AsyncWebServerRequest *request){
+        request->send(LittleFS, "/setup.html", "text/html");
+    });
+
     // JSON mit aktueller Config liefern
     server.on("/getConfig", HTTP_GET, [this](AsyncWebServerRequest *request){
         DynamicJsonDocument doc(2048);
@@ -114,9 +118,15 @@ void WebServerManager::setupRoutes() {
 
 
 void WebServerManager::handleConfig(AsyncWebServerRequest* request) {
+    bool wifiChanged = false;
+
     // WLAN- und Hotspot-Settings
     if (request->hasParam("wifi_mode", true)) {
-        config->setWifiMode(request->getParam("wifi_mode", true)->value());
+        String newMode = request->getParam("wifi_mode", true)->value();
+        if (newMode != config->getWifiMode()) {
+            wifiChanged = true;
+        }
+        config->setWifiMode(newMode);
     }
     if (request->hasParam("wifi_ssid", true)) {
         config->setWifiSSID(request->getParam("wifi_ssid", true)->value());
@@ -139,7 +149,7 @@ void WebServerManager::handleConfig(AsyncWebServerRequest* request) {
         config->setMotorSwap(false);
     }
 
-    // Motoren (invert, deadband, frequency) - wir gehen von Feldern wie motor_invert_0, motor_deadband_0, motor_frequency_0 etc. aus
+    // Motoren (invert, deadband, frequency)
     for (int i = 0; i < 4; i++) {
         // Motor Invert
         {
@@ -154,7 +164,7 @@ void WebServerManager::handleConfig(AsyncWebServerRequest* request) {
         // Motor Deadband
         {
             String field = "motor_deadband_" + String(i);
-            int dbVal = config->getMotorDeadband(i); // Falls nicht gesetzt, Default beibehalten
+            int dbVal = config->getMotorDeadband(i);
             if (request->hasParam(field, true)) {
                 dbVal = request->getParam(field, true)->value().toInt();
             }
@@ -164,7 +174,7 @@ void WebServerManager::handleConfig(AsyncWebServerRequest* request) {
         // Motor Frequency
         {
             String field = "motor_frequency_" + String(i);
-            int freqVal = config->getMotorFrequency(i); // Falls nicht gesetzt, Default beibehalten
+            int freqVal = config->getMotorFrequency(i);
             if (request->hasParam(field, true)) {
                 freqVal = request->getParam(field, true)->value().toInt();
             }
@@ -203,14 +213,22 @@ void WebServerManager::handleConfig(AsyncWebServerRequest* request) {
 
     // Config speichern
     config->saveConfig();
-    //Apply new config
+    // Apply new config
     board->reApplyConfig();
 
-    // Redirect und Neustart
+    if (wifiChanged) {
+        // Sende eine Nachricht über WebSocket, dass ein Neustart erfolgt
+        StaticJsonDocument<200> doc;
+        doc["restart"] = true;
+        String json;
+        serializeJson(doc, json);
+        ws.textAll(json);
+    }
+
+    // Redirect
     request->redirect("/config");
-    //delay(1000);
-    //ESP.restart();
 }
+
 
 
 void WebServerManager::onWebSocketEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, 
@@ -221,81 +239,52 @@ void WebServerManager::onWebSocketEvent(AsyncWebSocket *server, AsyncWebSocketCl
             message += (char)data[i];
         }
 
-        StaticJsonDocument<200> doc;
+        StaticJsonDocument<512> doc;
         DeserializationError error = deserializeJson(doc, message);
         if (!error) {
             // Vorhandene Steuerung für Joystick & Servo
-            if (doc.containsKey("x") && doc.containsKey("y") && doc.containsKey("servo")) {
+            if (doc.containsKey("x") && doc.containsKey("y")) {
                 float x = doc["x"].as<float>();
                 float y = doc["y"].as<float>();
-                int servoAngle = doc["servo"].as<int>();
 
                 // Achsenrotation
                 float rotatedX = -y;
                 float rotatedY = x;
 
                 board->controlMotors((int)(rotatedX * 512), (int)(rotatedY * 512));
-                board->setServoAngle(0, servoAngle);
-            } 
-            // Bestehende Motor C Steuerung
-            if (doc.containsKey("motorA")) {
-                String command = doc["motorA"].as<String>();
-                if (command == "forward") {
-                    board->controlMotorForward(0);
-                } else if (command == "backward") {
-                    board->controlMotorBackward(0);
-                } else {
-                    board->controlMotorStop(0);
+            }
+
+            // Bestehende Motor Steuerung (A, B, C, D)
+            for (int i = 0; i < 4; i++) {
+                String motorKey = "motor" + String((char)('A' + i));
+                if (doc.containsKey(motorKey)) {
+                    String command = doc[motorKey].as<String>();
+                    if (command == "forward") {
+                        board->controlMotorForward(i);
+                    } else if (command == "backward") {
+                        board->controlMotorBackward(i);
+                    } else if (command == "stop") {
+                        board->controlMotorStop(i);
+                    } else {// Direkte PWM-Steuerung
+                        int pwmValue = command.toInt();
+                        pwmValue = constrain(pwmValue, 0, 255);
+                        board->controlMotorDirect(i, pwmValue);
+                    }
                 }
             }
-             if (doc.containsKey("motorB")) {
-                String command = doc["motorB"].as<String>();
-                if (command == "forward") {
-                    board->controlMotorForward(1);
-                } else if (command == "backward") {
-                    board->controlMotorBackward(1);
-                } else {
-                    board->controlMotorStop(1);
-                }
-            } 
-             if (doc.containsKey("motorC")) {
-                String command = doc["motorC"].as<String>();
-                if (command == "forward") {
-                    board->controlMotorForward(2);
-                } else if (command == "backward") {
-                    board->controlMotorBackward(2);
-                } else {
-                    board->controlMotorStop(2);
-                }
-            } 
-             if (doc.containsKey("motorD")) {
-                String command = doc["motorD"].as<String>();
-                if (command == "forward") {
-                    board->controlMotorForward(3);
-                } else if (command == "backward") {
-                    board->controlMotorBackward(3);
-                } else {
-                    board->controlMotorStop(3);
-                }
-            } 
-            // Neue Einstellung zum direkten Setzen des PWM-Werts eines Motors
-            // Erwartetes Format: {"motor": <index>, "pwm": <0-255>}
-            else if (doc.containsKey("motor") && doc.containsKey("pwm")) {
-                int motorIndex = doc["motor"].as<int>();
-                int pwmValue = doc["pwm"].as<int>();
 
-                // Grenzen prüfen, falls nötig
-                pwmValue = constrain(pwmValue, 0, 255);
-
-                // Direktansteuerung des Motors mit dem angegebenen PWM-Wert
-                // Du kannst hier eine neue Methode in der Board-Klasse verwenden,
-                // z. B. board->controlMotorDirect(motorIndex, pwmValue);
-                // oder falls es schon eine Methode gibt, die Motoren direkt steuert:
-                board->controlMotorDirect(motorIndex, pwmValue);
+            // Servo setzen
+            // Erwartetes Format: {"servo0": <angle>, "servo1": <angle>, "servo2": <angle>}
+            for (int i = 0; i < 3; i++) {
+                String servoKey = "servo" + String(i);
+                if (doc.containsKey(servoKey)) {
+                    int angle = doc[servoKey].as<int>();
+                    board->setServoAngle(i, angle);
+                }
             }
             // Optionale Einstellung zum Setzen des Swap-Flags, falls von der UI gesendet
             // z.B. {"swap":true} oder {"swap":false}
-            else if (doc.containsKey("swap")) {
+            if (doc.containsKey("swap")) {
                 bool sw = doc["swap"].as<bool>();
                 // Config entsprechend setzen
                 config->setMotorSwap(sw);
