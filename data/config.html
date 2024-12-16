@@ -3,117 +3,164 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Configuration</title>
-<link rel="stylesheet" href="/config.css">
+  <title>Konfiguration</title>
+  <link rel="stylesheet" href="/config.css">
 </head>
 <body>
-  <a href="/">Zurück zur Steuerrung</a>
-<h1>TinkerThinker Configuration</h1>
-<form id="configForm" method="post" action="/config">
-  
-  <h2>WLAN Einstellungen</h2>
-  <label>WLAN Modus: </label>
-  <select name="wifi_mode" id="wifi_mode">
-    <option value="AP">AP (AccesPoint)</option>
-    <option value="STA">Client</option>
-  </select><br>
-  <label>WiFi SSID: </label><input type="text" name="wifi_ssid" id="wifi_ssid"><br>
-  <label>WiFi Passwort: </label><input type="text" name="wifi_password" id="wifi_password"><br>
-  <label>Hotspot SSID: </label><input type="text" name="hotspot_ssid" id="hotspot_ssid"><br>
-  <label>Hotspot Passwort: </label><input type="text" name="hotspot_password" id="hotspot_password"><br>
+  <nav>
+    <a href="/">Steuerung</a>
+    <a href="/config">Konfiguration</a>
+    <a href="/setup">Setup</a>
+  </nav>
+  <h1>TinkerThinker Konfiguration</h1>
+  <form id="configForm" method="post" action="/config">
+    <h2>WLAN Einstellungen</h2>
+    <label>WLAN Modus:</label>
+    <select name="wifi_mode" id="wifi_mode">
+      <option value="AP">AP (Access Point)</option>
+      <option value="STA">Client</option>
+    </select><br>
+    <div id="wifiSettings" class="collapsible">
+      <label>WiFi SSID:</label>
+      <input type="text" name="wifi_ssid" id="wifi_ssid"><br>
+      <label>WiFi Passwort:</label>
+      <input type="text" name="wifi_password" id="wifi_password"><br>
+    </div>
+    <div id="apSettings" class="collapsible">
+      <label>Hotspot SSID:</label>
+      <input type="text" name="hotspot_ssid" id="hotspot_ssid"><br>
+      <label>Hotspot Passwort:</label>
+      <input type="text" name="hotspot_password" id="hotspot_password"><br>
+    </div>
 
-  <h2>Motor Einstellungen</h2>
-  <label>Motor seiten wechseln (Links/Rechts): </label><input type="checkbox" name="motor_swap" id="motor_swap"><br>
-  <div id="motors">
-    <!-- Dynamisch per JS befüllt: Für jeden Motor: Invert, Deadband, Frequency -->
+    <h2>Motor Einstellungen</h2>
+    <label>Seitenwechsel (Links/Rechts):</label>
+    <input type="checkbox" name="motor_swap" id="motor_swap"><br>
+    <div id="motors">
+      <!-- Dynamisch per JS befüllt -->
+    </div>
+    <button type="button" id="testMotorAForward">Motor A vorwärts</button>
+    <button type="button" id="testMotorAReverse">Motor A rückwärts</button>
+    <button type="button" id="testMotorBForward">Motor B vorwärts</button>
+    <button type="button" id="testMotorBReverse">Motor B rückwärts</button>
+    <button type="button" id="testMotorCForward">Motor C vorwärts</button>
+    <button type="button" id="testMotorCReverse">Motor C rückwärts</button>
+    <button type="button" id="testMotorDForward">Motor D vorwärts</button>
+    <button type="button" id="testMotorDReverse">Motor D rückwärts</button>
+
+    <h2>Servo Einstellungen</h2>
+    <div id="servos">
+      <!-- Dynamisch per JS befüllt -->
+    </div>
+    <button type="button" id="testServo0">Servo auf 0° testen</button>
+    <button type="button" id="testServo180">Servo auf 180° testen</button>
+
+    <h2>LED Einstellungen</h2>
+    <label>Anzahl der LEDs:</label>
+    <input type="number" name="led_count" id="led_count" min="1"><br>
+
+    <h2>Erweiterte Einstellungen</h2>
+    <div id="advancedSettings" class="collapsible">
+      <label>OTA aktivieren:</label>
+      <input type="checkbox" name="ota_enabled" id="ota_enabled"><br>
+    </div>
+
+    <input type="submit" value="Speichern">
+  </form>
+  <div class="button-bar">
+    <button onclick="resetConfig()">Auf Werkseinstellungen zurücksetzen</button>
+    <button onclick="reboot()">Neustarten</button>
   </div>
-  
-  <h2>LED Einstellungen</h2>
-  <label>LED Anzahl: </label><input type="number" name="led_count" id="led_count" min="1"><br>
 
-  <h2>Erweiterte Einstellungen</h2>
-  <label>OTA Aktiviren: </label><input type="checkbox" name="ota_enabled" id="ota_enabled"><br>
-  
-  <h3>Servo Einstellungen</h3>
-  <div id="servos">
-    <!-- Auch per JS für jeden Servo min/max einfügen -->
-  </div>
+  <script>
+    async function loadConfig() {
+      let res = await fetch('/getConfig');
+      let data = await res.json();
 
-  <input type="submit" value="Save">
-</form>
+      document.getElementById('wifi_mode').value = data.wifi_mode;
+      document.getElementById('wifi_ssid').value = data.wifi_ssid;
+      document.getElementById('wifi_password').value = data.wifi_password;
+      document.getElementById('hotspot_ssid').value = data.hotspot_ssid;
+      document.getElementById('hotspot_password').value = data.hotspot_password;
 
-<br>
-<a href="/resetconfig">Auf Werkseinstelllungen zurücksetzen</a><br>
-<a href="/reboot">Neustarten</a>
+      const motorsDiv = document.getElementById('motors');
+      let motorLabels = ['A', 'B', 'C', 'D'];
+      data.motor_invert.forEach((invert, i) => {
+        let div = document.createElement('div');
+        div.innerHTML = `
+          <h4>Motor ${motorLabels[i]}</h4>
+          <label>Umkehren:</label> <input type="checkbox" name="motor_invert_${i}" ${invert ? 'checked' : ''}><br>
+        `;
+        motorsDiv.appendChild(div);
+      });
 
-<script>
-async function loadConfig() {
-  let res = await fetch('/getConfig');
-  let data = await res.json();
+      document.getElementById('motor_swap').checked = data.motor_swap;
 
-  // WiFi
-  document.getElementById('wifi_mode').value = data.wifi_mode;
-  document.getElementById('wifi_ssid').value = data.wifi_ssid;
-  document.getElementById('wifi_password').value = data.wifi_password;
-  document.getElementById('hotspot_ssid').value = data.hotspot_ssid;
-  document.getElementById('hotspot_password').value = data.hotspot_password;
+      const servosDiv = document.getElementById('servos');
+      data.servo_settings.forEach((servo, i) => {
+        let div = document.createElement('div');
+        div.innerHTML = `
+          <h4>Servo ${i}</h4>
+          <label>Min Pulse:</label> <input type="number" name="servo${i}_min" value="${servo.min_pulsewidth}"><br>
+          <label>Max Pulse:</label> <input type="number" name="servo${i}_max" value="${servo.max_pulsewidth}"><br>
+        `;
+        servosDiv.appendChild(div);
+      });
 
-  // Motoren
-  const motorsDiv = document.getElementById('motors');
-  let motor_invert = data.motor_invert;
-  let motor_deadband = data.motor_deadband;
-  let motor_frequency = data.motor_frequency;
-  document.getElementById('motor_swap').checked = data.motor_swap;
+      document.getElementById('led_count').value = data.led_count;
+      document.getElementById('ota_enabled').checked = data.ota_enabled;
+    }
 
-  let motorLabels = ['A', 'B', 'C', 'D'];
-  for (let i=0; i<4; i++) {
-    let mDiv = document.createElement('div');
-    mDiv.classList.add('motor-block');
-    mDiv.innerHTML = `
-      <h4>Motor ${motorLabels[i]}</h4>
-      <label>Umkehren:</label> <input type="checkbox" name="motor_invert_${i}" ${motor_invert[i]?'checked':''}><br>
-      <label>Deadband:</label> <input type="number" name="motor_deadband_${i}" value="${motor_deadband[i]}" min="0" max="1024"><br>
-      <label>Frequenz:</label> <input type="number" name="motor_frequency_${i}" value="${motor_frequency[i]}" min="100" max="100000"><br>
-    `;
-    motorsDiv.appendChild(mDiv);
-  }
+    function sendWebSocketCommand(payload) {
+      const ws = new WebSocket(`ws://${location.host}/ws`);
+      ws.onopen = () => ws.send(JSON.stringify(payload));
+    }
 
-  // LED
-  document.getElementById('led_count').value = data.led_count;
+    document.getElementById('testMotorAForward').addEventListener('click', () => {
+      sendWebSocketCommand({ motorA: 'forward' });
+    });
+    document.getElementById('testMotorAReverse').addEventListener('click', () => {
+      sendWebSocketCommand({ motorA: 'backward' });
+    });
+    document.getElementById('testMotorBForward').addEventListener('click', () => {
+      sendWebSocketCommand({ motorB: 'forward' });
+    });
+    document.getElementById('testMotorBReverse').addEventListener('click', () => {
+      sendWebSocketCommand({ motorB: 'backward' });
+    });
+    document.getElementById('testMotorCForward').addEventListener('click', () => {
+      sendWebSocketCommand({ motorC: 'forward' });
+    });
+    document.getElementById('testMotorCReverse').addEventListener('click', () => {
+      sendWebSocketCommand({ motorC: 'backward' });
+    });
+    document.getElementById('testMotorDForward').addEventListener('click', () => {
+      sendWebSocketCommand({ motorD: 'forward' });
+    });
+    document.getElementById('testMotorDReverse').addEventListener('click', () => {
+      sendWebSocketCommand({ motorD: 'backward' });
+    });
 
-  // OTA
-  document.getElementById('ota_enabled').checked = data.ota_enabled;
+    document.getElementById('testServo0').addEventListener('click', () => {
+      sendWebSocketCommand({ servo: 0 });
+    });
+    document.getElementById('testServo180').addEventListener('click', () => {
+      sendWebSocketCommand({ servo: 180 });
+    });
 
-  // Servos
-  const servosDiv = document.getElementById('servos');
-  data.servo_settings.forEach((servo, idx) => {
-    let sDiv = document.createElement('div');
-    sDiv.innerHTML = `
-      <h4>Servo ${idx}</h4>
-      <label>Min Pulse:</label> <input type="number" name="servo${idx}_min" value="${servo.min_pulsewidth}" min="100" max="3000"><br>
-      <label>Max Pulse:</label> <input type="number" name="servo${idx}_max" value="${servo.max_pulsewidth}" min="100" max="3000"><br>
-    `;
-    servosDiv.appendChild(sDiv);
-  });
-}
+    loadConfig();
 
-document.getElementById('configForm').addEventListener('submit', function(e) {
-  // Validierung WLAN Passwort
-  let pass = document.getElementById('wifi_password').value;
-  if (pass.length < 8) {
-    alert("WiFi Password must be at least 8 characters long!");
-    e.preventDefault();
-    return;
-  }
+    function resetConfig() {
+      if (confirm('Möchten Sie wirklich die Werkseinstellungen wiederherstellen?')) {
+        fetch('/resetconfig').then(() => location.reload());
+      }
+    }
 
-  // Optional: weitere Validierungen
-  // z.B. Deadband >= 0
-  // Frequenzen in sinnvollem Bereich
-  // usw.
-});
-
-// Beim Laden Seite Config holen
-loadConfig();
-</script>
+    function reboot() {
+      if (confirm('Das Gerät wird jetzt neu gestartet. Fortfahren?')) {
+        fetch('/reboot').then(() => location.reload());
+      }
+    }
+  </script>
 </body>
 </html>
