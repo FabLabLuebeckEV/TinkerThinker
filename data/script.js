@@ -22,8 +22,8 @@ const canvas = document.getElementById('touchCanvas');
 const ctx = canvas.getContext('2d');
 const servoSlider = document.getElementById('servoSlider');
 
-const motorCForwardButton = document.getElementById('motorCForward');
-const motorCBackwardButton = document.getElementById('motorCBackward');
+const motorAForwardButton = document.getElementById('motorAForward');
+const motorABackwardButton = document.getElementById('motorABackward');
 
 // Statusbox Einklappen
 const statusHeader = document.querySelector('.status-header');
@@ -174,6 +174,7 @@ function sendData() {
             currentData.y !== lastSentData.y ||
             currentData.servo !== lastSentData.servo
         ) {
+            console.log(JSON.stringify(currentData));
             socket.send(JSON.stringify(currentData));
             lastSentData = currentData;
         }
@@ -181,49 +182,49 @@ function sendData() {
 }
 
 // Motor C Steuerung
-function controlMotorC(direction) {
+function controlMotorA(direction) {
     if (socket.readyState === WebSocket.OPEN) {
         const data = {
-            motorC: direction
+            motorA: direction
         };
         socket.send(JSON.stringify(data));
-        console.log('Sent motorC command:', data);
+        console.log('Sent motorA command:', data);
     }
 }
 
 // Event Listener für Motor C Buttons
-motorCForwardButton.addEventListener('mousedown', () => {
-    controlMotorC('forward');
+motorAForwardButton.addEventListener('mousedown', () => {
+    controlMotorA('forward');
 });
 
-motorCForwardButton.addEventListener('touchstart', (e) => {
+motorAForwardButton.addEventListener('touchstart', (e) => {
     e.preventDefault(); // Verhindert Textauswahl und andere Standardaktionen
-    controlMotorC('forward');
+    controlMotorA('forward');
 });
 
-motorCForwardButton.addEventListener('mouseup', () => {
-    controlMotorC('stop');
+motorAForwardButton.addEventListener('mouseup', () => {
+    controlMotorA('stop');
 });
 
-motorCForwardButton.addEventListener('touchend', () => {
-    controlMotorC('stop');
+motorAForwardButton.addEventListener('touchend', () => {
+    controlMotorA('stop');
 });
 
-motorCBackwardButton.addEventListener('mousedown', () => {
-    controlMotorC('backward');
+motorABackwardButton.addEventListener('mousedown', () => {
+    controlMotorA('backward');
 });
 
-motorCBackwardButton.addEventListener('touchstart', (e) => {
+motorABackwardButton.addEventListener('touchstart', (e) => {
     e.preventDefault(); // Verhindert Textauswahl und andere Standardaktionen
-    controlMotorC('backward');
+    controlMotorA('backward');
 });
 
-motorCBackwardButton.addEventListener('mouseup', () => {
-    controlMotorC('stop');
+motorABackwardButton.addEventListener('mouseup', () => {
+    controlMotorA('stop');
 });
 
-motorCBackwardButton.addEventListener('touchend', () => {
-    controlMotorC('stop');
+motorABackwardButton.addEventListener('touchend', () => {
+    controlMotorA('stop');
 });
 
 // Event Listener für Servo Slider

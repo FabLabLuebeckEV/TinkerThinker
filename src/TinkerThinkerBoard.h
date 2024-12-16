@@ -13,6 +13,7 @@ class TinkerThinkerBoard {
 public:
     TinkerThinkerBoard(ConfigManager* configManager);
     void begin();
+    void reApplyConfig();
 
     // Motorsteuerung
     void controlMotors(int axisX, int axisY);

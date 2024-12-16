@@ -21,10 +21,7 @@ TinkerThinkerBoard::TinkerThinkerBoard(ConfigManager* configManager)
     servos[2] = {17, 10, 90, 500, 2500};
 }
 
-void TinkerThinkerBoard::begin() {
-    pinMode(POWER_ON_PIN, OUTPUT);
-    digitalWrite(POWER_ON_PIN, HIGH);
-
+void TinkerThinkerBoard::reApplyConfig() {
     // Arrays für Frequenzen, Deadbands und Invert erzeugen
     int freqs[MOTOR_COUNT];
     int dbs[MOTOR_COUNT];
@@ -53,6 +50,15 @@ void TinkerThinkerBoard::begin() {
 
     systemMonitor = new SystemMonitor(GPIO_FAULT_1, GPIO_CURRENT_1, GPIO_CURRENT_2);
     systemMonitor->init();
+    return;
+}
+
+void TinkerThinkerBoard::begin() {
+    config->init();
+    pinMode(POWER_ON_PIN, OUTPUT);
+    digitalWrite(POWER_ON_PIN, HIGH);
+
+    reApplyConfig() ;   
 
     webServerManager = new WebServerManager(this, config);
     webServerManager->init();
@@ -69,7 +75,7 @@ void TinkerThinkerBoard::begin() {
 }
 
 void TinkerThinkerBoard::controlMotors(int axisX, int axisY) {
-    motorController->handleMotorControl(axisX, axisY, 0, 1);
+    motorController->handleMotorControl(axisX, axisY, 2, 3);
 }
 
 void TinkerThinkerBoard::controlMotorForward(int motorIndex) {

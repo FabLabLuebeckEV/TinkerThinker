@@ -1,47 +1,50 @@
 <!DOCTYPE html>
 <html>
 <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Configuration</title>
 <link rel="stylesheet" href="/config.css">
 </head>
 <body>
+  <a href="/">Zurück zur Steuerrung</a>
 <h1>TinkerThinker Configuration</h1>
 <form id="configForm" method="post" action="/config">
   
-  <h2>WiFi Settings</h2>
-  <label>WiFi Mode: </label>
+  <h2>WLAN Einstellungen</h2>
+  <label>WLAN Modus: </label>
   <select name="wifi_mode" id="wifi_mode">
-    <option value="AP">AP</option>
+    <option value="AP">AP (AccesPoint)</option>
     <option value="STA">Client</option>
   </select><br>
   <label>WiFi SSID: </label><input type="text" name="wifi_ssid" id="wifi_ssid"><br>
-  <label>WiFi Password: </label><input type="text" name="wifi_password" id="wifi_password"><br>
+  <label>WiFi Passwort: </label><input type="text" name="wifi_password" id="wifi_password"><br>
   <label>Hotspot SSID: </label><input type="text" name="hotspot_ssid" id="hotspot_ssid"><br>
-  <label>Hotspot Password: </label><input type="text" name="hotspot_password" id="hotspot_password"><br>
+  <label>Hotspot Passwort: </label><input type="text" name="hotspot_password" id="hotspot_password"><br>
 
-  <h2>Motor Settings</h2>
-  <label>Motor Swap (L/R): </label><input type="checkbox" name="motor_swap" id="motor_swap"><br>
+  <h2>Motor Einstellungen</h2>
+  <label>Motor seiten wechseln (Links/Rechts): </label><input type="checkbox" name="motor_swap" id="motor_swap"><br>
   <div id="motors">
     <!-- Dynamisch per JS befüllt: Für jeden Motor: Invert, Deadband, Frequency -->
   </div>
   
-  <h2>LED Settings</h2>
-  <label>LED Count: </label><input type="number" name="led_count" id="led_count" min="1"><br>
+  <h2>LED Einstellungen</h2>
+  <label>LED Anzahl: </label><input type="number" name="led_count" id="led_count" min="1"><br>
 
-  <h2>Advanced Settings</h2>
-  <label>OTA Enabled: </label><input type="checkbox" name="ota_enabled" id="ota_enabled"><br>
+  <h2>Erweiterte Einstellungen</h2>
+  <label>OTA Aktiviren: </label><input type="checkbox" name="ota_enabled" id="ota_enabled"><br>
   
-  <h3>Servo Settings</h3>
+  <h3>Servo Einstellungen</h3>
   <div id="servos">
     <!-- Auch per JS für jeden Servo min/max einfügen -->
   </div>
 
-  <input type="submit" value="Save & Reboot">
+  <input type="submit" value="Save">
 </form>
 
 <br>
-<a href="/resetconfig">Reset to defaults</a><br>
-<a href="/reboot">Reboot</a>
+<a href="/resetconfig">Auf Werkseinstelllungen zurücksetzen</a><br>
+<a href="/reboot">Neustarten</a>
 
 <script>
 async function loadConfig() {
@@ -62,14 +65,15 @@ async function loadConfig() {
   let motor_frequency = data.motor_frequency;
   document.getElementById('motor_swap').checked = data.motor_swap;
 
+  let motorLabels = ['A', 'B', 'C', 'D'];
   for (let i=0; i<4; i++) {
     let mDiv = document.createElement('div');
     mDiv.classList.add('motor-block');
     mDiv.innerHTML = `
-      <h4>Motor ${i}</h4>
-      <label>Invert:</label> <input type="checkbox" name="motor_invert_${i}" ${motor_invert[i]?'checked':''}><br>
+      <h4>Motor ${motorLabels[i]}</h4>
+      <label>Umkehren:</label> <input type="checkbox" name="motor_invert_${i}" ${motor_invert[i]?'checked':''}><br>
       <label>Deadband:</label> <input type="number" name="motor_deadband_${i}" value="${motor_deadband[i]}" min="0" max="1024"><br>
-      <label>Frequency:</label> <input type="number" name="motor_frequency_${i}" value="${motor_frequency[i]}" min="100" max="100000"><br>
+      <label>Frequenz:</label> <input type="number" name="motor_frequency_${i}" value="${motor_frequency[i]}" min="100" max="100000"><br>
     `;
     motorsDiv.appendChild(mDiv);
   }

@@ -27,10 +27,23 @@ void MotorController::init() {
 
 void MotorController::controlMotor(int index, int pwmValue) {
     if (index >= (int)count) return;
-    // Invertierung berücksichtigen
+
+    // Invert if needed
     if (motorInvertArray[index]) pwmValue = -pwmValue;
 
-    pwmValue = constrain(pwmValue, -MAX_PWM_VALUE, MAX_PWM_VALUE);
+    int db = deadband[index];
+    int maxPWM = MAX_PWM_VALUE;
+
+    if (abs(pwmValue) < 10) {
+        pwmValue = 0; // Below deadband, no movement
+    } else {
+        // Scale between deadband and maxPWM
+        pwmValue = (pwmValue > 0) 
+                   ? map(pwmValue, 10, maxPWM, db, maxPWM) 
+                   : map(pwmValue, -maxPWM, -10, -maxPWM, -db);
+    }
+
+    pwmValue = constrain(pwmValue, -maxPWM, maxPWM);
 
     if (pwmValue >= 0) {
         ledcWrite(motors[index].channel_forward, pwmValue);
@@ -40,6 +53,7 @@ void MotorController::controlMotor(int index, int pwmValue) {
         ledcWrite(motors[index].channel_reverse, -pwmValue);
     }
 }
+
 
 int MotorController::scaleMovementToPWM(float movement) {
     if (movement > 0.0f) {

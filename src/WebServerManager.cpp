@@ -203,11 +203,13 @@ void WebServerManager::handleConfig(AsyncWebServerRequest* request) {
 
     // Config speichern
     config->saveConfig();
+    //Apply new config
+    board->reApplyConfig();
 
     // Redirect und Neustart
     request->redirect("/config");
-    delay(1000);
-    ESP.restart();
+    //delay(1000);
+    //ESP.restart();
 }
 
 
@@ -236,7 +238,27 @@ void WebServerManager::onWebSocketEvent(AsyncWebSocket *server, AsyncWebSocketCl
                 board->setServoAngle(0, servoAngle);
             } 
             // Bestehende Motor C Steuerung
-            else if (doc.containsKey("motorC")) {
+            if (doc.containsKey("motorA")) {
+                String command = doc["motorA"].as<String>();
+                if (command == "forward") {
+                    board->controlMotorForward(0);
+                } else if (command == "backward") {
+                    board->controlMotorBackward(0);
+                } else {
+                    board->controlMotorStop(0);
+                }
+            }
+             if (doc.containsKey("motorB")) {
+                String command = doc["motorB"].as<String>();
+                if (command == "forward") {
+                    board->controlMotorForward(1);
+                } else if (command == "backward") {
+                    board->controlMotorBackward(1);
+                } else {
+                    board->controlMotorStop(1);
+                }
+            } 
+             if (doc.containsKey("motorC")) {
                 String command = doc["motorC"].as<String>();
                 if (command == "forward") {
                     board->controlMotorForward(2);
@@ -244,6 +266,16 @@ void WebServerManager::onWebSocketEvent(AsyncWebSocket *server, AsyncWebSocketCl
                     board->controlMotorBackward(2);
                 } else {
                     board->controlMotorStop(2);
+                }
+            } 
+             if (doc.containsKey("motorD")) {
+                String command = doc["motorD"].as<String>();
+                if (command == "forward") {
+                    board->controlMotorForward(3);
+                } else if (command == "backward") {
+                    board->controlMotorBackward(3);
+                } else {
+                    board->controlMotorStop(3);
                 }
             } 
             // Neue Einstellung zum direkten Setzen des PWM-Werts eines Motors

@@ -56,9 +56,9 @@ bool ConfigManager::loadConfig() {
 
     wifi_mode = doc["wifi_mode"] | "AP";
     wifi_ssid = doc["wifi_ssid"] | "MyAP";
-    wifi_password = doc["wifi_password"] | "12345678";
+    wifi_password = doc["wifi_password"] | "Password";
     hotspot_ssid = doc["hotspot_ssid"] | "TinkerThinkerAP";
-    hotspot_password = doc["hotspot_password"] | "12345678";
+    hotspot_password = doc["hotspot_password"] | "";
 
     JsonArray motorInvertArr = doc["motor_invert"].as<JsonArray>();
     for (int i=0; i<4; i++) {
@@ -124,6 +124,7 @@ bool ConfigManager::saveConfig() {
 
     serializeJson(doc, file);
     file.close();
+    //loadConfig();
     return true;
 }
 
