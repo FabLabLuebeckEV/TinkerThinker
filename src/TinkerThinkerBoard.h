@@ -21,6 +21,8 @@ public:
     void controlMotorBackward(int motorIndex);
     void controlMotorStop(int motorIndex);
     void controlMotorDirect(int motorIndex, int pwmValue);
+    void setMotorLeftGUI(int motorIndex);
+    void setMotorRightGUI(int motorIndex);
 
     // Servo-Steuerung
     void setServoAngle(int servoIndex, int angle);
@@ -59,6 +61,8 @@ private:
     static const size_t SERVO_COUNT = 3;
     Motor motors[MOTOR_COUNT];
     ServoMotor servos[SERVO_COUNT];
+    int motorLeftGUI = 2;
+    int motorRightGUI = 3;
 };
 
 #endif

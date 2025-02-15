@@ -26,6 +26,8 @@ void ConfigManager::setDefaults() {
     hotspot_password = "12345678";
     for (int i = 0; i < 4; i++) motor_invert[i] = false;
     motor_swap = false;
+    motorLeftGUI = 2;
+    motorRightGUI = 3;
     for (int i = 0; i < 4; i++) motor_deadband[i] = 50;
     led_count = 30;
     ota_enabled = false;
@@ -66,6 +68,9 @@ bool ConfigManager::loadConfig() {
     }
 
     motor_swap = doc["motor_swap"] | false;
+    // Motor GUI
+    motorLeftGUI = doc["motor_left_gui"] | 2;
+    motorRightGUI = doc["motor_right_gui"] | 3;
     led_count = doc["led_count"] | 30;
     ota_enabled = doc["ota_enabled"] | false;
     JsonArray motorDeadbandArr = doc["motor_deadband"].as<JsonArray>();
@@ -99,6 +104,10 @@ bool ConfigManager::saveConfig() {
     for (int i=0; i<4; i++) invArr.add(motor_invert[i]);
 
     doc["motor_swap"] = motor_swap;
+
+    // Motor GUI
+    doc["motor_left_gui"] = motorLeftGUI;
+    doc["motor_right_gui"] = motorRightGUI;
 
     JsonArray dbArr = doc.createNestedArray("motor_deadband");
     for (int i=0; i<4; i++) dbArr.add(motor_deadband[i]);
@@ -141,6 +150,8 @@ String ConfigManager::getHotspotSSID() { return hotspot_ssid; }
 String ConfigManager::getHotspotPassword() { return hotspot_password; }
 bool ConfigManager::getMotorInvert(int index) { return motor_invert[index]; }
 bool ConfigManager::getMotorSwap() { return motor_swap; }
+int ConfigManager::getMotorLeftGUI() { return motorLeftGUI; }
+int ConfigManager::getMotorRightGUI() { return motorRightGUI; }
 int ConfigManager::getLedCount() { return led_count; }
 int ConfigManager::getMotorDeadband(int index) {return motor_deadband[index];}
 int ConfigManager::getMotorFrequency(int index){return motor_frequency[index];}
@@ -156,6 +167,8 @@ void ConfigManager::setHotspotSSID(const String &ssid){ hotspot_ssid = ssid; }
 void ConfigManager::setHotspotPassword(const String &pass){ hotspot_password = pass; }
 void ConfigManager::setMotorInvert(int index, bool inv) { motor_invert[index] = inv; }
 void ConfigManager::setMotorSwap(bool swap) { motor_swap = swap; }
+void ConfigManager::setMotorLeftGUI(int motorIndex){ motorLeftGUI = motorIndex; }
+void ConfigManager::setMotorRightGUI(int motorIndex){ motorRightGUI = motorIndex; }
 void ConfigManager::setLedCount(int count){ led_count = count; }
 void ConfigManager::setOTAEnabled(bool enabled){ ota_enabled = enabled; }
 void ConfigManager::setServoPulsewidthRange(int index, int min_pw, int max_pw){

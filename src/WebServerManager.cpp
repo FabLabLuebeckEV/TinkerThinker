@@ -278,6 +278,7 @@ void WebServerManager::onWebSocketEvent(AsyncWebSocket *server, AsyncWebSocketCl
             for (int i = 0; i < 3; i++) {
                 String servoKey = "servo" + String(i);
                 if (doc.containsKey(servoKey)) {
+                    Serial.println(servoKey + ": " + String(doc[servoKey].as<int>()));
                     int angle = doc[servoKey].as<int>();
                     board->setServoAngle(i, angle);
                 }

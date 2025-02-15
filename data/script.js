@@ -50,14 +50,32 @@ let touchY = centerY;
 let lastSentData = { x: 0, y: 0, servo: 90 };
 
 // WebSocket Verbindung aufbauen
-const protocol = (location.protocol === 'https:') ? 'wss://' : 'ws://';
-const socket = new WebSocket(protocol + window.location.host + '/ws');
+let socket;
+let reconnectInterval = 1000; // Initialer Rekonnektion-Intervall in ms
+const maxReconnectInterval = 30000; // Maximales Rekonnektion-Intervall in ms
+let reconnectAttempts = 0;
 
-socket.onopen = () => {
-    console.log('WebSocket connected');
-};
+// Funktion zum Senden von Nachrichten über WebSocket
+function sendWebSocketMessage(message) {
+  //if (socket && socket.readyState === WebSocket.OPEN) {
+    socket.send(JSON.stringify(message));
+  //} else {
+    alert("WebSocket ist nicht verbunden. Bitte versuche es später erneut.");
+  //}
+}
 
-socket.onmessage = (event) => {
+// Funktion zum Herstellen der WebSocket-Verbindung
+function connectWebSocket() {
+  const wsUrl = `ws://${window.location.hostname}/ws`;
+  socket = new WebSocket(wsUrl);
+
+  socket.onopen = function() {
+    console.log("WebSocket verbunden");
+    reconnectAttempts = 0; // Zurücksetzen der Versuche nach erfolgreicher Verbindung
+    updateConnectionStatus("verbunden");
+  };
+
+  socket.onmessage = (event) => {
     const data = JSON.parse(event.data);
     if (data.batteryVoltage !== undefined) {
         batteryVoltageElem.textContent = data.batteryVoltage.toFixed(2);
@@ -88,6 +106,56 @@ socket.onmessage = (event) => {
     }
 };
 
+  socket.onclose = function(event) {
+    console.log(`WebSocket geschlossen: Code ${event.code}, Grund: ${event.reason}`);
+    updateConnectionStatus("geschlossen");
+    attemptReconnect();
+  };
+
+  socket.onerror = function(error) {
+    console.error("WebSocket Fehler:", error);
+    socket.close(); // Schließen der Verbindung, um onclose Event auszulösen
+  };
+}
+
+
+// Funktion zum Versuch der Rekonnektion
+function attemptReconnect() {
+    if (reconnectAttempts * reconnectInterval >= maxReconnectInterval) {
+      console.log("Maximales Rekonnektion-Intervall erreicht. Weitere Versuche werden eingestellt.");
+      return;
+    }
+  
+    setTimeout(() => {
+      console.log(`Versuche, WebSocket erneut zu verbinden... (Versuch ${reconnectAttempts + 1})`);
+      reconnectAttempts++;
+      connectWebSocket();
+      reconnectInterval = Math.min(reconnectInterval * 2, maxReconnectInterval); // Exponentielles Backoff
+    }, reconnectInterval);
+  }
+
+// Funktion zur Aktualisierung des Verbindungsstatus in der UI
+function updateConnectionStatus(status) {
+    const statusElement = document.getElementById('connectionStatus');
+    if (statusElement) {
+      const statusText = statusElement.querySelector('span');
+      if (statusText) {
+        statusText.innerText = status;
+        switch(status) {
+          case 'verbunden':
+            statusText.style.color = 'green';
+            break;
+          case 'geschlossen':
+            statusText.style.color = 'red';
+            break;
+          default:
+            statusText.style.color = 'black';
+        }
+      }
+    }
+  }
+
+  
 // Zeichnen des Joysticks
 function draw() {
     ctx.clearRect(0, 0, canvasSize, canvasSize);
@@ -158,6 +226,7 @@ function handleSliderChange() {
 
 // Daten senden an den Server
 function sendData() {
+    console.log("SendData: " + socket.readyStat);
     const normalizedX = (touchX - centerX) / (canvasSize / 2 - 15);
     const normalizedY = (centerY - touchY) / (canvasSize / 2 - 15);
     const servoAngle = parseInt(servoSlider.value);
@@ -165,31 +234,31 @@ function sendData() {
     const currentData = {
         x: parseFloat(normalizedX.toFixed(4))*-1,
         y: parseFloat(normalizedY.toFixed(4))*-1,
-        servo: servoAngle
+        servo0: servoAngle
     };
 
-    if (socket.readyState === WebSocket.OPEN) {
+    //if (socket.readyState === WebSocket.OPEN) {
         if (
             currentData.x !== lastSentData.x ||
             currentData.y !== lastSentData.y ||
-            currentData.servo !== lastSentData.servo
+            currentData.servo0 !== lastSentData.servo0
         ) {
             console.log(JSON.stringify(currentData));
             socket.send(JSON.stringify(currentData));
             lastSentData = currentData;
         }
-    }
+    //}
 }
 
 // Motor C Steuerung
 function controlMotorA(direction) {
-    if (socket.readyState === WebSocket.OPEN) {
+    //if (socket.readyState === WebSocket.OPEN) {
         const data = {
             motorA: direction
         };
         socket.send(JSON.stringify(data));
         console.log('Sent motorA command:', data);
-    }
+    //}
 }
 
 // Event Listener für Motor C Buttons
@@ -242,8 +311,14 @@ statusHeader.addEventListener('click', () => {
     toggleStatusButton.style.transform = statusContent.classList.contains('collapsed') ? 'rotate(0deg)' : 'rotate(180deg)';
 });
 
-// Initiales Zeichnen des Joysticks
-draw();
+window.onload = function() {
+    connectWebSocket();
+    // Initiales Zeichnen des Joysticks
+    draw();
+    // Regelmäßig Daten senden (alle 200 ms)
+    setInterval(sendData, 200);
+};
 
-// Regelmäßig Daten senden (alle 200 ms)
-setInterval(sendData, 200);
+
+
+

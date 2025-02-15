@@ -6,11 +6,11 @@ let reconnectAttempts = 0;
 
 // Funktion zum Senden von Nachrichten über WebSocket
 function sendWebSocketMessage(message) {
-  if (socket && socket.readyState === WebSocket.OPEN) {
+  //if (socket && socket.readyState === WebSocket.OPEN) {
     socket.send(JSON.stringify(message));
-  } else {
-    alert("WebSocket ist nicht verbunden. Bitte versuche es später erneut.");
-  }
+  //} else {
+  //  alert("WebSocket ist nicht verbunden. Bitte versuche es später erneut.");
+  //}
 }
 
 // Funktion zum Herstellen der WebSocket-Verbindung
@@ -74,7 +74,7 @@ function attemptReconnect() {
   }, reconnectInterval);
 }
 
-// Optional: Funktion zur Aktualisierung des Verbindungsstatus in der UI
+// Funktion zur Aktualisierung des Verbindungsstatus in der UI
 function updateConnectionStatus(status) {
   const statusElement = document.getElementById('connectionStatus');
   if (statusElement) {

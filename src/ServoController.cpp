@@ -17,12 +17,13 @@ void ServoController::init() {
 }
 
 void ServoController::setServoAngle(int index, int angle) {
-    if (index >= count) return;
+    //if (index >= count) return;
 
     angle = constrain(angle, 0, 180);
     int pulseWidth = map(angle, 0, 180, servos[index].min_pulsewidth, servos[index].max_pulsewidth);
     int maxDuty = (1 << ledc_resolution) - 1;
     int dutyCycle = (pulseWidth * maxDuty) / 20000;
+    //Serial.println(String(servos[index].channel) +  String(dutyCycle));
     ledcWrite(servos[index].channel, dutyCycle);
     servos[index].angle = angle;
 }

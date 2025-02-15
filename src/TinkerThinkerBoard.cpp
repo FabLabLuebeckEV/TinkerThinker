@@ -75,7 +75,7 @@ void TinkerThinkerBoard::begin() {
 }
 
 void TinkerThinkerBoard::controlMotors(int axisX, int axisY) {
-    motorController->handleMotorControl(axisX, axisY, 2, 3);
+    motorController->handleMotorControl(axisX, axisY, motorLeftGUI, motorRightGUI);
 }
 
 void TinkerThinkerBoard::controlMotorForward(int motorIndex) {
@@ -88,6 +88,14 @@ void TinkerThinkerBoard::controlMotorBackward(int motorIndex) {
 
 void TinkerThinkerBoard::controlMotorStop(int motorIndex) {
     motorController->controlMotorStop(motorIndex);
+}
+
+void TinkerThinkerBoard::setMotorLeftGUI(int motorIndex) {
+    motorLeftGUI = motorIndex;
+}
+
+void TinkerThinkerBoard::setMotorRightGUI(int motorIndex) {
+    motorRightGUI = motorIndex;
 }
 
 void TinkerThinkerBoard::controlMotorDirect(int motorIndex, int pwmValue) {

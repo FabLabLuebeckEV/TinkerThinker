@@ -7,7 +7,20 @@
     <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
-    <a href="/config">Konfigurieren</a>
+      <!-- Navigationsmenü -->
+  <nav>
+    <ul>
+      <li><a href="/">Steuerung</a></li>
+      <li><a href="/config">Konfiguration</a></li>
+      <li><a href="/setup">Setup</a></li>
+    </ul>
+  </nav>
+
+  <!-- Verbindungsstatus anzeigen (optional) -->
+  <div id="connectionStatus" style="margin-bottom: 20px; font-weight: bold;">
+    WebSocket Status: <span style="color: green;">verbunden</span>
+  </div>
+
     <h1>MyCustomBoard Steuerung</h1>
     
     <div class="status">

@@ -22,6 +22,8 @@ public:
     String getHotspotPassword();
     bool getMotorInvert(int index);
     bool getMotorSwap();
+    int getMotorLeftGUI();
+    int getMotorRightGUI();
     int getLedCount();
     bool getOTAEnabled();
     int getMotorDeadband(int index);
@@ -43,6 +45,8 @@ public:
     void setOTAEnabled(bool enabled);
     void setMotorFrequency(int index, int val);
     void setMotorDeadband(int index, int val);
+    void setMotorLeftGUI(int motorIndex);
+    void setMotorRightGUI(int motorIndex);
 
     void setServoPulsewidthRange(int index, int min_pw, int max_pw);
 
@@ -55,6 +59,8 @@ private:
     bool motor_swap;
     int motor_deadband[4];
     int motor_frequency[4];
+    int motorLeftGUI = 2;
+    int motorRightGUI = 3;
     String wifi_mode;
     String wifi_ssid;
     String wifi_password;
