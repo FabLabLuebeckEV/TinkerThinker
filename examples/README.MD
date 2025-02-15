@@ -2,9 +2,11 @@
 
 Dieses Repository enthält alle notwendigen Dateien und Anleitungen für den Aufbau des RescueBot, einem Beispielprojekt von TinkerThinker. Der RescueBot ist ein Greifroboter, der mit einem vorn montierten Greifer ausgestattet ist. Mit ihm lassen sich Objekte greifen und vertikal (hoch und runter) bewegen – ideal für Demonstrationen und Experimente im Bereich Robotik.
 
+![RescueBot](RescueBot.jpg)
+
 ## Übersicht
 
-Der RescueBot nutzt Kettenantrieb und eine Kombination aus verschiedenen Motoren, um sich fortzubewegen und Objekte zu greifen. Die mechanischen Komponenten werden zum Teil aus 3 mm MDF (laser geschnitten) und 3D-gedrucktem PLA hergestellt.
+Der RescueBot nutzt Kettenantrieb und eine Kombination aus verschiedenen Motoren, um sich fortzubewegen und Objekte zu greifen. Die mechanischen Komponenten werden zum Teil aus 3 mm MDF (laser geschnitten) und 3D-gedrucktem PLA hergestellt. Die Kette sowie die Abstandshalter werden aus TPU gedruckt.
 
 ## Hardware-Komponenten
 
@@ -14,8 +16,9 @@ Der RescueBot nutzt Kettenantrieb und eine Kombination aus verschiedenen Motoren
 - **Materialien:**
   - 3 mm MDF-Platten (laser geschnitten)
   - 3D-gedruckter PLA
+  - TPU (für Kette und Abstandshalter)
 - **Weitere Bauteile:**
-  - TPU-Abstandshalter
+  - TPU-Abstandshalter/Kette
   - Schrauben, Muttern und Heißkleber
 
 ## Ordnerstruktur und Dateien
@@ -50,7 +53,7 @@ Der RescueBot nutzt Kettenantrieb und eine Kombination aus verschiedenen Motoren
    - Die TPU-Abstandshalter helfen dabei, die Räder in Position zu halten.
 
 5. **Ketten anbringen:**
-   - Ziehe die Ketten auf und spanne sie mithilfe der Langlöcher.
+   - Ziehe die TPU-gedruckte Kette auf und spanne sie mithilfe der Langlöcher.
 
 6. **Greifer zusammenbauen:**
    - Der Greifer besitzt ein Loch für eine M4-Mutter. Stecke die Mutter ein und überprüfe, ob sie bis nach unten reicht.
@@ -67,9 +70,13 @@ Der RescueBot nutzt Kettenantrieb und eine Kombination aus verschiedenen Motoren
    - Lege die Batterie ein und achte auf die richtige Ausrichtung.
    - Schalte den RescueBot ein und teste die Funktionen.
 
+## Software
+
+Die Software für den RescueBot befindet sich noch in der Entwicklung. Wir laden jeden herzlich dazu ein, seine Ideen, Verbesserungen und Beiträge beizusteuern, um die Funktionalität und Leistung des Roboters weiter zu optimieren.
+
 ## Lizenz
 
-*(Hier kann bei Bedarf die entsprechende Lizenz, z.B. MIT License, angegeben werden.)*
+Dieses Projekt steht unter einer Lizenz für freie, nicht kommerzielle Nutzung. Bitte beachte, dass eine kommerzielle Nutzung nicht gestattet ist.
 
 ## Kontakt und Support
 
