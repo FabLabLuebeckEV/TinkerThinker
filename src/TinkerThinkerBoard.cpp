@@ -44,6 +44,10 @@ void TinkerThinkerBoard::reApplyConfig() {
 
     ledController = new LEDController(config->getLedCount());
     ledController->init();
+    for (int i = 0; i < config->getLedCount(); i++) {
+        ledController->setPixelColor(i, 50, 150, 80);
+    }
+    FastLED.show();
 
     batteryMonitor = new BatteryMonitor(BATTERY_PIN);
     batteryMonitor->init();
