@@ -1,0 +1,64 @@
+name: ESP32 PlatformIO Build & Release
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - '**'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.x'
+
+    - name: Install PlatformIO
+      run: pip install platformio
+
+    - name: Build firmware
+      run: pio run --environment esp32dev
+
+    - name: Build LittleFS Image
+      run: pio run --target buildfs --environment esp32dev
+
+    - name: List output files
+      run: ls -l .pio/build/esp32dev
+
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref_name }}-${{ github.run_number }}
+        release_name: Release-${{ github.ref_name }}-${{ github.run_id }}-${{ github.run_number }}
+        draft: false
+        prerelease: false
+
+    - name: Upload Firmware Binary
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: .pio/build/esp32dev/firmware.bin
+        asset_name: firmware.bin
+        asset_content_type: application/octet-stream
+
+    - name: Upload LittleFS Image
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: .pio/build/esp32dev/littlefs.bin
+        asset_name: littlefs.bin
+        asset_content_type: application/octet-stream
