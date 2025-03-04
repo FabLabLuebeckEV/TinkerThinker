@@ -36,7 +36,7 @@ jobs:
       id: create_release
       uses: actions/create-release@v1
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GIT_TOKEN: ${{ secrets.GIT_TOKEN }}
       with:
         tag_name: ${{ github.ref_name }}-${{ github.run_number }}
         release_name: Release-${{ github.ref_name }}-${{ github.run_id }}-${{ github.run_number }}
@@ -46,7 +46,7 @@ jobs:
     - name: Upload Firmware Binary
       uses: actions/upload-release-asset@v1
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GIT_TOKEN: ${{ secrets.GIT_TOKEN }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
         asset_path: .pio/build/esp32dev/firmware.bin
@@ -56,7 +56,7 @@ jobs:
     - name: Upload LittleFS Image
       uses: actions/upload-release-asset@v1
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GIT_TOKEN: ${{ secrets.GIT_TOKEN }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
         asset_path: .pio/build/esp32dev/littlefs.bin
