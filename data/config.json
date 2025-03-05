@@ -2,7 +2,7 @@
   "wifi_mode": "AP",
   "wifi_ssid": "MyAP",
   "wifi_password": "",
-  "hotspot_ssid": "Sven",
+  "hotspot_ssid": "TinkerThinker",
   "hotspot_password": "",
   "motor_invert": [false, false, true, false],
   "motor_swap": true,
