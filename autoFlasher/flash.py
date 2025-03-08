@@ -10,7 +10,7 @@ def get_mac_from_esptool(com_port):
     """ Liest die MAC-Adresse des ESP32 aus """
     try:
         result = subprocess.run(
-            [sys.executable, "-m", "esptool", "--port", com_port, "read_mac"],
+            [sys.executable, "-m", "esptool",  '--chip', 'esp32', "--port", com_port, "read_mac"],
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True
@@ -86,7 +86,7 @@ def program_esp32(com_port):
         return False
 
     # Erase Flash before writing
-    esptool.main(['--port', com_port, '--baud', '921600', 'erase_flash'])
+    esptool.main(['--chip', 'esp32', '--port', com_port, '--baud', '921600', 'erase_flash'])
     print(f"Flash von {com_port} gelöscht...")
 
     # Flash Bootloader, Partition Table, Firmware, and LittleFS
@@ -160,6 +160,11 @@ class StdoutRedirector():
 
 
 def main():
+    #chekc if blacklist exist and if not create
+    try:
+        open("blacklist.txt", "x")
+    except:
+        pass
     download_images()
     watch_ports()
 
