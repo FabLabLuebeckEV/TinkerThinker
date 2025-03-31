@@ -234,6 +234,7 @@ void WebServerManager::handleConfig(AsyncWebServerRequest* request) {
 void WebServerManager::onWebSocketEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, 
                                         AwsEventType type, void *arg, uint8_t *data, size_t len) {
     if (type == WS_EVT_DATA) {
+        lastPacketTime = millis();
         String message;
         for (size_t i = 0; i < len; i++) {
             message += (char)data[i];
@@ -292,11 +293,24 @@ void WebServerManager::onWebSocketEvent(AsyncWebSocket *server, AsyncWebSocketCl
                 config->saveConfig();
             }
         }
+    } else if (type == WS_EVT_CONNECT) {
+        Serial.println("Websocket client connected");
+    } else if (type == WS_EVT_DISCONNECT) {
+        Serial.println("Websocket client disconnected, stopping motors");
+        for (int i = 0; i < 4; i++) {
+            board->controlMotorStop(i);
+        }
     }
 }
 
 
 void WebServerManager::sendStatusUpdate() {
+    if (millis() - lastPacketTime > 5000) {
+        // Kein Paket seit 1 Sekunde, stoppe alle Motoren
+        for (int i = 0; i < 4; i++) {
+            board->controlMotorStop(i);
+        }
+    }
     if (ws.count() > 0) {
         StaticJsonDocument<512> doc;
         doc["batteryVoltage"] = board->getBatteryVoltage();

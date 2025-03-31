@@ -21,6 +21,8 @@ private:
     ConfigManager* config;
     AsyncWebServer server;
     AsyncWebSocket ws;
+    //Timeout als millisekunden seit dem letzten paket
+    unsigned long lastPacketTime = 0;
 
     void onWebSocketEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, 
                           AwsEventType type, void *arg, uint8_t *data, size_t len);

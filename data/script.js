@@ -25,6 +25,9 @@ const servoSlider = document.getElementById('servoSlider');
 const motorAForwardButton = document.getElementById('motorAForward');
 const motorABackwardButton = document.getElementById('motorABackward');
 
+const motorBForwardButton = document.getElementById('motorBForward');
+const motorBBackwardButton = document.getElementById('motorBBackward');
+
 // Statusbox Einklappen
 const statusHeader = document.querySelector('.status-header');
 const toggleStatusButton = document.getElementById('toggleStatus');
@@ -260,6 +263,52 @@ function controlMotorA(direction) {
         console.log('Sent motorA command:', data);
     //}
 }
+
+// Motor C Steuerung
+function controlMotorB(direction) {
+    //if (socket.readyState === WebSocket.OPEN) {
+        const data = {
+            motorB: direction
+        };
+        socket.send(JSON.stringify(data));
+        console.log('Sent motorB command:', data);
+    //}
+}
+
+// Event Listener für Motor B Buttons
+motorBForwardButton.addEventListener('mousedown', () => {
+    controlMotorB('forward');
+});
+
+motorBForwardButton.addEventListener('touchstart', (e) => {
+    e.preventDefault(); // Verhindert Textauswahl und andere Standardaktionen
+    controlMotorB('forward');
+});
+
+motorBForwardButton.addEventListener('mouseup', () => {
+    controlMotorB('stop');
+});
+
+motorBForwardButton.addEventListener('touchend', () => {
+    controlMotorB('stop');
+});
+
+motorBBackwardButton.addEventListener('mousedown', () => {
+    controlMotorB('backward');
+});
+
+motorBBackwardButton.addEventListener('touchstart', (e) => {
+    e.preventDefault(); // Verhindert Textauswahl und andere Standardaktionen
+    controlMotorB('backward');
+});
+
+motorBBackwardButton.addEventListener('mouseup', () => {
+    controlMotorB('stop');
+});
+
+motorBBackwardButton.addEventListener('touchend', () => {
+    controlMotorB('stop');
+});
 
 // Event Listener für Motor C Buttons
 motorAForwardButton.addEventListener('mousedown', () => {
