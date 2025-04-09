@@ -2,7 +2,7 @@ name: ESP32 PlatformIO Build & Release
 
 on:
   push:
-    branches: [master]
+    branches: [main]
     paths:
       - '**'
   workflow_dispatch:
