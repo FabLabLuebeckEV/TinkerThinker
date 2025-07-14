@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.2.2] - 2025-07-13
+- Arduino Core v3.2.1
+  - Requires ESP-IDF 5.4.2
+- ESP32-S3 Compiles Ok on PlatformIO
+- Compiles Ok on PlatformIO [Github Issue#17][github_issue_17]
+
+[github_issue_17]: https://github.com/ricardoquesada/esp-idf-arduino-bluepad32-template/issues/17
+
 ## [4.2.1] - 2025-04-09
 - Arduino Core v3.2
   - Requires ESP-IDF 5.4
