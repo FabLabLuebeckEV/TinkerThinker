@@ -1,0 +1,15 @@
+description: A simple and efficient JSON library for embedded C++. ★ 6953 stars on
+  GitHub! Supports serialization, deserialization, MessagePack, streams, filtering,
+  and more. Fully tested and documented.
+files:
+  exclude:
+  - '**/.vs/**/*'
+  - .devcontainer/**/*
+  - examples/**/*
+  - extras/**/*
+repository: git://github.com/bblanchon/ArduinoJson.git
+repository_info:
+  commit_sha: 733bc4ee82630c88c0a619a883cd3a206efae977
+  path: .
+url: https://arduinojson.org/
+version: 7.4.2
