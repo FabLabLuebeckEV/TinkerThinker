@@ -10,7 +10,8 @@ set(requires
 		"AsyncTCP"
         "ESPAsyncWebServer"
         "ArduinoJson"
-        "FastLED")
+        "FastLED"
+		"ESP32Servo")
 
 idf_component_register(SRCS "${srcs}"
                     INCLUDE_DIRS "."
