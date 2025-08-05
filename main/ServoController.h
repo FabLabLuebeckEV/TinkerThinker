@@ -5,7 +5,6 @@
 
 struct ServoMotor {
     int pin;
-    int channel;
     int angle;
     int min_pulsewidth; // neu
     int max_pulsewidth; // neu

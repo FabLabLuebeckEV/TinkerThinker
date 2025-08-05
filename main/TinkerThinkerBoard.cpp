@@ -11,14 +11,14 @@
 TinkerThinkerBoard::TinkerThinkerBoard(ConfigManager* configManager)
 : config(configManager)
 {
-    motors[0] = {16, 25, 0, 1};
-    motors[1] = {32, 27, 2, 3};
-    motors[2] = {4, 12, 4, 5};
-    motors[3] = {15, 14, 6, 7};
+    motors[0] = {16, 25};
+    motors[1] = {32, 27};
+    motors[2] = {4, 12};
+    motors[3] = {15, 14};
 
-    servos[0] = {13, 8, 90, 500, 2500};
-    servos[1] = {33, 9, 90, 500, 2500};
-    servos[2] = {17, 10, 90, 500, 2500};
+    servos[0] = {13, 90, 500, 2500};
+    servos[1] = {33, 90, 500, 2500};
+    servos[2] = {17, 90, 500, 2500};
 }
 
 void TinkerThinkerBoard::reApplyConfig() {

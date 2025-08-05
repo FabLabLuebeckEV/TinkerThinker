@@ -10,8 +10,8 @@ ServoController::ServoController(ServoMotor servos[], size_t servoCount) : servo
 
 void ServoController::init() {
     for (size_t i = 0; i < count; i++) {
-        ledcSetup(servos[i].channel, 50, ledc_resolution); // 50Hz für Servos
-        ledcAttachPin(servos[i].pin, servos[i].channel);
+        //ledcSetup(servos[i].channel, 50, ledc_resolution); // 50Hz für Servos
+        ledcAttach(servos[i].pin, 5000, ledc_resolution);
         setServoAngle(i, servos[i].angle);
     }
 }
@@ -24,7 +24,7 @@ void ServoController::setServoAngle(int index, int angle) {
     int maxDuty = (1 << ledc_resolution) - 1;
     int dutyCycle = (pulseWidth * maxDuty) / 20000;
     //Serial.println(String(servos[index].channel) +  String(dutyCycle));
-    ledcWrite(servos[index].channel, dutyCycle);
+    ledcWrite(servos[index].pin, dutyCycle);
     servos[index].angle = angle;
 }
 

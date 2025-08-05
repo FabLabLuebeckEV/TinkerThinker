@@ -7,8 +7,6 @@
 struct Motor {
     int pin1;
     int pin2;
-    int channel_forward;
-    int channel_reverse;
 };
 
 class MotorController {

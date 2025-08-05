@@ -18,10 +18,10 @@ void MotorController::init() {
     for (size_t i = 0; i < count; i++) {
         pinMode(motors[i].pin1, OUTPUT);
         pinMode(motors[i].pin2, OUTPUT);
-        ledcSetup(motors[i].channel_forward, freq[i], 8);
-        ledcSetup(motors[i].channel_reverse, freq[i], 8);
-        ledcAttachPin(motors[i].pin1, motors[i].channel_forward);
-        ledcAttachPin(motors[i].pin2, motors[i].channel_reverse);
+        //ledcSetup(motors[i].pin1, freq[i], 8);
+        //ledcSetup(motors[i].pin2, freq[i], 8);
+        ledcAttach(motors[i].pin1, freq[i], 8);
+        ledcAttach(motors[i].pin2, freq[i], 8);
     }
 }
 
@@ -46,11 +46,11 @@ void MotorController::controlMotor(int index, int pwmValue) {
     pwmValue = constrain(pwmValue, -maxPWM, maxPWM);
 
     if (pwmValue >= 0) {
-        ledcWrite(motors[index].channel_forward, pwmValue);
-        ledcWrite(motors[index].channel_reverse, 0);
+        ledcWrite(motors[index].pin1, pwmValue);
+        ledcWrite(motors[index].pin2, 0);
     } else {
-        ledcWrite(motors[index].channel_forward, 0);
-        ledcWrite(motors[index].channel_reverse, -pwmValue);
+        ledcWrite(motors[index].pin1, 0);
+        ledcWrite(motors[index].pin2, -pwmValue);
     }
 }
 
@@ -102,28 +102,28 @@ void MotorController::controlMotorForward(int motorIndex) {
     if (motorIndex >= (int)count) return;
     int val = motorInvertArray[motorIndex] ? 0 : MAX_PWM_VALUE;
     int rev = motorInvertArray[motorIndex] ? MAX_PWM_VALUE : 0;
-    ledcWrite(motors[motorIndex].channel_forward, val);
-    ledcWrite(motors[motorIndex].channel_reverse, rev);
+    ledcWrite(motors[motorIndex].pin1, val);
+    ledcWrite(motors[motorIndex].pin2, rev);
 }
 
 void MotorController::controlMotorBackward(int motorIndex) {
     if (motorIndex >= (int)count) return;
     int val = motorInvertArray[motorIndex] ? MAX_PWM_VALUE : 0;
     int rev = motorInvertArray[motorIndex] ? 0 : MAX_PWM_VALUE;
-    ledcWrite(motors[motorIndex].channel_forward, val);
-    ledcWrite(motors[motorIndex].channel_reverse, rev);
+    ledcWrite(motors[motorIndex].pin1, val);
+    ledcWrite(motors[motorIndex].pin2, rev);
 }
 
 void MotorController::controlMotorStop(int motorIndex) {
     if (motorIndex >= (int)count) return;
-    ledcWrite(motors[motorIndex].channel_forward, 0);
-    ledcWrite(motors[motorIndex].channel_reverse, 0);
+    ledcWrite(motors[motorIndex].pin1, 0);
+    ledcWrite(motors[motorIndex].pin2, 0);
 }
 
 int MotorController::getMotorPWM(int motorIndex) {
     if (motorIndex >= (int)count) return 0;
-    int pwmForward = ledcRead(motors[motorIndex].channel_forward);
-    int pwmReverse = ledcRead(motors[motorIndex].channel_reverse);
+    int pwmForward = ledcRead(motors[motorIndex].pin1);
+    int pwmReverse = ledcRead(motors[motorIndex].pin2);
     int val = 0;
     if (pwmForward > 0) {
         val = pwmForward;
