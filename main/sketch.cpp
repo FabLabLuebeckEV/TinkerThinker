@@ -219,10 +219,12 @@ void setup() {
     const uint8_t* addr = BP32.localBdAddress();
     Console.printf("BD Addr: %2X:%2X:%2X:%2X:%2X:%2X\n", addr[0], addr[1], addr[2], addr[3], addr[4], addr[5]);
 
-    BP32.setup(&onConnectedController, &onDisconnectedController);
+    BP32.setup(&onConnectedController, &onDisconnectedController, true);
     BP32.forgetBluetoothKeys();
     BP32.enableVirtualDevice(false);
     BP32.enableBLEService(false);
+    sm_set_secure_connections_only_mode(false);                        // SC ausschalten
+    
 }
 
 // Arduino loop function. Runs in CPU 1.
