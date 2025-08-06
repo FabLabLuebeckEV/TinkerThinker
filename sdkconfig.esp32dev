@@ -375,13 +375,13 @@ CONFIG_ESPTOOLPY_FLASHFREQ_40M=y
 CONFIG_ESPTOOLPY_FLASHFREQ="40m"
 # CONFIG_ESPTOOLPY_FLASHSIZE_1MB is not set
 # CONFIG_ESPTOOLPY_FLASHSIZE_2MB is not set
-CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
-# CONFIG_ESPTOOLPY_FLASHSIZE_8MB is not set
+# CONFIG_ESPTOOLPY_FLASHSIZE_4MB is not set
+CONFIG_ESPTOOLPY_FLASHSIZE_8MB=y
 # CONFIG_ESPTOOLPY_FLASHSIZE_16MB is not set
 # CONFIG_ESPTOOLPY_FLASHSIZE_32MB is not set
 # CONFIG_ESPTOOLPY_FLASHSIZE_64MB is not set
 # CONFIG_ESPTOOLPY_FLASHSIZE_128MB is not set
-CONFIG_ESPTOOLPY_FLASHSIZE="4MB"
+CONFIG_ESPTOOLPY_FLASHSIZE="8MB"
 # CONFIG_ESPTOOLPY_HEADER_FLASHSIZE_UPDATE is not set
 CONFIG_ESPTOOLPY_BEFORE_RESET=y
 # CONFIG_ESPTOOLPY_BEFORE_NORESET is not set
@@ -493,6 +493,13 @@ CONFIG_ARDUINO_SELECTIVE_Insights=y
 # end of Arduino Configuration
 
 #
+# Example Board Configuration
+#
+# CONFIG_ESP_LYRAT_V4_3_BOARD is not set
+CONFIG_ESP_CUSTOM_BOARD=y
+# end of Example Board Configuration
+
+#
 # AsyncTCP Configuration
 #
 CONFIG_ASYNC_TCP_STACK_SIZE=8192
@@ -504,28 +511,6 @@ CONFIG_ASYNC_TCP_USE_WDT=y
 CONFIG_ASYNC_TCP_QUEUE_SIZE=64
 CONFIG_ASYNC_TCP_MAX_ACK_TIME=5000
 CONFIG_ASYNC_TCP_PRIORITY=10
-# end of AsyncTCP Configuration
-
-#
-# Arduino Configuration
-#
-
-#
-# Debug Log Configuration
-#
-# end of Debug Log Configuration
-# end of Arduino Configuration
-
-#
-# Example Board Configuration
-#
-# CONFIG_ESP_LYRAT_V4_3_BOARD is not set
-CONFIG_ESP_CUSTOM_BOARD=y
-# end of Example Board Configuration
-
-#
-# AsyncTCP Configuration
-#
 # end of AsyncTCP Configuration
 
 #

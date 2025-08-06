@@ -20,7 +20,6 @@ set(requires
     bluepad32_arduino
     arduino
     btstack
-    AsyncTCP
     ESPAsyncWebServer
     ArduinoJson
     FastLED
