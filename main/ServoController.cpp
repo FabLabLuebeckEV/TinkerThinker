@@ -11,7 +11,7 @@ ServoController::ServoController(ServoMotor servos[], size_t servoCount) : servo
 void ServoController::init() {
     for (size_t i = 0; i < count; i++) {
         //ledcSetup(servos[i].channel, 50, ledc_resolution); // 50Hz für Servos
-        ledcAttach(servos[i].pin, 5000, ledc_resolution);
+        ledcAttach(servos[i].pin, 50, ledc_resolution);
         setServoAngle(i, servos[i].angle);
     }
 }

@@ -5,6 +5,7 @@
 
 struct ServoMotor {
     int pin;
+    int channel;
     int angle;
     int min_pulsewidth; // neu
     int max_pulsewidth; // neu
@@ -23,7 +24,7 @@ public:
 private:
     ServoMotor* servos;
     size_t count;
-    int ledc_resolution = 16; // Beispiel
+    int ledc_resolution = 12; // Beispiel
 };
 
 #endif

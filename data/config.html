@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Konfiguration</title>
+  <link rel="stylesheet" href="/config.css">
+</head>
+<body>
+  <!-- Navigationsmenü -->
+  <nav>
+    <ul>
+      <li><a href="/">Steuerung</a></li>
+      <li><a href="/config">Konfiguration</a></li>
+      <li><a href="/setup">Setup</a></li>
+    </ul>
+  </nav>
+
+  <!-- Verbindungsstatus anzeigen (optional) -->
+  <div id="connectionStatus" style="margin-bottom: 20px; font-weight: bold;">
+    WebSocket Status: <span style="color: green;">verbunden</span>
+  </div>
+
+  <h1>TinkerThinker Konfiguration</h1>
+  
+  <form id="configForm" method="post" action="/config">
+    
+    <!-- WLAN Einstellungen -->
+    <section>
+      <h2>WLAN Einstellungen</h2>
+      <label for="wifi_mode">
+        WLAN Modus:
+        <span class="tooltip">i
+          <span class="tooltiptext">
+            Wähle den WLAN-Modus: AP (Access Point) erstellt ein eigenes Netzwerk, STA (Client) verbindet das Gerät mit einem bestehenden Netzwerk.
+          </span>
+        </span>
+      </label>
+      <select name="wifi_mode" id="wifi_mode" onchange="toggleWifiFields()">
+        <option value="AP">AP (Access Point)</option>
+        <option value="STA">STA (Client)</option>
+      </select><br>
+
+      <div id="sta_fields">
+        <label for="wifi_ssid">
+          WiFi SSID:
+          <span class="tooltip">i
+            <span class="tooltiptext">
+              Gib die SSID deines bestehenden WiFi-Netzwerks ein, mit dem das Gerät verbunden werden soll.
+            </span>
+          </span>
+        </label>
+        <input type="text" name="wifi_ssid" id="wifi_ssid"><br>
+        <label for="wifi_password">
+          WiFi Passwort:
+          <span class="tooltip">i
+            <span class="tooltiptext">
+              Das Passwort deines WiFi-Netzwerks. Muss mindestens 8 Zeichen lang sein.
+            </span>
+          </span>
+        </label>
+        <input type="password" name="wifi_password" id="wifi_password"><br>
+      </div>
+
+      <div id="ap_fields" style="display: none;">
+        <label for="hotspot_ssid">
+          Hotspot SSID:
+          <span class="tooltip">i
+            <span class="tooltiptext">
+              Der Name des von deinem Gerät erstellten Hotspots.
+            </span>
+          </span>
+        </label>
+        <input type="text" name="hotspot_ssid" id="hotspot_ssid"><br>
+        <label for="hotspot_password">
+          Hotspot Passwort:
+          <span class="tooltip">i
+            <span class="tooltiptext">
+              Das Passwort für den von deinem Gerät erstellten Hotspot. Optional, aber wenn, dann 8 oder mehr Zeichen.
+            </span>
+          </span>
+        </label>
+        <input type="password" name="hotspot_password" id="hotspot_password"><br>
+      </div>
+    </section>
+
+    <!-- Motor Einstellungen -->
+    <section>
+      <h2>Motor Einstellungen</h2>
+      <label for="motor_swap">
+        Motor seiten wechseln (C/D):
+        <span class="tooltip">i
+          <span class="tooltiptext">
+            Aktiviert die Vertauschung der Motoren C und D, also der linken und rechten Seite. Nützlich, wenn die Motoren physisch vertauscht sind zur Webseite.
+          </span>
+        </span>
+      </label>
+      <input type="checkbox" name="motor_swap" id="motor_swap"><br>
+      <div id="motors">
+        <!-- Dynamisch per JS befüllt -->
+      </div>
+    </section>
+    
+    <!-- LED Einstellungen -->
+    <section>
+      <h2>LED Einstellungen</h2>
+      <label for="led_count">
+        LED Anzahl:
+        <span class="tooltip">i
+          <span class="tooltiptext">
+            Die Anzahl der LEDs, die das Gerät steuern soll.
+          </span>
+        </span>
+      </label>
+      <input type="number" name="led_count" id="led_count" min="1"><br>
+    </section>
+
+    <!-- Erweiterte Einstellungen -->
+    <section>
+      <h2>
+        <button type="button" class="collapsible">Erweiterte Einstellungen</button>
+      </h2>
+      <div class="content">
+        <label for="ota_enabled">
+          OTA Aktivieren:
+          <span class="tooltip">i
+            <span class="tooltiptext">
+              Ermöglicht Over-The-Air (OTA) Updates für die Firmware des Geräts.
+            </span>
+          </span>
+        </label>
+        <input type="checkbox" name="ota_enabled" id="ota_enabled"><br>
+        
+        <h3>Servo Einstellungen</h3>
+        <div id="servos">
+          <!-- Dynamisch per JS befüllt -->
+        </div>
+      </div>
+    </section>
+
+    <input type="submit" value="Speichern">
+  </form>
+  
+  <!-- Reset und Reboot Buttons -->
+  <div class="action-buttons">
+    <button onclick="resetConfig()">Auf Werkseinstellungen zurücksetzen</button>
+    <button onclick="reboot()">Neustarten</button>
+  </div>
+
+  <!-- Popup für Neustart -->
+  <div id="restartPopup" class="modal">
+    <div class="modal-content">
+      <span class="close" onclick="closePopup()">&times;</span>
+      <p>WLAN Einstellungen wurden geändert. Das Gerät wird neu gestartet.</p>
+      <p><strong>Neues WLAN:</strong></p>
+      <p id="newWifiInfo"></p>
+    </div>
+  </div>
+
+  <!-- Einbindung der externen JavaScript-Datei -->
+  <script src="/config.js"></script>
+</body>
+</html>

@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <title>Ersteinrichtung - TinkerThinker</title>
+    <link rel="stylesheet" href="/setup.css">
+</head>
+<body>
+
+<div id="wizard">
+
+    <div class="step active" id="step1">
+        <h1>Willkommen zur Ersteinrichtung!</h1>
+        <p>In diesem Assistenten werden wir die Motoren so konfigurieren, dass die Links/Rechts- und Vorwärts/Rückwärts-Orientierung stimmt. Außerdem stellen wir den Deadband für jeden Motor ein.</p>
+        <div class="button-bar">
+            <button onclick="goToStep(2)">Setup starten</button>
+        </div>
+    </div>
+
+    <!-- Motor A -->
+    <div class="step" id="step2">
+        <h2>Motor A Zuordnung</h2>
+        <p>Wir bewegen jetzt Motor A vorwärts. Bitte beobachte, welcher Motor sich bewegt, und klicke dann auf den entsprechenden Button.</p>
+        <div class="button-bar">
+            <button onclick="testMotor('A')">Motor A testen</button>
+        </div>
+        <div id="motorAQuestion" style="display:none;">
+            <p>Welcher Motor hat sich bewegt?</p>
+            <button onclick="motorMoved('A','left')">Linker Motor</button>
+            <button onclick="motorMoved('A','right')">Rechter Motor</button>
+            <button onclick="motorMoved('A','gripp')">Greifer Motor</button>
+            <button onclick="motorMoved('A','none')">Kein Motor</button>
+        </div>
+    </div>
+
+    <div class="step" id="step3">
+        <h2>Fahrtrichtung Motor A</h2>
+        <p>Fährt der Roboter bei "Motor A vorwärts" tatsächlich vorwärts(Auf) oder rückwärts(Zu)?</p>
+        <div class="button-bar">
+            <button onclick="directionChosen('A','forward')">Vorwärts</button>
+            <button onclick="directionChosen('A','backward')">Rückwärts</button>
+        </div>
+    </div>
+
+    <div class="step" id="step4">
+        <h2>Deadband Motor A</h2>
+        <p>Bewege den Slider nach oben. Wenn du "Test" drückst, wird der Motor mit diesem PWM-Wert angesteuert. Sobald sich der Motor minimal bewegt, klicke auf "Übernehmen".</p>
+        <div class="slider-container">
+          <input type="range" min="0" max="255" value="0" id="db_slider_A">
+          <button onclick="testDeadband('A')">Test</button>
+        </div>
+        <p><button onclick="confirmDeadband('A')">Übernehmen</button></p>
+    </div>
+
+    <!-- Motor B -->
+    <div class="step" id="step5">
+        <h2>Motor B Zuordnung</h2>
+        <p>Gleiches Spiel wie bei A.</p>
+        <div class="button-bar">
+            <button onclick="testMotor('B')">Motor B testen</button>
+        </div>
+        <div id="motorBQuestion" style="display:none;">
+            <p>Welcher Motor hat sich bewegt?</p>
+            <button onclick="motorMoved('B','left')">Linker Motor</button>
+            <button onclick="motorMoved('B','right')">Rechter Motor</button>
+            <button onclick="motorMoved('B','gripp')">Greifer Motor</button>
+            <button onclick="motorMoved('B','none')">Kein Motor</button>
+        </div>
+    </div>
+
+    <div class="step" id="step6">
+        <h2>Fahrtrichtung Motor B</h2>
+        <p>Fährt der Roboter bei "Motor B vorwärts" tatsächlich vorwärts(Auf) oder rückwärts(Zu)?</p>
+        <div class="button-bar">
+            <button onclick="directionChosen('B','forward')">Vorwärts</button>
+            <button onclick="directionChosen('B','backward')">Rückwärts</button>
+        </div>
+    </div>
+
+    <div class="step" id="step7">
+        <h2>Deadband Motor B</h2>
+        <div class="slider-container">
+          <input type="range" min="0" max="255" value="0" id="db_slider_B">
+          <button onclick="testDeadband('B')">Test</button>
+        </div>
+        <p><button onclick="confirmDeadband('B')">Übernehmen</button></p>
+    </div>
+
+    <!-- Motor C -->
+    <div class="step" id="step8">
+        <h2>Motor C Zuordnung</h2>
+        <div class="button-bar">
+            <button onclick="testMotor('C')">Motor C testen</button>
+        </div>
+        <div id="motorCQuestion" style="display:none;">
+            <p>Welcher Motor hat sich bewegt?</p>
+            <button onclick="motorMoved('C','left')">Linker Motor</button>
+            <button onclick="motorMoved('C','right')">Rechter Motor</button>
+            <button onclick="motorMoved('C','gripp')">Greifer Motor</button>
+            <button onclick="motorMoved('C','none')">Kein Motor</button>
+        </div>
+    </div>
+
+    <div class="step" id="step9">
+        <h2>Fahrtrichtung Motor C</h2>
+        <p>Fährt der Roboter bei "Motor C vorwärts" tatsächlich vorwärts(Auf) oder rückwärts(Zu)?</p>
+        <div class="button-bar">
+            <button onclick="directionChosen('C','forward')">Vorwärts</button>
+            <button onclick="directionChosen('C','backward')">Rückwärts</button>
+        </div>
+    </div>
+
+    <div class="step" id="step10">
+        <h2>Deadband Motor C</h2>
+        <div class="slider-container">
+          <input type="range" min="0" max="255" value="0" id="db_slider_C">
+          <button onclick="testDeadband('C')">Test</button>
+        </div>
+        <p><button onclick="confirmDeadband('C')">Übernehmen</button></p>
+    </div>
+
+    <!-- Motor D -->
+    <div class="step" id="step11">
+        <h2>Motor D Zuordnung</h2>
+        <div class="button-bar">
+            <button onclick="testMotor('D')">Motor D testen</button>
+        </div>
+        <div id="motorDQuestion" style="display:none;">
+            <p>Welcher Motor hat sich bewegt?</p>
+            <button onclick="motorMoved('D','left')">Linker Motor</button>
+            <button onclick="motorMoved('D','right')">Rechter Motor</button>
+            <button onclick="motorMoved('D','gripp')">Greifer Motor</button>
+            <button onclick="motorMoved('D','none')">Kein Motor</button>
+        </div>
+    </div>
+
+    <div class="step" id="step12">
+        <h2>Fahrtrichtung Motor D</h2>
+        <p>Fährt der Roboter bei "Motor D vorwärts" tatsächlich vorwärts(Auf) oder rückwärts(Zu)?</p>
+        <div class="button-bar">
+            <button onclick="directionChosen('D','forward')">Vorwärts</button>
+            <button onclick="directionChosen('D','backward')">Rückwärts</button>
+        </div>
+    </div>
+
+    <div class="step" id="step13">
+        <h2>Deadband Motor D</h2>
+        <div class="slider-container">
+          <input type="range" min="0" max="255" value="0" id="db_slider_D">
+          <button onclick="testDeadband('D')">Test</button>
+        </div>
+        <p><button onclick="confirmDeadband('D')">Übernehmen</button></p>
+    </div>
+
+    <!-- Swap nur einmal für C/D -->
+    <div class="step" id="step14">
+        <h2>Swap für Motoren C/D?</h2>
+        <p>Falls Motor C/D vertauscht werden sollen, klicke auf "Ja". Sonst "Nein".</p>
+        <div class="button-bar">
+            <button onclick="setSwap(true)">Ja, Swap</button>
+            <button onclick="setSwap(false)">Nein, kein Swap</button>
+        </div>
+    </div>
+
+    <div class="step" id="step15">
+        <h2>Fertig</h2>
+        <p>Die Einstellungen werden nun gespeichert.</p>
+        <button onclick="finalizeSetup()">Speichern & Neustart</button>
+    </div>
+
+    <div class="step" id="step16">
+        <h2>Abgeschlossen!</h2>
+        <p>Der Roboter ist nun konfiguriert.</p>
+        <a href="/">Zurück zur Hauptseite</a>
+    </div>
+
+</div>
+
+<script src="/setup.js"></script>
+</body>
+</html>

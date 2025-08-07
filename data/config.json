@@ -1,0 +1,27 @@
+{
+  "wifi_mode": "AP",
+  "wifi_ssid": "MyAP",
+  "wifi_password": "",
+  "hotspot_ssid": "TinkerThinker",
+  "hotspot_password": "",
+  "motor_invert": [false, false, true, false],
+  "motor_swap": true,
+  "motor_deadband": [50, 50, 40, 40],
+  "motor_frequency": [5000, 5000, 5000, 5000],
+  "led_count": 30,
+  "ota_enabled": false,
+  "servo_settings": [
+    {
+      "min_pulsewidth": 500,
+      "max_pulsewidth": 2500
+    },
+    {
+      "min_pulsewidth": 500,
+      "max_pulsewidth": 2500
+    },
+    {
+      "min_pulsewidth": 500,
+      "max_pulsewidth": 2500
+    }
+  ]
+}

@@ -1,4 +1,5 @@
 // MotorController.cpp
+#include <Arduino.h>
 #include "MotorController.h"
 
 #define MAX_PWM_VALUE 255
@@ -15,17 +16,24 @@ MotorController::MotorController(Motor motors[], size_t motorCount, const int mo
 }
 
 void MotorController::init() {
-    for (size_t i = 0; i < count; i++) {
+    constexpr uint32_t PWM_FREQ = 1000;   // 5 kHz
+    constexpr uint8_t  PWM_BITS = 8;      // 8 Bit Auflösung
+
+    for (size_t i = 0; i < count; ++i) {
         pinMode(motors[i].pin1, OUTPUT);
         pinMode(motors[i].pin2, OUTPUT);
-        //ledcSetup(motors[i].pin1, freq[i], 8);
-        //ledcSetup(motors[i].pin2, freq[i], 8);
-        ledcAttach(motors[i].pin1, freq[i], 8);
-        ledcAttach(motors[i].pin2, freq[i], 8);
+
+        // ersetzt ledcSetup + ledcAttachPin
+        ledcAttachChannel(motors[i].pin1, PWM_FREQ, PWM_BITS,
+                          motors[i].channel_forward);
+        ledcAttachChannel(motors[i].pin2, PWM_FREQ, PWM_BITS,
+                          motors[i].channel_reverse);
     }
 }
 
+
 void MotorController::controlMotor(int index, int pwmValue) {
+    Serial.printf("Controlling motor %d with PWM value: %d\n", index, pwmValue);
     if (index >= (int)count) return;
 
     // Invert if needed
@@ -80,6 +88,7 @@ void MotorController::handleMotorControl(int axisX, int axisY, int leftMotorInde
 
     int normX = (abs(axisX) < db) ? 0 : axisX;
     int normY = (abs(axisY) < db) ? 0 : axisY;
+    Serial.printf("normX: %d, normY: %d\n", normX, normY);
 
     float maxMovement = (float)(MAX_JOYSTICK_VALUE - db);
     float movementLeft = (float)(normY + normX) / maxMovement;
@@ -94,6 +103,7 @@ void MotorController::handleMotorControl(int axisX, int axisY, int leftMotorInde
     int motorLeft = motorSwap ? rightMotorIndex : leftMotorIndex;
     int motorRight = motorSwap ? leftMotorIndex : rightMotorIndex;
 
+    Serial.printf("Left PWM: %d, Right PWM: %d\n", leftPWM, rightPWM);
     controlMotor(motorLeft, leftPWM);
     controlMotor(motorRight, rightPWM);
 }
@@ -115,6 +125,7 @@ void MotorController::controlMotorBackward(int motorIndex) {
 }
 
 void MotorController::controlMotorStop(int motorIndex) {
+    Serial.printf("Stopping motor %d\n", motorIndex);
     if (motorIndex >= (int)count) return;
     ledcWrite(motors[motorIndex].pin1, 0);
     ledcWrite(motors[motorIndex].pin2, 0);

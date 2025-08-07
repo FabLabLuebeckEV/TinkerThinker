@@ -160,12 +160,15 @@ void processButtons(ControllerPtr ctl) {
 void processGamepad(ControllerPtr ctl) {
 #ifdef DEBUG_OUTPUT
     // Optional: Print joystick values for debugging
-    // Console.printf("L(X,Y): (%d, %d) | R(X,Y): (%d, %d)\n", ctl->axisX(), ctl->axisY(), ctl->axisRX(), ctl->axisRY());
+    
 #endif
+Console.printf("L(X,Y): (%d, %d) | R(X,Y): (%d, %d)\n", ctl->axisX(), ctl->axisY(), ctl->axisRX(), ctl->axisRY());
+// Print buttons
+Console.printf("Buttons: %lu | DPad: %lu | Misc: %lu\n", ctl->buttons(), ctl->dpad(), ctl->miscButtons());
 
     // Control motors with joysticks
     board.controlMotors(ctl->axisRX(), ctl->axisRY());
-    board.controlMotors(ctl->axisX(), ctl->axisY());
+    //board.controlMotors(ctl->axisX(), ctl->axisY());
 
 
     // Process button presses for LEDs and Servos
@@ -235,7 +238,7 @@ void loop() {
     if (dataUpdated)
         processControllers();
     
-    board.updateWebClients();
+    //board.updateWebClients();
 
     // A delay is required to prevent the watchdog timer from triggering.
     vTaskDelay(10);
