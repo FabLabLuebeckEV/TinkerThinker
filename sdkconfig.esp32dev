@@ -493,6 +493,16 @@ CONFIG_ARDUINO_SELECTIVE_Insights=y
 # end of Arduino Configuration
 
 #
+# Arduino Configuration
+#
+
+#
+# Debug Log Configuration
+#
+# end of Debug Log Configuration
+# end of Arduino Configuration
+
+#
 # Example Board Configuration
 #
 # CONFIG_ESP_LYRAT_V4_3_BOARD is not set
