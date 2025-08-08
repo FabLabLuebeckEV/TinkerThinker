@@ -67,13 +67,13 @@ void TinkerThinkerBoard::begin() {
     webServerManager = new WebServerManager(this, config);
     webServerManager->init();
 
-    //xTaskCreate([](void* obj) {
-    //    TinkerThinkerBoard* board = (TinkerThinkerBoard*)obj;
-    //    for (;;) {
-    //        board->updateWebClients();
-    //        vTaskDelay(1000 / portTICK_PERIOD_MS);
-    //    }
-    //}, "WebClientTask", 4096, this, 1, NULL);
+    xTaskCreate([](void* obj) {
+        TinkerThinkerBoard* board = (TinkerThinkerBoard*)obj;
+        for (;;) {
+            board->updateWebClients();
+            vTaskDelay(1000 / portTICK_PERIOD_MS);
+        }
+    }, "WebClientTask", 4096, this, 1, NULL);
 
     Serial.println("TinkerThinkerBoard initialized.");
 }

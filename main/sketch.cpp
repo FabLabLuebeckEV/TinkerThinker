@@ -8,15 +8,12 @@
 #include "TinkerThinkerBoard.h"
 #include "soc/soc.h"
 #include "soc/rtc_cntl_reg.h"
+#include "esp_bt.h"
 
 // Erzeuge globalen Board- und ConfigManager
 ConfigManager configManager;
 TinkerThinkerBoard board(&configManager);
 
-// --- CONSTANTS ---
-#define DEBUG_OUTPUT 1
-#define MAX_JOYSTICK_VALUE 512
-#define MAX_PWM_VALUE 255
 
 // --- ENUMS ---
 enum Buttons {
@@ -162,12 +159,14 @@ void processGamepad(ControllerPtr ctl) {
     // Optional: Print joystick values for debugging
     
 #endif
-Console.printf("L(X,Y): (%d, %d) | R(X,Y): (%d, %d)\n", ctl->axisX(), ctl->axisY(), ctl->axisRX(), ctl->axisRY());
+//Console.printf("L(X,Y): (%d, %d) | R(X,Y): (%d, %d)\n", ctl->axisX(), ctl->axisY(), ctl->axisRX(), ctl->axisRY());
 // Print buttons
-Console.printf("Buttons: %lu | DPad: %lu | Misc: %lu\n", ctl->buttons(), ctl->dpad(), ctl->miscButtons());
+//Console.printf("Buttons: %lu | DPad: %lu | Misc: %lu\n", ctl->buttons(), ctl->dpad(), ctl->miscButtons());
 
     // Control motors with joysticks
     board.controlMotors(ctl->axisRX(), ctl->axisRY());
+    board.controlMotorDirect(3, ctl->axisX() / 2);
+    board.controlMotorDirect(4, ctl->axisY() / 2);
     //board.controlMotors(ctl->axisX(), ctl->axisY());
 
 
@@ -227,7 +226,6 @@ void setup() {
     BP32.enableVirtualDevice(false);
     BP32.enableBLEService(false);
     sm_set_secure_connections_only_mode(false);                        // SC ausschalten
-    
 }
 
 // Arduino loop function. Runs in CPU 1.
@@ -237,7 +235,11 @@ void loop() {
     bool dataUpdated = BP32.update();
     if (dataUpdated)
         processControllers();
-    
+    if (myControllers[0] == nullptr) {
+        BP32.enableNewBluetoothConnections(true);
+    } else {
+        BP32.enableNewBluetoothConnections(false);
+    }
     //board.updateWebClients();
 
     // A delay is required to prevent the watchdog timer from triggering.

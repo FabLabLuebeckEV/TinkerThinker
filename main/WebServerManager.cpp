@@ -308,7 +308,8 @@ void WebServerManager::sendStatusUpdate() {
     if (millis() - lastPacketTime > 5000) {
         // Kein Paket seit 1 Sekunde, stoppe alle Motoren
         for (int i = 0; i < 4; i++) {
-            board->controlMotorStop(i);
+            //TODO: Check if controller is connected or Wifi
+            //board->controlMotorStop(i);
         }
     }
     if (ws.count() > 0) {

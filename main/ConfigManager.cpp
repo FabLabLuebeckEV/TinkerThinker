@@ -23,7 +23,7 @@ void ConfigManager::setDefaults() {
     wifi_ssid = "fablab";
     wifi_password = "fablabfdm";
     hotspot_ssid = "TinkerThinkerAP";
-    hotspot_password = "12345678";
+    hotspot_password = "";
     for (int i = 0; i < 4; i++) motor_invert[i] = false;
     motor_swap = false;
     motorLeftGUI = 2;
