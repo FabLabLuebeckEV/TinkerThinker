@@ -18,10 +18,10 @@ set(includes
 set(requires
     bluepad32
     bluepad32_arduino
-    arduino
+    espressif__arduino-esp32
     btstack
     ESPAsyncWebServer
-    ArduinoJson
+    bblanchon__arduinojson
     FastLED
     ESP32Servo
 )

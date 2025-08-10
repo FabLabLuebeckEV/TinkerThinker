@@ -9,7 +9,7 @@ set(srcs
         "arduino_platform.c")
 
  set(requires
-         arduino
+         espressif__arduino-esp32
          bluepad32
          btstack)
 
