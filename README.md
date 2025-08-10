@@ -1,259 +1,143 @@
-# ESP-IDF + Arduino + Bluepad32 template app
+# TinkerThinkerBL
 
-[![discord](https://img.shields.io/discord/775177861665521725.svg)](https://discord.gg/r5aMn6Cw5q)
+ESP32-based robotics controller integrating Bluepad32 gamepad input, DC motor control, servos, WS2812 LEDs, Wi‑Fi web UI (AP/STA), and basic battery/system monitoring — built on ESP-IDF with Arduino component.
 
-![logo](https://gitlab.com/ricardoquesada/bluepad32-arduino/-/raw/main/img/bluepad32-arduino-logo.png)
+This repository contains a ready-to-flash firmware and a small web app served from the ESP32 (LittleFS) for configuring and driving your board.
 
-This is a template application to be used
-with [Espressif IoT Development Framework](https://github.com/espressif/esp-idf).
+Key components used: Arduino-ESP32, Bluepad32, BTStack, ESPAsyncWebServer, ArduinoJson, FastLED, ESP32Servo.
 
-Please check [ESP-IDF docs](https://docs.espressif.com/projects/esp-idf/en/latest/get-started/index.html) for getting
-started instructions.
+Note: This project is set up for PlatformIO (recommended). ESP-IDF CLI/IDE can work, but is not the primary path here.
 
-Requires ESP-IDF **v5.4.2**.
+## Features
 
-Includes the following ESP-IDF components, with a pre-configured `sdkconfig` file:
+- Gamepad control: Bluepad32 with automatic pairing and multiple controller types supported.
+- 4 DC motors: Differential drive via joysticks; direct per-motor control APIs; invert, deadband, and swap options.
+- 3 servos: Adjustable pulse width range per servo; angle control from gamepad and web UI.
+- WS2812 LEDs: Configurable LED count; simple color feedback and status.
+- Web UI (LittleFS): Live dashboard, motor/servo testing, and configuration at `/` and `/config`.
+- Wi‑Fi AP/STA: Runs as hotspot or joins existing Wi‑Fi; live WebSocket updates.
+- Monitoring: Battery voltage/percentage estimation and H-bridge fault/current sampling.
 
-* [Arduino Core for ESP32](https://github.com/espressif/arduino-esp32) component
-* [Bluepad32](https://github.com/ricardoquesada/bluepad32/) component
-* [BTStack](https://github.com/bluekitchen/btstack) component
+## Hardware Overview (default pins)
 
-## How to compile it
+- Motors (H-bridge channels):
+  - M0: `pin1=16`, `pin2=25` (channels 0,1)
+  - M1: `pin1=32`, `pin2=27` (channels 2,3)
+  - M2: `pin1=4`, `pin2=12` (channels 4,5)
+  - M3: `pin1=15`, `pin2=14` (channels 6,7)
+- Servos:
+  - S0: `pin=13`, channel 8
+  - S1: `pin=33`, channel 9
+  - S2: `pin=17`, channel 10
+- LEDs: WS2812 data `pin=2` (count configurable)
+- Battery ADC: `pin=35`
+- H-bridge fault: `pin=39`
+- H-bridge current sense: `pin=34`, `pin=36`
 
-Clone the template project:
+Adjust these in `main/TinkerThinkerBoard.cpp` or via runtime settings where available.
 
-   ```sh
-   git clone --recursive https://github.com/ricardoquesada/esp-idf-arduino-bluepad32-template.git my_project
+## Project Layout
+
+- `main/`
+  - `sketch.cpp`: Arduino loop with Bluepad32 input handling and high-level behavior.
+  - `main.c`: Bluepad32/BTstack platform glue (IDF entrypoint when not autostarting Arduino).
+  - `TinkerThinkerBoard.*`: Facade composing controllers and exposing simple control APIs.
+  - `MotorController.*`, `ServoController.*`, `LEDController.*`: Device control modules.
+  - `BatteryMonitor.*`, `SystemMonitor.*`: Voltage, fault, and current sampling utilities.
+  - `WebServerManager.*`: Async web server, static files, WebSocket control, config routes.
+- `data/`: Web UI (served from LittleFS) — `index.html`, `config.html`, JS/CSS, and `config.json`.
+- `platformio.ini`: Build environments (ESP32 family) and partitioning.
+
+## Quick Start (PlatformIO)
+
+1) Open in VS Code with the PlatformIO extension.
+
+2) Select an environment:
+   - Default example: `env:esp32dev` (8MB flash; custom sdkconfig)
+   - Others available: `esp32-s3-devkitc-1`, `esp32-c3-devkitc-02`, `esp32-c6-devkitc-1`, `esp32-h2-devkitm-1`
+
+3) Ensure LittleFS is used for the web assets image:
+
+   Add the following to `platformio.ini` (if not already present):
+
+   ```ini
+   board_build.filesystem = littlefs
    ```
 
-After cloning the *template* you have the following options:
+4) Build and flash the firmware:
+   - PlatformIO: Build, then Upload (or “Upload and Monitor”).
 
-* A) Using PlatformIO
-* B) Visual Studio Code + ESP-IDF plugin
-* C) CLion (personal favorite)
-* D) ESP-IDF from command line
+5) Upload the web UI (LittleFS) image:
+   - PlatformIO: “Upload Filesystem Image”.
+   - This places the contents of `data/` onto the device. Without this step, the web pages will 404.
 
-*Note: Arduino IDE is not supported in this "template app" project*
+6) Open the serial monitor at `115200` baud to watch logs.
 
-### A) Using PlatformIO + ESP-IDF
+Notes
+- The project pins an Espressif32 platform release in `platformio.ini` for stability.
+- Partition scheme: `partitions_dual3mb_1m5spiffs.csv` (1.5MB FS, dual app slots).
 
-![open_project][pio_open_project]
+## First Run and Web UI
 
-1. Open Visual Studio Code, select the PlatformIO plugin
-2. Click on "Pick a folder", and select the recently cloned "my_project" folder
+Wi‑Fi defaults (change later in the config UI):
 
-That's it. The PlatformIO will download the ESP-IDF toolchain and its dependencies.
+- Mode: AP
+- SSID: `TinkerThinkerAP`
+- Password: empty (set your own in `/config`)
 
-It might take a few minutes to download all dependencies. Be patient.
+Connect to the AP, then browse to `http://192.168.4.1/`:
 
-*Note: You might need to remove previously installed PlatformIO packages. Just do `rm -rf ~/.platformio`
-and reinstall the PlatformIO plugin.*
+- `/` Dashboard: Live status (battery, motors, LEDs) and basic controls.
+- `/config`: Full configuration form (motors invert/deadband/frequency, LED count, Wi‑Fi mode/credentials, OTA flag, servo pulse ranges). Changes persist in LittleFS (`/config.json`).
+- `/setup`: Additional setup page (if used).
 
-![build_project][pio_build_project]
+The UI communicates via WebSocket for low-latency updates and test actions.
 
-After all dependencies were installed:
+## Gamepad Controls (Bluepad32)
 
-1. Click on one of the pre-created boards, like *esp32-s3-devkit-1*. Or edit `platformio.ini` file, and add your own.
-2. Click on *build*
+- Pairing: Put your controller in pairing mode; device toggles new connections on when no controller is connected. Keys are cleared on each boot (`BP32.forgetBluetoothKeys()`), so pairing is straightforward.
+- Driving: Right/left stick controls differential drive (see `processGamepad()` and `MotorController::handleMotorControl`).
+- Buttons: Examples include LED feedback on A/B/X/Y and servo jog on R1/D‑Pad.
+- Battery indication: Player LEDs reflect voltage bands.
 
-![monitor_project][pio_monitor_project]
+Tip: Consult Bluepad32 docs for controller-specific pairing steps and supported models.
 
-Finally, click on "Upload and Monitor":
+## Configuration Reference
 
-* It will upload your sketch
-* And will enter into "monitor" mode: You can see and use the console. Try typing `help` on the console.
+- Motors
+  - Invert per motor, global side swap (left/right), per‑motor deadband and PWM frequency.
+- Servos
+  - Min/max pulse width per servo; angles clamped 0–180°.
+- LEDs
+  - Count for WS2812 strip; color rendering via FastLED.
+- Wi‑Fi
+  - AP or STA; SSID/password for each mode; reboot prompt on Wi‑Fi changes.
+- OTA
+  - Flag present in UI/config (integration point for future OTA flow).
 
-Further reading: [PlatformIO Espressif IoT Development Framework][pio_espidf]
+All settings persist in `/config.json` on LittleFS. Use “Reset to defaults” in the UI to regenerate.
 
-[pio_open_project]: https://lh3.googleusercontent.com/pw/ABLVV85JEEjjsQqcCcfZUclYF1ItYSHPmpzP0SC4VH9Ypqp05r2ixlv9C2xv4p-r6fW_CyCNa8ylmeSjyUg_K2Sp-XUXQRTYO_6HvhQXcXxTZXgQvvNBqA8JaerwCB1UODkXgYa_6ONT19KTO52OMs0eOOeeMg=-no-gm?authuser=0
+## Troubleshooting
 
-[pio_build_project]: https://lh3.googleusercontent.com/pw/ABLVV86DiV9H-wDEv1X8ra_fJAw0OG2sBoM5d0gJElPfptzVpb6n8gzOEHDfKXLMKrivzNSt03XpMWSw-hSVJUi0aavQiwgL0t1rmQeKqfYpXkGCKKwcerrNx8BBkFR3VoKQEPMF-e-xVvKVque2pi1sTa8tWA=-no-gm?authuser=0
+- Web UI 404 or blank: Upload the filesystem image (LittleFS) after flashing firmware.
+- No controller connects: Re‑enter pairing on the controller; watch serial logs; ensure Bluetooth is enabled and not blocked.
+- Motors run backward: Use per‑motor invert or side swap in `/config`.
+- Jerky/slow movement: Adjust per‑motor deadband and frequency; verify power and H‑bridge wiring.
 
-[pio_monitor_project]: https://lh3.googleusercontent.com/pw/ABLVV845uPqRtJkUrv4JlODuTr7Shnw0HR7BdojRbxv3xWyiUO-V_Kv42YAKAV-XyoNRPY5vsyj0yRDsRxH0mxz8Q1NYzvhCKw5Ni9MH6UYR8IiaT8XS9hysR81APn8X2tnVgnmJ6ZkSPCgUURnE2MVYIWYrNQ=-no-gm?authuser=0
+## Development Notes
 
-[pio_espidf]: https://docs.platformio.org/en/latest/frameworks/espidf.html
+- Code style: Arduino APIs inside an ESP‑IDF component; main loop in `sketch.cpp`.
+- PWM: 8‑bit resolution used for motor channels; servo channels run at ~50 Hz.
+- Current/fault sampling: Averaging over PWM cycles; see `SystemMonitor`.
 
-### B) Visual Studio Code + ESP-IDF plugin
+## License
 
-![vscode_ide](https://lh3.googleusercontent.com/pw/AM-JKLUxjqUhU2tM-bKw3togS3gTkBdtmi40kqW2c2KieAybnD770I3pdaLnFU7a-sM7dUUGmcWpigvElc1fGo1J-5bJlVdbg8HOJZKbUXo6A_IqIvUGEK6GtwxqNy5EFJmijrBnB_aQhd_fi3GQnXZ1V7WYvw=-no)
+This project includes third‑party components with their respective licenses. See `LICENSE` for details (Apache‑2.0 for most core pieces; BTStack under its own license).
 
-Open [Visual Studio Code][vscode] and install the [ESP-IDF plugin][esp-idf-plugin].
+## Acknowledgements
 
-Features:
+- Built on top of Bluepad32, Arduino‑ESP32, BTStack, FastLED, ArduinoJson, ESPAsyncWebServer, and related IDF components.
 
-* All the regular Visual Studio Code regular features
-* ...plus configure, build, flash and monitor your project
-* ...and much more
-
-[vscode]: https://code.visualstudio.com/
-
-[esp-idf-plugin]: https://github.com/espressif/vscode-esp-idf-extension
-
-### C) CLion
-
-![clion_ide](https://lh3.googleusercontent.com/pw/AP1GczO-t-uncCZJF8ygBXWmO8Dvrx3C4f7tHhisfF39GKXUaryiRA5rYJWx3SQR8fR1orYGmHdOSVnZLVdoYtoc6IYnurdbtXo6_4ZIVgwnzyWJrNkyQFHu6kma6c__YePCddO9BjMFWHyVrBBk7rmNki5EDQ=-no-gm?authuser=0)
-
-[CLion][clion] is a great IDE, and my personal favorite. It works very well with ESP-IDF based projects.
-
-To integrate your project with CLion, follow the steps in the [CLion official documentation][clion_esp_idf].
-
-[clion]: https://www.jetbrains.com/clion/
-
-[clion_esp_idf]: https://www.jetbrains.com/help/clion/esp-idf.html
-
-### D) ESP-IDF from command line
-
-#### For Windows
-
-1. Install [ESP-IDF v5.4][esp-idf-windows-installer]. For further info,
-   read: [ESP-IDF Getting Started for Windows][esp-idf-windows-setup]
-
-    * Either the Online or Offline version should work
-    * When asked which components to install, don't change anything. Default options are Ok.
-    * When asked whether ESP can modify the system, answer "Yes"
-
-2. Launch the "ESP-IDF v5.4 CMD" (type that in the Windows search box)
-
-3. Compile it
-
-    ```sh
-    # Compile it
-    cd my_project
-    idf.py build
-
-    # Flash + open debug terminal
-    idf.py flash monitor
-    ```
-
-[esp-idf-windows-setup]: https://docs.espressif.com/projects/esp-idf/en/latest/esp32/get-started/windows-setup.html
-
-[esp-idf-windows-installer]: https://dl.espressif.com/dl/esp-idf/?idf=5.4
-
-#### For Linux / macOS
-
-1. Requirements and permissions
-
-   Install ESP-IDF dependencies (taken from [here][toolchain-deps]):
-
-    ```sh
-    # For Ubuntu / Debian
-    sudo apt-get install git wget flex bison gperf python3 python3-pip python3-setuptools cmake ninja-build ccache libffi-dev libssl-dev dfu-util libusb-1.0-0
-    ```
-
-   And in case you don't have permissions to open `/dev/ttyUSB0`, do:
-   (taken from [here][ttyusb0])
-
-    ```sh
-    # You MUST logout/login (or in some cases reboot Linux) after running this command
-    sudo usermod -a -G dialout $USER
-    ```
-
-2. Install and setup ESP-IDF
-
-    ```sh
-    # Needs to be done just once
-    # Clone the ESP-IDF git repo
-    mkdir ~/esp && cd ~/esp
-    git clone -b release/v5.4 --recursive https://github.com/espressif/esp-idf.git
-
-    # Then install the toolchain
-    cd ~/esp/esp-idf
-    ./install.sh
-    ```
-
-3. Compile the template
-
-   Clone the template:
-
-    ```sh
-    # Do it everytime you want to start a new project
-    # Clone the template somewhere
-    mkdir ~/src && cd ~/src
-    git clone --recursive https://github.com/ricardoquesada/esp-idf-arduino-bluepad32-template.git my_project
-    ```
-
-   Export the ESP-IDF environment variables in your shell:
-
-    ```sh
-    # Do it everytime you open a new shell
-    # Optional: add it in your ~/.bashrc or ~/.profile
-    source ~/esp/esp-idf/export.sh
-    ```
-
-   And finally compile and install your project.
-
-    ```sh
-    # Compile it
-    cd ~/src/my_project
-    idf.py build
-
-    # Flash + open debug terminal
-    idf.py flash monitor
-    ```
-
-[toolchain-deps]: https://docs.espressif.com/projects/esp-idf/en/latest/esp32/get-started/linux-setup.html
-
-[ttyusb0]: https://docs.espressif.com/projects/esp-idf/en/latest/esp32/get-started/establish-serial-connection.html#linux-dialout-group
-
-## Using 3rd party Arduino libraries
-
-To include 3rd party Arduino libraries in your project, you have to:
-
-* Add them to the `components` folder.
-* Add `CMakeLists.txt` file inside the component's folder
-
-Let's use a real case as an example:
-
-### Example: Adding ESP32Servo
-
-Suppose you want to use [ESP32Servo] project. The first thing to notice is that the source files are placed
-in the `src` folder. We have to create a `CMakeLists.txt` file that tells ESP-IDF to look for the sources
-in the `src` folder.
-
-Example:
-
-```sh
-# 1) We clone ESP32Servo into components folder
-cd components
-git clone https://github.com/madhephaestus/ESP32Servo.git
-cd ESP32Servo
-```
-
-And now create these files inside `components/ESP32Servo` folder:
-
-```sh
-# 2) Create CMakeLists.txt file
-# Copy & paste the following lines to the terminal:
-cat << EOF > CMakeLists.txt
-idf_component_register(SRC_DIRS "src"
-                    INCLUDE_DIRS "src"
-                    REQUIRES "arduino")
-EOF
-```
-
-Finally, update the dependencies in the `main/CMakeLists.txt`. E.g:
-
-```sh
-cd main
-edit CMakeLists.txt
-```
-
-...and append `ESP32Servo` to `REQUIRES`. The `main/CMakeLists.txt` should look like this:
-
-```cmake
-idf_component_register(SRCS "${srcs}"
-        INCLUDE_DIRS "."
-        REQUIRES "${requires}" "ESP32Servo")
-```
-
-And that's it. Now you can include `ESP32Servo` from your code. E.g:
-
-```cpp
-// Add this include in your arduino_main.cpp file
-#include <ESP32Servo.h>
-```
-
-[esp32servo]: https://github.com/madhephaestus/ESP32Servo.git
 
 ## Further info
 
