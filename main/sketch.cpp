@@ -5,6 +5,7 @@
 #include "sdkconfig.h"
 #include <Arduino.h>
 #include <Bluepad32.h>
+#include <WiFi.h>
 #include "TinkerThinkerBoard.h"
 #include "soc/soc.h"
 #include "soc/rtc_cntl_reg.h"
@@ -128,6 +129,16 @@ void processButtons(ControllerPtr ctl) {
             delay(100);
             board.setServoAngle(0, 180);
         }
+        if (buttonState & BUTTON_R2) {
+            digitalWrite(5, LOW); // File 1 19
+            delay(100);
+            digitalWrite(5, HIGH);
+        }
+         if (buttonState & BUTTON_L2) {
+            digitalWrite(19, LOW); // File 5
+            delay(100);
+            digitalWrite(19, HIGH);
+        }
     }
 
     // D-Pad
@@ -163,10 +174,10 @@ void processGamepad(ControllerPtr ctl) {
 // Print buttons
 //Console.printf("Buttons: %lu | DPad: %lu | Misc: %lu\n", ctl->buttons(), ctl->dpad(), ctl->miscButtons());
 
-    // Control motors with joysticks
-    board.controlMotors(ctl->axisRX(), ctl->axisRY());
-    board.controlMotorDirect(3, ctl->axisX() / 2);
-    board.controlMotorDirect(4, ctl->axisY() / 2);
+    // Control motors with joysticks (source-aware)
+    // Right stick -> selected GUI pair; Left stick -> the other pair
+    board.requestDriveFromBT(ctl->axisRX(), ctl->axisRY());
+    board.requestDriveOtherFromBT(ctl->axisX(), ctl->axisY());
     //board.controlMotors(ctl->axisX(), ctl->axisY());
 
 
@@ -229,16 +240,95 @@ void setup() {
 }
 
 // Arduino loop function. Runs in CPU 1.
+// Duty-cycle configuration for BT scanning (defaults overridden by ConfigManager)
+static uint32_t SCAN_ON_MS_NORMAL = 500;    // balanced when WiFi is idle
+static uint32_t SCAN_OFF_MS_NORMAL = 500;
+static uint32_t SCAN_ON_MS_STA_CONNECT = 150;  // give STA connect more airtime
+static uint32_t SCAN_OFF_MS_STA_CONNECT = 850;
+static uint32_t SCAN_ON_MS_AP_ACTIVE = 100;     // AP serving clients: keep scanning minimal
+static uint32_t SCAN_OFF_MS_AP_ACTIVE = 1900;
+
+static bool scanEnabled = false;
+static uint32_t nextToggleAt = 0;
+static uint32_t curOnMs = SCAN_ON_MS_NORMAL;
+static uint32_t curOffMs = SCAN_OFF_MS_NORMAL;
+static enum { PHASE_ON, PHASE_OFF } phase = PHASE_OFF;
+
 void loop() {
     // This call fetches all the controllers' data.
     // Call this function in your main loop.
     bool dataUpdated = BP32.update();
     if (dataUpdated)
         processControllers();
-    if (myControllers[0] == nullptr) {
-        BP32.enableNewBluetoothConnections(true);
-    } else {
+    // Refresh scan timings from config (lightweight)
+    SCAN_ON_MS_NORMAL       = configManager.getBtScanOnNormal();
+    SCAN_OFF_MS_NORMAL      = configManager.getBtScanOffNormal();
+    SCAN_ON_MS_STA_CONNECT  = configManager.getBtScanOnSta();
+    SCAN_OFF_MS_STA_CONNECT = configManager.getBtScanOffSta();
+    SCAN_ON_MS_AP_ACTIVE    = configManager.getBtScanOnAp();
+    SCAN_OFF_MS_AP_ACTIVE   = configManager.getBtScanOffAp();
+
+    // Determine current scenario and duty cycle settings
+    bool anyController = false;
+    for (int i = 0; i < BP32_MAX_GAMEPADS; i++) {
+        if (myControllers[i] && myControllers[i]->isConnected()) {
+            anyController = true;
+            break;
+        }
+    }
+
+    wifi_mode_t mode = WiFi.getMode();
+    bool staConnecting = (mode == WIFI_STA || mode == WIFI_AP_STA) && (WiFi.status() != WL_CONNECTED);
+    bool apActive = (mode == WIFI_AP || mode == WIFI_AP_STA) && (WiFi.softAPgetStationNum() > 0);
+
+    // Policy:
+    // - If a controller is already connected: don't scan.
+    // - Else if AP has clients: very low-duty scan.
+    // - Else if STA is connecting: low-duty scan.
+    // - Else: balanced scan.
+    uint32_t targetOn = SCAN_ON_MS_NORMAL;
+    uint32_t targetOff = SCAN_OFF_MS_NORMAL;
+    if (anyController) {
+        targetOn = 0; targetOff = 1000;  // keep scanning off
+    } else if (apActive) {
+        targetOn = SCAN_ON_MS_AP_ACTIVE; targetOff = SCAN_OFF_MS_AP_ACTIVE;
+    } else if (staConnecting) {
+        targetOn = SCAN_ON_MS_STA_CONNECT; targetOff = SCAN_OFF_MS_STA_CONNECT;
+    }
+
+    if (targetOn != curOnMs || targetOff != curOffMs) {
+        // Scenario changed: reset scheduler
+        curOnMs = targetOn; curOffMs = targetOff;
+        phase = PHASE_OFF;
+        scanEnabled = false;
         BP32.enableNewBluetoothConnections(false);
+        nextToggleAt = millis() + curOffMs;
+    }
+
+    // Toggle scanning according to duty cycle (unless anyController)
+    uint32_t now = millis();
+    if (!anyController) {
+        if (now >= nextToggleAt) {
+            if (phase == PHASE_OFF) {
+                // Turn scanning on for the on-duration
+                scanEnabled = (curOnMs > 0);
+                BP32.enableNewBluetoothConnections(scanEnabled);
+                phase = PHASE_ON;
+                nextToggleAt = now + (curOnMs > 0 ? curOnMs : curOffMs);
+            } else {
+                // Turn scanning off for the off-duration
+                scanEnabled = false;
+                BP32.enableNewBluetoothConnections(false);
+                phase = PHASE_OFF;
+                nextToggleAt = now + curOffMs;
+            }
+        }
+    } else if (scanEnabled) {
+        // Ensure scanning is off while a controller is connected
+        BP32.enableNewBluetoothConnections(false);
+        scanEnabled = false;
+        phase = PHASE_OFF;
+        nextToggleAt = now + 1000;
     }
     //board.updateWebClients();
 

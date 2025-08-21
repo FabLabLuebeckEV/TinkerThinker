@@ -32,6 +32,14 @@ public:
     int getServoMinPulsewidth(int index);
     int getServoMaxPulsewidth(int index);
 
+    // BT scan duty-cycle (ms)
+    int getBtScanOnNormal();
+    int getBtScanOffNormal();
+    int getBtScanOnSta();
+    int getBtScanOffSta();
+    int getBtScanOnAp();
+    int getBtScanOffAp();
+
     // Setter (aufgerufen wenn config-Seite geändert wird)
     void setWifiMode(const String &mode);
     void setWifiSSID(const String &ssid);
@@ -49,6 +57,13 @@ public:
     void setMotorRightGUI(int motorIndex);
 
     void setServoPulsewidthRange(int index, int min_pw, int max_pw);
+
+    void setBtScanOnNormal(int v);
+    void setBtScanOffNormal(int v);
+    void setBtScanOnSta(int v);
+    void setBtScanOffSta(int v);
+    void setBtScanOnAp(int v);
+    void setBtScanOffAp(int v);
 
     bool fileExists(const char* path);
 
@@ -74,6 +89,14 @@ private:
         int max_pw;
     };
     ServoConfig servos[3];
+
+    // Bluetooth scan duty-cycle settings
+    int bt_scan_on_normal_ms = 500;
+    int bt_scan_off_normal_ms = 500;
+    int bt_scan_on_sta_ms = 150;
+    int bt_scan_off_sta_ms = 850;
+    int bt_scan_on_ap_ms = 100;
+    int bt_scan_off_ap_ms = 1900;
 
     void setDefaults();
 };

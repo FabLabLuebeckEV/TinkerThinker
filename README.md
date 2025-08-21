@@ -18,6 +18,9 @@ Note: This project is set up for PlatformIO (recommended). ESP-IDF CLI/IDE can w
 - Wi‑Fi AP/STA: Runs as hotspot or joins existing Wi‑Fi; live WebSocket updates.
 - Monitoring: Battery voltage/percentage estimation and H-bridge fault/current sampling.
 
+- BT/Wi‑Fi coexistence: Configurable Bluetooth scanning duty‑cycle to avoid starving Wi‑Fi.
+- Control arbiter: Last active source (WebSocket vs. Bluetooth) owns motion; neutral inputs don't override the owner.
+
 ## Hardware Overview (default pins)
 
 - Motors (H-bridge channels):
@@ -92,6 +95,43 @@ Connect to the AP, then browse to `http://192.168.4.1/`:
 - `/setup`: Additional setup page (if used).
 
 The UI communicates via WebSocket for low-latency updates and test actions.
+
+## BT/Wi‑Fi Coexistence (Scan Timing)
+
+The ESP32 shares a single 2.4 GHz radio between Wi‑Fi and Bluetooth. Continuous BT inquiry/page can hinder Wi‑Fi connect/AP traffic. This firmware time‑slices BT scanning so Wi‑Fi always gets airtime.
+
+Tune these in `/config` (Advanced section):
+
+- `bt_scan_on_normal_ms` / `bt_scan_off_normal_ms`: Balanced scanning when Wi‑Fi is idle.
+- `bt_scan_on_sta_ms` / `bt_scan_off_sta_ms`: Used while STA is connecting (no IP yet) — favors Wi‑Fi association/DHCP.
+- `bt_scan_on_ap_ms` / `bt_scan_off_ap_ms`: Used when AP has clients — keeps scanning minimal.
+
+If a controller is already connected, scanning is suspended.
+
+## Control Arbitration (Last‑Writer‑Wins)
+
+Both a Bluetooth controller and the Web UI can drive the motors. To avoid conflicts:
+
+- The last non‑neutral command takes ownership (Bluetooth or WebSocket) and drives the board.
+- Neutral commands (sticks centered or PWM 0) only apply if they come from the current owner.
+- Prevents a neutral message from one source cancelling motion commanded by the other.
+
+Implementation lives in `TinkerThinkerBoard` via source‑aware methods like `requestDriveFromBT/WS()`.
+
+## Windows CLI Build Notes
+
+If you prefer CLI over the VS Code tasks, use PowerShell and the PlatformIO penv path:
+
+- Build: `& "C:\\Users\\mgabr\\.platformio\\penv\\Scripts\\pio.exe" run -e esp32dev`
+- Upload: `& "C:\\Users\\mgabr\\.platformio\\penv\\Scripts\\pio.exe" run -e esp32dev -t upload`
+- Upload FS: `& "C:\\Users\\mgabr\\.platformio\\penv\\Scripts\\pio.exe" run -e esp32dev -t uploadfs`
+
+## Arduino Core Note
+
+This project uses Arduino as an ESP‑IDF component (managed via `managed_components/espressif__arduino-esp32`).
+
+- `main/CMakeLists.txt` lists `espressif__arduino-esp32` in `REQUIRES`.
+- Do not add a second `components/arduino` — it will cause duplicate symbols and link failures.
 
 ## Gamepad Controls (Bluepad32)
 

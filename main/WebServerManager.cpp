@@ -86,6 +86,14 @@ void WebServerManager::setupRoutes() {
         doc["led_count"] = config->getLedCount();
         doc["ota_enabled"] = config->getOTAEnabled();
 
+        // Bluetooth scan duty-cycle
+        doc["bt_scan_on_normal_ms"]  = config->getBtScanOnNormal();
+        doc["bt_scan_off_normal_ms"] = config->getBtScanOffNormal();
+        doc["bt_scan_on_sta_ms"]     = config->getBtScanOnSta();
+        doc["bt_scan_off_sta_ms"]    = config->getBtScanOffSta();
+        doc["bt_scan_on_ap_ms"]      = config->getBtScanOnAp();
+        doc["bt_scan_off_ap_ms"]     = config->getBtScanOffAp();
+
         JsonArray servoArr = doc.createNestedArray("servo_settings");
         for (int i=0; i<3; i++) {
             JsonObject sObj = servoArr.createNestedObject();
@@ -195,6 +203,20 @@ void WebServerManager::handleConfig(AsyncWebServerRequest* request) {
         config->setOTAEnabled(false);
     }
 
+    // BT scan timings (optional fields)
+    auto setIntIf = [&](const char* name, void(*setter)(ConfigManager*, int)){
+        if (request->hasParam(name, true)) {
+            int v = request->getParam(name, true)->value().toInt();
+            setter(config, v);
+        }
+    };
+    setIntIf("bt_scan_on_normal_ms",  [](ConfigManager* c,int v){ c->setBtScanOnNormal(v); });
+    setIntIf("bt_scan_off_normal_ms", [](ConfigManager* c,int v){ c->setBtScanOffNormal(v); });
+    setIntIf("bt_scan_on_sta_ms",     [](ConfigManager* c,int v){ c->setBtScanOnSta(v); });
+    setIntIf("bt_scan_off_sta_ms",    [](ConfigManager* c,int v){ c->setBtScanOffSta(v); });
+    setIntIf("bt_scan_on_ap_ms",      [](ConfigManager* c,int v){ c->setBtScanOnAp(v); });
+    setIntIf("bt_scan_off_ap_ms",     [](ConfigManager* c,int v){ c->setBtScanOffAp(v); });
+
     // Servos
     for (int i = 0; i < 3; i++) {
         String minField = "servo" + String(i) + "_min";
@@ -252,7 +274,7 @@ void WebServerManager::onWebSocketEvent(AsyncWebSocket *server, AsyncWebSocketCl
                 float rotatedX = -y;
                 float rotatedY = x;
 
-                board->controlMotors((int)(rotatedX * 512), (int)(rotatedY * 512));
+                board->requestDriveFromWS((int)(rotatedX * 512), (int)(rotatedY * 512));
             }
 
             // Bestehende Motor Steuerung (A, B, C, D)
@@ -261,15 +283,15 @@ void WebServerManager::onWebSocketEvent(AsyncWebSocket *server, AsyncWebSocketCl
                 if (doc.containsKey(motorKey)) {
                     String command = doc[motorKey].as<String>();
                     if (command == "forward") {
-                        board->controlMotorForward(i);
+                        board->requestMotorDirectFromWS(i, 255);
                     } else if (command == "backward") {
-                        board->controlMotorBackward(i);
+                        board->requestMotorDirectFromWS(i, -255);
                     } else if (command == "stop") {
-                        board->controlMotorStop(i);
+                        board->requestMotorStopFromWS(i);
                     } else {// Direkte PWM-Steuerung
                         int pwmValue = command.toInt();
-                        pwmValue = constrain(pwmValue, 0, 255);
-                        board->controlMotorDirect(i, pwmValue);
+                        pwmValue = constrain(pwmValue, -255, 255);
+                        board->requestMotorDirectFromWS(i, pwmValue);
                     }
                 }
             }
@@ -296,9 +318,10 @@ void WebServerManager::onWebSocketEvent(AsyncWebSocket *server, AsyncWebSocketCl
     } else if (type == WS_EVT_CONNECT) {
         Serial.println("Websocket client connected");
     } else if (type == WS_EVT_DISCONNECT) {
-        Serial.println("Websocket client disconnected, stopping motors");
+        Serial.println("Websocket client disconnected");
+        // Do not force stop if BT is controlling; respect arbiter
         for (int i = 0; i < 4; i++) {
-            board->controlMotorStop(i);
+            board->requestMotorStopFromWS(i);
         }
     }
 }

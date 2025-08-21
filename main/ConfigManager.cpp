@@ -36,6 +36,7 @@ void ConfigManager::setDefaults() {
         servos[i].min_pw = 500;
         servos[i].max_pw = 2500;
     }
+    // BT scan defaults already initialized in header
 }
 
 bool ConfigManager::fileExists(const char* path) {
@@ -89,6 +90,14 @@ bool ConfigManager::loadConfig() {
         servos[i].max_pw = servoArr[i]["max_pulsewidth"] | 2500;
     }
 
+    // Optional: BT scan settings
+    bt_scan_on_normal_ms  = doc["bt_scan_on_normal_ms"]  | bt_scan_on_normal_ms;
+    bt_scan_off_normal_ms = doc["bt_scan_off_normal_ms"] | bt_scan_off_normal_ms;
+    bt_scan_on_sta_ms     = doc["bt_scan_on_sta_ms"]     | bt_scan_on_sta_ms;
+    bt_scan_off_sta_ms    = doc["bt_scan_off_sta_ms"]    | bt_scan_off_sta_ms;
+    bt_scan_on_ap_ms      = doc["bt_scan_on_ap_ms"]      | bt_scan_on_ap_ms;
+    bt_scan_off_ap_ms     = doc["bt_scan_off_ap_ms"]     | bt_scan_off_ap_ms;
+
     return true;
 }
 
@@ -125,6 +134,14 @@ bool ConfigManager::saveConfig() {
         sObj["max_pulsewidth"] = servos[i].max_pw;
     }
 
+    // BT scan settings
+    doc["bt_scan_on_normal_ms"]  = bt_scan_on_normal_ms;
+    doc["bt_scan_off_normal_ms"] = bt_scan_off_normal_ms;
+    doc["bt_scan_on_sta_ms"]     = bt_scan_on_sta_ms;
+    doc["bt_scan_off_sta_ms"]    = bt_scan_off_sta_ms;
+    doc["bt_scan_on_ap_ms"]      = bt_scan_on_ap_ms;
+    doc["bt_scan_off_ap_ms"]     = bt_scan_off_ap_ms;
+
     File file = LittleFS.open("/config.json", "w");
     if (!file) {
         Serial.println("Failed to open config file for writing");
@@ -159,6 +176,14 @@ bool ConfigManager::getOTAEnabled() { return ota_enabled; }
 int ConfigManager::getServoMinPulsewidth(int index) { return servos[index].min_pw; }
 int ConfigManager::getServoMaxPulsewidth(int index) { return servos[index].max_pw; }
 
+// BT scan getters
+int ConfigManager::getBtScanOnNormal()  { return bt_scan_on_normal_ms; }
+int ConfigManager::getBtScanOffNormal() { return bt_scan_off_normal_ms; }
+int ConfigManager::getBtScanOnSta()     { return bt_scan_on_sta_ms; }
+int ConfigManager::getBtScanOffSta()    { return bt_scan_off_sta_ms; }
+int ConfigManager::getBtScanOnAp()      { return bt_scan_on_ap_ms; }
+int ConfigManager::getBtScanOffAp()     { return bt_scan_off_ap_ms; }
+
 // Setter
 void ConfigManager::setWifiMode(const String &mode) { wifi_mode = mode; }
 void ConfigManager::setWifiSSID(const String &ssid) { wifi_ssid = ssid; }
@@ -177,4 +202,12 @@ void ConfigManager::setServoPulsewidthRange(int index, int min_pw, int max_pw){
 }
 void ConfigManager::setMotorDeadband(int index, int val){ motor_deadband[index] = val;}
 void ConfigManager::setMotorFrequency(int index, int val){ motor_frequency[index]=val;}
+
+// BT scan setters
+void ConfigManager::setBtScanOnNormal(int v)  { bt_scan_on_normal_ms  = v; }
+void ConfigManager::setBtScanOffNormal(int v) { bt_scan_off_normal_ms = v; }
+void ConfigManager::setBtScanOnSta(int v)     { bt_scan_on_sta_ms     = v; }
+void ConfigManager::setBtScanOffSta(int v)    { bt_scan_off_sta_ms    = v; }
+void ConfigManager::setBtScanOnAp(int v)      { bt_scan_on_ap_ms      = v; }
+void ConfigManager::setBtScanOffAp(int v)     { bt_scan_off_ap_ms     = v; }
 

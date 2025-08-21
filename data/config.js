@@ -188,6 +188,16 @@ async function loadConfig() {
     // OTA
     document.getElementById('ota_enabled').checked = data.ota_enabled;
 
+    // BT scan timings
+    if (typeof data.bt_scan_on_normal_ms !== 'undefined') {
+      document.getElementById('bt_scan_on_normal_ms').value = data.bt_scan_on_normal_ms;
+      document.getElementById('bt_scan_off_normal_ms').value = data.bt_scan_off_normal_ms;
+      document.getElementById('bt_scan_on_sta_ms').value = data.bt_scan_on_sta_ms;
+      document.getElementById('bt_scan_off_sta_ms').value = data.bt_scan_off_sta_ms;
+      document.getElementById('bt_scan_on_ap_ms').value = data.bt_scan_on_ap_ms;
+      document.getElementById('bt_scan_off_ap_ms').value = data.bt_scan_off_ap_ms;
+    }
+
     // Servos
     const servosDiv = document.getElementById('servos');
     data.servo_settings.forEach((servo, idx) => {

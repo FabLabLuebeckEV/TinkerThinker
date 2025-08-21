@@ -15,12 +15,21 @@ public:
     void begin();
     void reApplyConfig();
 
-    // Motorsteuerung
+    // Motorsteuerung (legacy direct)
     void controlMotors(int axisX, int axisY);
     void controlMotorForward(int motorIndex);
     void controlMotorBackward(int motorIndex);
     void controlMotorStop(int motorIndex);
     void controlMotorDirect(int motorIndex, int pwmValue);
+
+    // Source-aware control API
+    void requestDriveFromBT(int axisX, int axisY);
+    void requestDriveFromWS(int axisX, int axisY);
+    void requestDriveOtherFromBT(int axisX, int axisY);
+    void requestDriveOtherFromWS(int axisX, int axisY);
+    void requestMotorDirectFromBT(int motorIndex, int pwmValue);
+    void requestMotorDirectFromWS(int motorIndex, int pwmValue);
+    void requestMotorStopFromWS(int motorIndex);
     void setMotorLeftGUI(int motorIndex);
     void setMotorRightGUI(int motorIndex);
 
@@ -48,6 +57,20 @@ public:
     int getMotorPWM(int motorIndex);
 
 private:
+    enum class ControlSource { None, Bluetooth, WebSocket };
+    ControlSource lastSource = ControlSource::None;
+    uint32_t lastActiveMs = 0;
+    const int neutralThreshold = 16; // axis deadband for arbitration
+
+    bool isNeutralAxes(int x, int y) {
+        return (abs(x) <= neutralThreshold && abs(y) <= neutralThreshold);
+    }
+    bool shouldAccept(ControlSource src, bool isActive);
+    void applyDrive(int axisX, int axisY);
+    void applyDriveOther(int axisX, int axisY);
+    void getOtherPair(int &leftIdx, int &rightIdx);
+    void takeOwnership(ControlSource src);
+
     ConfigManager* config;
     MotorController* motorController;
     ServoController* servoController;

@@ -34,6 +34,9 @@ void TinkerThinkerBoard::reApplyConfig() {
     }
 
     motorController = new MotorController(motors, MOTOR_COUNT, freqs, dbs, inv, config->getMotorSwap());
+    // Update GUI-selected motor pair from config
+    motorLeftGUI = config->getMotorLeftGUI();
+    motorRightGUI = config->getMotorRightGUI();
     motorController->init();
 
     servoController = new ServoController(servos, SERVO_COUNT);
@@ -61,6 +64,10 @@ void TinkerThinkerBoard::begin() {
     config->init();
     pinMode(POWER_ON_PIN, OUTPUT);
     digitalWrite(POWER_ON_PIN, HIGH);
+    pinMode(5, OUTPUT); // File 1
+    digitalWrite(5, HIGH); // File 1
+    pinMode(19, OUTPUT); // File 5
+    digitalWrite(19, HIGH); // File 5
 
     reApplyConfig() ;   
 
@@ -153,4 +160,95 @@ int TinkerThinkerBoard::getMotorPWM(int motorIndex) {
 
 void TinkerThinkerBoard::updateWebClients() {
     webServerManager->sendStatusUpdate();
+}
+
+// --- Arbitration helpers ---
+bool TinkerThinkerBoard::shouldAccept(ControlSource src, bool isActive) {
+    uint32_t now = millis();
+    // If active command, always accept and take ownership
+    if (isActive) {
+        takeOwnership(src);
+        return true;
+    }
+    // Neutral command: accept only if same source currently owns control
+    return (lastSource == src);
+}
+
+void TinkerThinkerBoard::takeOwnership(ControlSource src) {
+    lastSource = src;
+    lastActiveMs = millis();
+}
+
+void TinkerThinkerBoard::applyDrive(int axisX, int axisY) {
+    controlMotors(axisX, axisY);
+}
+
+void TinkerThinkerBoard::getOtherPair(int &leftIdx, int &rightIdx) {
+    // Compute the two motor indices not selected as GUI left/right
+    bool used[4] = {false,false,false,false};
+    if (motorLeftGUI >=0 && motorLeftGUI < 4) used[motorLeftGUI] = true;
+    if (motorRightGUI>=0 && motorRightGUI< 4) used[motorRightGUI]= true;
+    int found[2]; int k=0;
+    for (int i=0;i<4;i++) if (!used[i]) { if (k<2) found[k]=i; k++; }
+    // Fallback if something odd: default to 0 and 1
+    if (k < 2) { leftIdx = 0; rightIdx = 1; return; }
+    // Order by index for deterministic mapping
+    if (found[0] < found[1]) { leftIdx = found[0]; rightIdx = found[1]; }
+    else { leftIdx = found[1]; rightIdx = found[0]; }
+}
+
+void TinkerThinkerBoard::applyDriveOther(int axisX, int axisY) {
+    int leftIdx, rightIdx;
+    getOtherPair(leftIdx, rightIdx);
+    motorController->handleMotorControl(axisX, axisY, leftIdx, rightIdx);
+}
+
+// --- Source-aware API implementations ---
+void TinkerThinkerBoard::requestDriveFromBT(int axisX, int axisY) {
+    bool active = !isNeutralAxes(axisX, axisY);
+    if (shouldAccept(ControlSource::Bluetooth, active)) {
+        applyDrive(axisX, axisY);
+    }
+}
+
+void TinkerThinkerBoard::requestDriveFromWS(int axisX, int axisY) {
+    bool active = !isNeutralAxes(axisX, axisY);
+    if (shouldAccept(ControlSource::WebSocket, active)) {
+        applyDrive(axisX, axisY);
+    }
+}
+
+void TinkerThinkerBoard::requestDriveOtherFromBT(int axisX, int axisY) {
+    bool active = !isNeutralAxes(axisX, axisY);
+    if (shouldAccept(ControlSource::Bluetooth, active)) {
+        applyDriveOther(axisX, axisY);
+    }
+}
+
+void TinkerThinkerBoard::requestDriveOtherFromWS(int axisX, int axisY) {
+    bool active = !isNeutralAxes(axisX, axisY);
+    if (shouldAccept(ControlSource::WebSocket, active)) {
+        applyDriveOther(axisX, axisY);
+    }
+}
+
+void TinkerThinkerBoard::requestMotorDirectFromBT(int motorIndex, int pwmValue) {
+    bool active = (abs(pwmValue) > 0);
+    if (shouldAccept(ControlSource::Bluetooth, active)) {
+        controlMotorDirect(motorIndex, pwmValue);
+    }
+}
+
+void TinkerThinkerBoard::requestMotorDirectFromWS(int motorIndex, int pwmValue) {
+    bool active = (abs(pwmValue) > 0);
+    if (shouldAccept(ControlSource::WebSocket, active)) {
+        controlMotorDirect(motorIndex, pwmValue);
+    }
+}
+
+void TinkerThinkerBoard::requestMotorStopFromWS(int motorIndex) {
+    // Stop is neutral; only allow if WS owns control
+    if (shouldAccept(ControlSource::WebSocket, false)) {
+        controlMotorStop(motorIndex);
+    }
 }
