@@ -36,8 +36,23 @@ Note: This project is set up for PlatformIO (recommended). ESP-IDF CLI/IDE can w
 - Battery ADC: `pin=35`
 - H-bridge fault: `pin=39`
 - H-bridge current sense: `pin=34`, `pin=36`
+- Audio Module (DFRobot DFPlayer Mini):
+  - RX: `pin=5`
+  - TX: `pin=19`
 
 Adjust these in `main/TinkerThinkerBoard.cpp` or via runtime settings where available.
+
+## Audio Module
+
+The firmware supports the DFRobot DFPlayer Mini module for audio playback.
+
+- **Library:** `DFRobotDFPlayerMini`
+- **Functionality:** Plays MP3 files from a MicroSD card.
+- **Control:** The volume can be adjusted, and specific tracks can be played using gamepad buttons.
+  - **R1 Button:** Plays track 1.
+  - **L1 Button:** Plays track 2.
+  - **D-Pad Up/Down:** Increases/decreases volume.
+- **Initialization:** The module is initialized in `setup()` in `sketch.cpp`. Ensure the SD card is inserted and properly connected.
 
 ## Project Layout
 
