@@ -303,6 +303,11 @@ void setup() {
     myDFPlayer.enableFeedback();
     printDfPlayerStatus();
 
+    Serial.println(F("Playing track 1..."));
+    myDFPlayer.play(1);
+    delay(100);
+    printDfPlayerStatus();
+
     if (!configManager.init()) {
         Serial.println("Failed to init ConfigManager!");
     }
