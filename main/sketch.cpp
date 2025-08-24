@@ -11,9 +11,16 @@
 #include "soc/rtc_cntl_reg.h"
 #include "esp_bt.h"
 
+#include "HardwareSerial.h"
+#include <DFRobotDFPlayerMini.h>
+
 // Erzeuge globalen Board- und ConfigManager
 ConfigManager configManager;
 TinkerThinkerBoard board(&configManager);
+
+// DFPlayer Mini
+HardwareSerial mySoftwareSerial(2);
+DFRobotDFPlayerMini myDFPlayer;
 
 
 // --- ENUMS ---
@@ -119,25 +126,14 @@ void processButtons(ControllerPtr ctl) {
             board.showLEDs();
         }
         if (buttonState & BTN_X) {
-            for (int i = 1; i < 20; i++) board.setLED(i, 0, 0, 120);
+            for (int i = 1; i < 20; i++) board.setLED(i, 0, 0, 0);
             board.showLEDs();
         }
         if (buttonState & BUTTON_R1) {
-            if (millis() - timestampServo < 1000) return;
-            timestampServo = millis();
-            board.setServoAngle(0, 150);
-            delay(100);
-            board.setServoAngle(0, 180);
+            myDFPlayer.play(1);
         }
-        if (buttonState & BUTTON_R2) {
-            digitalWrite(5, LOW); // File 1 19
-            delay(100);
-            digitalWrite(5, HIGH);
-        }
-         if (buttonState & BUTTON_L2) {
-            digitalWrite(19, LOW); // File 5
-            delay(100);
-            digitalWrite(19, HIGH);
+        if (buttonState & BUTTON_L1) {
+            myDFPlayer.play(2);
         }
     }
 
@@ -145,41 +141,33 @@ void processButtons(ControllerPtr ctl) {
     unsigned long dpadState = ctl->dpad();
     if (dpadState) {
         if (dpadState & static_cast<unsigned long>(DPad::UP)) {
-            board.setServoAngle(0, board.getServoAngle(0) + 10);
+            myDFPlayer.volumeUp();
+            delay(100);
         }
         if (dpadState & static_cast<unsigned long>(DPad::DOWN)) {
-            board.setServoAngle(0, board.getServoAngle(0) - 10);
+            myDFPlayer.volumeDown();
+            delay(100);
         }
         if (dpadState & static_cast<unsigned long>(DPad::RIGHT)) {
-            board.setServoAngle(1, board.getServoAngle(1) + 10);
+            board.setServoAngle(2, board.getServoAngle(2) + 10);
         }
         if (dpadState & static_cast<unsigned long>(DPad::LEFT)) {
-            board.setServoAngle(1, board.getServoAngle(1) - 10);
+            board.setServoAngle(2, board.getServoAngle(2) - 10);
         }
     }
 
     // Misc Buttons (Home, etc.)
     unsigned long miscState = ctl->miscButtons();
-    if (miscState & static_cast<unsigned long>(MiscButtons::HOME) || miscState & static_cast<unsigned long>(MiscButtons::MINUS)) {
-        // This button combination can be used for other purposes now
+    if (miscState) {
+        // Empty now
     }
 }
 
 void processGamepad(ControllerPtr ctl) {
-#ifdef DEBUG_OUTPUT
-    // Optional: Print joystick values for debugging
-    
-#endif
-//Console.printf("L(X,Y): (%d, %d) | R(X,Y): (%d, %d)\n", ctl->axisX(), ctl->axisY(), ctl->axisRX(), ctl->axisRY());
-// Print buttons
-//Console.printf("Buttons: %lu | DPad: %lu | Misc: %lu\n", ctl->buttons(), ctl->dpad(), ctl->miscButtons());
-
     // Control motors with joysticks (source-aware)
     // Right stick -> selected GUI pair; Left stick -> the other pair
     board.requestDriveFromBT(ctl->axisRX(), ctl->axisRY());
     board.requestDriveOtherFromBT(ctl->axisX(), ctl->axisY());
-    //board.controlMotors(ctl->axisX(), ctl->axisY());
-
 
     // Process button presses for LEDs and Servos
     processButtons(ctl);
@@ -215,14 +203,27 @@ void processControllers() {
     }
 }
 
-
-
-
 // Arduino setup function. Runs in CPU 1
 void setup() {
     WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0); //disable brownout detector
 
     Serial.begin(115200);
+
+    // Init DFPlayer
+    mySoftwareSerial.begin(9600, SERIAL_8N1, 5, 19);  // RX, TX
+    Serial.println();
+    Serial.println(F("Initializing DFPlayer ... (May take 3~5 seconds)"));
+    if (!myDFPlayer.begin(mySoftwareSerial)) {
+        Serial.println(F("Unable to begin:"));
+        Serial.println(F("1.Please recheck the connection!"));
+        Serial.println(F("2.Please insert the SD card!"));
+        while(true){
+            delay(0); // Code to compatible with ESP32 watch dog.
+        }
+    }
+    Serial.println(F("DFPlayer Mini online."));
+    myDFPlayer.volume(30);  //Set volume value. From 0 to 30
+
     if (!configManager.init()) {
         Serial.println("Failed to init ConfigManager!");
     }

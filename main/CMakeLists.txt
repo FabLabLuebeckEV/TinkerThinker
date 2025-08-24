@@ -9,6 +9,7 @@ set(srcs
     "SystemMonitor.cpp"
     "TinkerThinkerBoard.cpp"
     "WebServerManager.cpp"
+    "DFRobotDFPlayerMini.cpp"
 )
 
 set(includes

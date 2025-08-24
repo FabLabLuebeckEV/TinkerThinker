@@ -16,9 +16,9 @@ TinkerThinkerBoard::TinkerThinkerBoard(ConfigManager* configManager)
     motors[2] = {4, 12, 4, 5};
     motors[3] = {15, 14, 6, 7};
 
-    servos[0] = {13, 8, 90, 500, 2500};
-    servos[1] = {33, 9, 90, 500, 2500};
-    servos[2] = {17, 10, 90, 500, 2500};
+    servos[0] = {13, 8, 180, 500, 2500};
+    servos[1] = {33, 9, 180, 500, 2500};
+    servos[2] = {17, 10, 180, 500, 2500};
 }
 
 void TinkerThinkerBoard::reApplyConfig() {
@@ -68,6 +68,10 @@ void TinkerThinkerBoard::begin() {
     digitalWrite(5, HIGH); // File 1
     pinMode(19, OUTPUT); // File 5
     digitalWrite(19, HIGH); // File 5
+    pinMode(18, OUTPUT); // lauter
+    digitalWrite(18, HIGH); // lauter
+    pinMode(23, OUTPUT); // leiser
+    digitalWrite(23, HIGH); // leider
 
     reApplyConfig() ;   
 
