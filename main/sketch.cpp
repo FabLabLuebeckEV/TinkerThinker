@@ -141,15 +141,25 @@ void processButtons(ControllerPtr ctl) {
             for (int i = 1; i < 20; i++) board.setLED(i, 0, 0, 0);
             board.showLEDs();
         }
-        if (buttonState & BUTTON_R1) {
+        if (buttonState & BUTTON_R2) {
             myDFPlayer.play(1);
             delay(100);
-            printDfPlayerStatus();
+            //printDfPlayerStatus();
         }
-        if (buttonState & BUTTON_L1) {
+        if (buttonState & BUTTON_L2) {
             myDFPlayer.play(2);
             delay(100);
-            printDfPlayerStatus();
+            //printDfPlayerStatus();
+        }
+        if (buttonState & BUTTON_R1) {
+            if (millis() - timestampServo < 1000) return;
+            timestampServo = millis();
+            board.setServoAngle(2, 150);
+            delay(100);
+            board.setServoAngle(2, 180);
+        }
+        if (buttonState & BUTTON_L1) {
+            //board.setServoAngle(2, 130);
         }
     }
 

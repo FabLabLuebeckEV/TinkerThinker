@@ -68,10 +68,10 @@ void TinkerThinkerBoard::begin() {
     //digitalWrite(5, HIGH); // File 1
     //pinMode(19, OUTPUT); // File 5
     //digitalWrite(19, HIGH); // File 5
-    pinMode(18, OUTPUT); // lauter
-    digitalWrite(18, HIGH); // lauter
-    pinMode(23, OUTPUT); // leiser
-    digitalWrite(23, HIGH); // leider
+    //pinMode(18, OUTPUT); // lauter
+    //digitalWrite(18, HIGH); // lauter
+    //pinMode(23, OUTPUT); // leiser
+    //digitalWrite(23, HIGH); // leider
 
     reApplyConfig() ;   
 
