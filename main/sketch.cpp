@@ -64,6 +64,79 @@ void processMouse(ControllerPtr) {}
 void processKeyboard(ControllerPtr) {}
 void processBalanceBoard(ControllerPtr) {}
 
+void printDfPlayerStatus() {
+  Serial.println(F("DFPlayer Status:"));
+  Serial.print(F("  State: "));
+  Serial.println(myDFPlayer.readState());
+  Serial.print(F("  Volume: "));
+  Serial.println(myDFPlayer.readVolume());
+  Serial.print(F("  EQ: "));
+  Serial.println(myDFPlayer.readEQ());
+  Serial.print(F("  Playback Mode: "));
+  Serial.println(myDFPlayer.readMode());
+  Serial.print(F("  File Counts: "));
+  Serial.println(myDFPlayer.readFileCounts());
+  Serial.print(F("  Current Track: "));
+  Serial.println(myDFPlayer.currentTrack());
+  Serial.print(F("  TF Card Status: "));
+  Serial.println(myDFPlayer.readTFCardStatus());
+}
+
+void printDetail(uint8_t type, int value){
+  switch (type) {
+    case TimeOut:
+      Serial.println(F("Time Out!"));
+      break;
+    case WrongStack:
+      Serial.println(F("Stack Wrong!"));
+      break;
+    case DFPlayerCardInserted:
+      Serial.println(F("Card Inserted!"));
+      break;
+    case DFPlayerCardRemoved:
+      Serial.println(F("Card Removed!"));
+      break;
+    case DFPlayerCardOnline:
+      Serial.println(F("Card Online!"));
+      break;
+    case DFPlayerPlayFinished:
+      Serial.print(F("Number:"));
+      Serial.print(value);
+      Serial.println(F(" Play Finished!"));
+      break;
+    case DFPlayerError:
+      Serial.print(F("DFPlayerError:"));
+      switch (value) {
+        case Busy:
+          Serial.println(F("Card not found"));
+          break;
+        case Sleeping:
+          Serial.println(F("Sleeping"));
+          break;
+        case SerialWrongStack:
+          Serial.println(F("Get Wrong Stack"));
+          break;
+        case CheckSumNotMatch:
+          Serial.println(F("Check Sum Not Match"));
+          break;
+        case FileIndexOut:
+          Serial.println(F("File Index Out of Bound"));
+          break;
+        case FileMismatch:
+          Serial.println(F("Cannot Find File"));
+          break;
+        case Advertise:
+          Serial.println(F("In Advertise"));
+          break;
+        default:
+          break;
+      }
+      break;
+    default:
+      break;
+  }
+}
+
 
 // This callback gets called any time a new gamepad is connected.
 void onConnectedController(ControllerPtr ctl) {
@@ -131,9 +204,13 @@ void processButtons(ControllerPtr ctl) {
         }
         if (buttonState & BUTTON_R1) {
             myDFPlayer.play(1);
+            delay(100);
+            printDfPlayerStatus();
         }
         if (buttonState & BUTTON_L1) {
             myDFPlayer.play(2);
+            delay(100);
+            printDfPlayerStatus();
         }
     }
 
@@ -223,6 +300,8 @@ void setup() {
     }
     Serial.println(F("DFPlayer Mini online."));
     myDFPlayer.volume(30);  //Set volume value. From 0 to 30
+    myDFPlayer.enableFeedback();
+    printDfPlayerStatus();
 
     if (!configManager.init()) {
         Serial.println("Failed to init ConfigManager!");
@@ -332,6 +411,10 @@ void loop() {
         nextToggleAt = now + 1000;
     }
     //board.updateWebClients();
+
+    if (myDFPlayer.available()) {
+      printDetail(myDFPlayer.readType(), myDFPlayer.read());
+    }
 
     // A delay is required to prevent the watchdog timer from triggering.
     vTaskDelay(10);
