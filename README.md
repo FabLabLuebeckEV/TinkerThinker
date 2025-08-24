@@ -42,17 +42,30 @@ Note: This project is set up for PlatformIO (recommended). ESP-IDF CLI/IDE can w
 
 Adjust these in `main/TinkerThinkerBoard.cpp` or via runtime settings where available.
 
-## Audio Module
+## Audio Module (DFPlayer Mini)
 
 The firmware supports the DFRobot DFPlayer Mini module for audio playback.
 
 - **Library:** `DFRobotDFPlayerMini`
 - **Functionality:** Plays MP3 files from a MicroSD card.
-- **Control:** The volume can be adjusted, and specific tracks can be played using gamepad buttons.
-  - **R1 Button:** Plays track 1.
-  - **L1 Button:** Plays track 2.
-  - **D-Pad Up/Down:** Increases/decreases volume.
-- **Initialization:** The module is initialized in `setup()` in `sketch.cpp`. Ensure the SD card is inserted and properly connected.
+
+### SD Card Requirements
+
+- **Formatting:** The MicroSD card must be formatted with **FAT16** or **FAT32**.
+- **Folder Structure:** Create a folder named `mp3` in the root directory of the SD card.
+- **File Naming:** Place your MP3 files inside the `mp3` folder and name them with a 4-digit number, followed by the `.mp3` extension. For example:
+  - `0001.mp3`
+  - `0002.mp3`
+  - `0003.mp3`
+
+### Gamepad Control
+
+- **Play Track 1:** Press the **R2** button.
+- **Play Track 2:** Press the **L2** button.
+- **Volume Up:** Press the **D-Pad Up** button.
+- **Volume Down:** Press the **D-Pad Down** button.
+
+- **Initialization:** The module is initialized in `setup()` in `sketch.cpp`. The firmware will play track 1 on startup to confirm that the module is working correctly.
 
 ## Project Layout
 
