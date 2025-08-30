@@ -36,8 +36,8 @@ jobs:
       - name: Show PlatformIO version
         run: pio --version
 
-      - name: Build firmware
-        run: pio run --environment esp32dev
+      - name: Build firmware (add FastLED include path)
+        run: pio run --environment esp32dev --project-option "build_flags=-I components/FastLED/src"
 
       - name: Build LittleFS image
         run: pio run --target buildfs --environment esp32dev
