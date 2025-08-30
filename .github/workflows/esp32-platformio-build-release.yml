@@ -2,9 +2,11 @@ name: ESP32 PlatformIO Build & Release
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, develop, feature/** ]
     paths:
       - '**'
+  pull_request:
+    branches: [ main ]
   workflow_dispatch:
 
 permissions:
@@ -28,7 +30,7 @@ jobs:
         with:
           path: |
             ~/.platformio
-          key: pio-${{ runner.os }}-${{ hashFiles('platformio.ini') }}
+          key: pio-${{ runner.os }}-${{ hashFiles('platformio.ini', 'dependencies.lock') }}
 
       - name: Prepare PlatformIO directories
         run: |
@@ -40,37 +42,33 @@ jobs:
       - name: Show PlatformIO version
         run: pio --version
 
-      - name: Prepare CI PlatformIO config (relax warnings)
-        run: |
-          mkdir -p .pio
-          awk '
-            {
-              print $0;
-              if ($0 ~ /^\[env:esp32dev\]/) {
-                print "build_unflags = -Werror";
-                print "build_flags = -I ${PROJECT_DIR}/components/FastLED/src -Wno-error=deprecated-declarations -Wno-error=unused-variable -Wno-error=unused-parameter";
-              }
-            }
-          ' platformio.ini > .pio/ci_platformio.ini
-
       - name: Show PlatformIO system info
         run: |
           pio system info || true
           pio settings get || true
 
-      - name: Build firmware (verbose, relax warnings)
+      - name: Warm up build config (compiledb)
         env:
           CPATH: ${{ github.workspace }}/components/FastLED/src
           CPLUS_INCLUDE_PATH: ${{ github.workspace }}/components/FastLED/src
         run: |
-          pio run -v --project-conf .pio/ci_platformio.ini --environment esp32dev
+          # Generate compile_commands.json and initialize CMake/IDF config
+          pio run -e esp32dev -t compiledb -j 1 || true
+
+      - name: Build firmware
+        env:
+          CPATH: ${{ github.workspace }}/components/FastLED/src
+          CPLUS_INCLUDE_PATH: ${{ github.workspace }}/components/FastLED/src
+        run: |
+          # Build single-threaded to avoid occasional directory creation races
+          pio run -e esp32dev -j 1
 
       - name: Build LittleFS image
         env:
           CPATH: ${{ github.workspace }}/components/FastLED/src
           CPLUS_INCLUDE_PATH: ${{ github.workspace }}/components/FastLED/src
         run: |
-          pio run --project-conf .pio/ci_platformio.ini --target buildfs --environment esp32dev
+          pio run -e esp32dev -t buildfs -j 1
 
       - name: List output files
         run: ls -l .pio/build/esp32dev || true
@@ -86,14 +84,14 @@ jobs:
             .pio/build/esp32dev/littlefs.bin
           if-no-files-found: warn
 
-      - name: Create GitHub Release and upload assets
+      - name: Create GitHub Release and upload assets (tags only)
+        if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_name }}-${{ github.run_number }}
-          name: Release-${{ github.ref_name }}-${{ github.run_id }}-${{ github.run_number }}
+          name: ${{ github.ref_name }}
           draft: false
           prerelease: false
-          generate_release_notes: false
+          generate_release_notes: true
           files: |
             .pio/build/esp32dev/bootloader.bin
             .pio/build/esp32dev/partitions.bin
