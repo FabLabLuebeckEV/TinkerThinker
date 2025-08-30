@@ -60,15 +60,15 @@ jobs:
 
       - name: Build firmware (verbose, relax warnings)
         env:
-          CPATH: components/FastLED/src
-          CPLUS_INCLUDE_PATH: components/FastLED/src
+          CPATH: ${{ github.workspace }}/components/FastLED/src
+          CPLUS_INCLUDE_PATH: ${{ github.workspace }}/components/FastLED/src
         run: |
           pio run -v --project-conf .pio/ci_platformio.ini --environment esp32dev
 
       - name: Build LittleFS image
         env:
-          CPATH: components/FastLED/src
-          CPLUS_INCLUDE_PATH: components/FastLED/src
+          CPATH: ${{ github.workspace }}/components/FastLED/src
+          CPLUS_INCLUDE_PATH: ${{ github.workspace }}/components/FastLED/src
         run: |
           pio run --project-conf .pio/ci_platformio.ini --target buildfs --environment esp32dev
 
