@@ -62,23 +62,18 @@ jobs:
           ls -l components/FastLED/src/fl/ui.h || true
           ls -l components/FastLED/src/fl/ui_impl.h || true
           if [ -f .pio/build/esp32dev/compile_commands.json ]; then
-            python3 - <<'PY'
-import json, os
-path = '.pio/build/esp32dev/compile_commands.json'
-cc = json.load(open(path))
-cmd = None
-for e in cc:
-    if e.get('file','').endswith('main/sketch.cpp') or e.get('file','').endswith('/sketch.cpp'):
-        cmd = e.get('command') or ' '.join(e.get('arguments', []))
-        break
-print('Found sketch.cpp command' if cmd else 'sketch.cpp compile command not found')
-if cmd:
-    print('--- sketch.cpp compile command ---')
-    print(cmd)
-    print('--- extracted -I include flags ---')
-    incs = [p for p in cmd.split() if p.startswith('-I')]
-    print('\n'.join(incs))
-PY
+            echo "Found compile_commands.json"
+            echo "--- sketch.cpp compile command ---"
+            CMD=$(python3 -c "import json; cc=json.load(open('.pio/build/esp32dev/compile_commands.json'));\
+for e in cc:\n f=e.get('file','');\
+\t\n\t\n\t\n\t\n\t\n\t\n\t\n\t\n\t\n\t\n\t\n\t\n\t\n\t\n\t\n\t\n\t\n\t\n\t\n\t\n\t\n\t\n\t\n\t\n\t\n\t\n\t\n\t\n\t\n\t\n\t\n\t\n\t\n if f.endswith('main/sketch.cpp') or f.endswith('/sketch.cpp'):\n  print(e.get('command') or ' '.join(e.get('arguments', []))); break")
+            if [ -n "$CMD" ]; then
+              echo "$CMD"
+              echo "--- extracted -I include flags ---"
+              echo "$CMD" | grep -oE "-I[^ ]+" || true
+            else
+              echo "sketch.cpp compile command not found"
+            fi
           else
             echo "compile_commands.json missing"
           fi
