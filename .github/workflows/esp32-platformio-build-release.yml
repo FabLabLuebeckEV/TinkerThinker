@@ -15,6 +15,9 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      CPATH: ${{ github.workspace }}/components/FastLED/src
+      CPLUS_INCLUDE_PATH: ${{ github.workspace }}/components/FastLED/src
 
     steps:
       - name: Checkout repository
@@ -48,25 +51,44 @@ jobs:
           pio settings get || true
 
       - name: Warm up build config (compiledb)
-        env:
-          CPATH: ${{ github.workspace }}/components/FastLED/src
-          CPLUS_INCLUDE_PATH: ${{ github.workspace }}/components/FastLED/src
         run: |
           # Generate compile_commands.json and initialize CMake/IDF config
           pio run -e esp32dev -t compiledb -j 1 || true
 
-      - name: Build firmware
-        env:
-          CPATH: ${{ github.workspace }}/components/FastLED/src
-          CPLUS_INCLUDE_PATH: ${{ github.workspace }}/components/FastLED/src
+      - name: Diagnostics: confirm FastLED files and include env
+        run: |
+          echo "CPATH=$CPATH"
+          echo "CPLUS_INCLUDE_PATH=$CPLUS_INCLUDE_PATH"
+          ls -l components/FastLED/src/fl/ui.h || true
+          ls -l components/FastLED/src/fl/ui_impl.h || true
+          if [ -f .pio/build/esp32dev/compile_commands.json ]; then
+            python3 - <<'PY'
+import json, os
+path = '.pio/build/esp32dev/compile_commands.json'
+cc = json.load(open(path))
+cmd = None
+for e in cc:
+    if e.get('file','').endswith('main/sketch.cpp') or e.get('file','').endswith('/sketch.cpp'):
+        cmd = e.get('command') or ' '.join(e.get('arguments', []))
+        break
+print('Found sketch.cpp command' if cmd else 'sketch.cpp compile command not found')
+if cmd:
+    print('--- sketch.cpp compile command ---')
+    print(cmd)
+    print('--- extracted -I include flags ---')
+    incs = [p for p in cmd.split() if p.startswith('-I')]
+    print('\n'.join(incs))
+PY
+          else
+            echo "compile_commands.json missing"
+          fi
+
+      - name: Build firmware (verbose)
         run: |
           # Build single-threaded to avoid occasional directory creation races
-          pio run -e esp32dev -j 1
+          pio run -e esp32dev -j 1 -v
 
       - name: Build LittleFS image
-        env:
-          CPATH: ${{ github.workspace }}/components/FastLED/src
-          CPLUS_INCLUDE_PATH: ${{ github.workspace }}/components/FastLED/src
         run: |
           pio run -e esp32dev -t buildfs -j 1
 
