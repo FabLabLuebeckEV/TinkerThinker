@@ -43,18 +43,17 @@ jobs:
       - name: Prepare CI PlatformIO config (relax warnings)
         run: |
           mkdir -p .pio
-          cp platformio.ini .pio/ci_platformio.ini
-          {
-            echo "";
-            echo "; CI overrides to avoid failing on warnings";
-            echo "[env]";
-            echo "build_unflags = -Werror";
-            echo "build_flags = -Wno-error=deprecated-declarations -Wno-error=unused-variable -Wno-error=unused-parameter";
-            echo "";
-            echo "; Pin toolchain to stable release (avoid aggressive warnings in 14.x)";
-            echo "platform_packages =";
-            echo "  toolchain-xtensa-esp-elf@https://github.com/pioarduino/registry/releases/download/0.0.1/xtensa-esp-elf-13.2.0_20240530.zip";
-          } >> .pio/ci_platformio.ini
+          awk '
+            {
+              print $0;
+              if ($0 ~ /^\[env:esp32dev\]/) {
+                print "build_unflags = -Werror";
+                print "build_flags = -Wno-error=deprecated-declarations -Wno-error=unused-variable -Wno-error=unused-parameter";
+                print "platform_packages =";
+                print "  toolchain-xtensa-esp-elf@https://github.com/pioarduino/registry/releases/download/0.0.1/xtensa-esp-elf-13.2.0_20240530.zip";
+              }
+            }
+          ' platformio.ini > .pio/ci_platformio.ini
 
       - name: Show PlatformIO system info
         run: |
