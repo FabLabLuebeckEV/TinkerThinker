@@ -42,6 +42,7 @@ jobs:
 
       - name: Prepare CI PlatformIO config (relax warnings)
         run: |
+          mkdir -p .pio
           cp platformio.ini .pio/ci_platformio.ini
           {
             echo "";
