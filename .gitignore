@@ -1,6 +1,5 @@
 # esp-idf
 sdkconfig.old
-sdkconfig
 
 # misc
 .pioenvs

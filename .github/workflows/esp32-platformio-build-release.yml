@@ -18,10 +18,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Python
+      - name: Set up Python 3.11 (stable for PIO)
         uses: actions/setup-python@v5
         with:
-          python-version: '3.x'
+          python-version: '3.11'
 
       - name: Cache PlatformIO core and packages
         uses: actions/cache@v4
@@ -29,6 +29,10 @@ jobs:
           path: |
             ~/.platformio
           key: pio-${{ runner.os }}-${{ hashFiles('platformio.ini') }}
+
+      - name: Prepare PlatformIO directories
+        run: |
+          mkdir -p ~/.platformio/packages ~/.platformio/platforms ~/.platformio/cache || true
 
       - name: Install PlatformIO
         run: pip install --upgrade platformio
