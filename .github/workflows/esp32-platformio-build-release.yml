@@ -49,8 +49,6 @@ jobs:
               if ($0 ~ /^\[env:esp32dev\]/) {
                 print "build_unflags = -Werror";
                 print "build_flags = -Wno-error=deprecated-declarations -Wno-error=unused-variable -Wno-error=unused-parameter";
-                print "platform_packages =";
-                print "  toolchain-xtensa-esp-elf@https://github.com/pioarduino/registry/releases/download/0.0.1/xtensa-esp-elf-13.2.0_20240530.zip";
               }
             }
           ' platformio.ini > .pio/ci_platformio.ini
