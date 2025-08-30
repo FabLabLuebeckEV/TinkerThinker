@@ -79,6 +79,8 @@ Adjust these in `main/TinkerThinkerBoard.cpp` or via runtime settings where avai
   - `WebServerManager.*`: Async web server, static files, WebSocket control, config routes.
 - `data/`: Web UI (served from LittleFS) — `index.html`, `config.html`, JS/CSS, and `config.json`.
 - `platformio.ini`: Build environments (ESP32 family) and partitioning.
+ - `PCB/`: Schaltplan/Ansichten (PDF) und 3D‑Objekt der Platine (siehe PCB/README.md).
+ - `CAD/`: Fusion‑360‑Modelle (Baugruppe/Teile) für Gehäuse/Mechanik (siehe CAD/README.md).
 
 ## Quick Start (PlatformIO)
 
