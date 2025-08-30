@@ -63,17 +63,8 @@ jobs:
           ls -l components/FastLED/src/fl/ui_impl.h || true
           if [ -f .pio/build/esp32dev/compile_commands.json ]; then
             echo "Found compile_commands.json"
-            echo "--- sketch.cpp compile command ---"
-            CMD=$(python3 -c "import json; cc=json.load(open('.pio/build/esp32dev/compile_commands.json'));\
-for e in cc:\n f=e.get('file','');\
-\t\n\t\n\t\n\t\n\t\n\t\n\t\n\t\n\t\n\t\n\t\n\t\n\t\n\t\n\t\n\t\n\t\n\t\n\t\n\t\n\t\n\t\n\t\n\t\n\t\n\t\n\t\n\t\n\t\n\t\n\t\n\t\n\t\n if f.endswith('main/sketch.cpp') or f.endswith('/sketch.cpp'):\n  print(e.get('command') or ' '.join(e.get('arguments', []))); break")
-            if [ -n "$CMD" ]; then
-              echo "$CMD"
-              echo "--- extracted -I include flags ---"
-              echo "$CMD" | grep -oE "-I[^ ]+" || true
-            else
-              echo "sketch.cpp compile command not found"
-            fi
+            echo "--- show lines mentioning sketch.cpp and commands ---"
+            grep -nE 'sketch.cpp|"command"|"arguments"' .pio/build/esp32dev/compile_commands.json | sed -n '1,120p' || true
           else
             echo "compile_commands.json missing"
           fi
