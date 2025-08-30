@@ -1,0 +1,76 @@
+name: ESP-IDF Build
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main, develop, feature/** ]
+    paths:
+      - '**'
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      IDF_EXTRA_COMPONENT_DIRS: ${{ github.workspace }}/components:${{ github.workspace }}/managed_components
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements*.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Set up ESP-IDF 5.4.2
+        uses: espressif/setup-idf@v1
+        with:
+          version: v5.4.2
+
+      - name: Show IDF info
+        run: |
+          idf.py --version
+          cmake --version || true
+          python --version
+
+      - name: Build with ESP-IDF
+        run: |
+          idf.py fullclean build
+
+      - name: Install PlatformIO (for LittleFS image)
+        run: |
+          pip install --upgrade platformio
+          pio --version
+
+      - name: Build LittleFS image via PlatformIO
+        run: |
+          # Only builds filesystem image from data/; does not compile firmware
+          pio run -e esp32dev -t buildfs -j 1
+
+      - name: List build outputs
+        run: |
+          echo "-- IDF outputs --"
+          ls -l build || true
+          ls -l build/*.{bin,elf,map} 2>/dev/null || true
+          echo "-- PlatformIO FS image --"
+          ls -l .pio/build/esp32dev/littlefs.bin 2>/dev/null || true
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: esp-idf-build
+          path: |
+            build/*.bin
+            build/*.elf
+            build/*.map
+            .pio/build/esp32dev/littlefs.bin
+          if-no-files-found: warn
