@@ -40,6 +40,17 @@ jobs:
       - name: Show PlatformIO version
         run: pio --version
 
+      - name: Prepare CI PlatformIO config (relax warnings)
+        run: |
+          cp platformio.ini .pio/ci_platformio.ini
+          {
+            echo "";
+            echo "; CI overrides to avoid failing on warnings";
+            echo "[env]";
+            echo "build_unflags = -Werror";
+            echo "build_flags = -Wno-error=deprecated-declarations -Wno-error=unused-variable -Wno-error=unused-parameter";
+          } >> .pio/ci_platformio.ini
+
       - name: Show PlatformIO system info
         run: |
           pio system info || true
@@ -50,21 +61,14 @@ jobs:
           CPATH: components/FastLED/src
           CPLUS_INCLUDE_PATH: components/FastLED/src
         run: |
-          pio run -v \
-            --environment esp32dev \
-            --project-option build_unflags=-Werror \
-            --project-option "build_flags=-Wno-error=deprecated-declarations -Wno-error=unused-variable -Wno-error=unused-parameter"
+          pio run -v --project-conf .pio/ci_platformio.ini --environment esp32dev
 
       - name: Build LittleFS image
         env:
           CPATH: components/FastLED/src
           CPLUS_INCLUDE_PATH: components/FastLED/src
         run: |
-          pio run \
-            --target buildfs \
-            --environment esp32dev \
-            --project-option build_unflags=-Werror \
-            --project-option "build_flags=-Wno-error=deprecated-declarations -Wno-error=unused-variable -Wno-error=unused-parameter"
+          pio run --project-conf .pio/ci_platformio.ini --target buildfs --environment esp32dev
 
       - name: List output files
         run: ls -l .pio/build/esp32dev || true
