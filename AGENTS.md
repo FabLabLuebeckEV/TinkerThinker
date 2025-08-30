@@ -83,12 +83,11 @@ Contact/Context
 
 CI/Workflow Notes (Important)
 - Primary CI: .github/workflows/esp32-platformio-build-release.yml
-  - Builds only `env:esp32dev` via PlatformIO, creates LittleFS image, uploads release assets.
-  - To match local ESP‑IDF builds, CI must see FastLED’s headers under `components/FastLED/src`.
-  - CI difference vs. local: IDF include path resolution can miss `fl/ui_impl.h` unless we add the include path explicitly.
-  - Current fix (no code change): set `CPATH` and `CPLUS_INCLUDE_PATH` to `components/FastLED/src` in workflow steps so GCC finds `fl/*` headers.
+  - Builds `env:esp32dev` via PlatformIO, creates LittleFS image, uploads artifacts.
+  - On every successful push to `main`, creates a GitHub Release with tag `main-YYYYMMDD-HHMM-<shortsha>` and attaches bootloader/partitions/firmware/littlefs images.
+  - Tag‑based releases are still supported and attach the same artifacts.
 - Removed CI: .github/workflows/esp-idf-latest.yaml
-  - Pure ESP‑IDF matrix build (esp32/s3/c3/c6/h2) was removed to avoid duplication; PlatformIO CI is the source of truth.
+  - Pure ESP‑IDF matrix build (esp32/s3/c3/c6/h2) removed to avoid duplication; PlatformIO CI is source of truth.
 - Repo hygiene
   - `.pio/` is ignored via .gitignore; keep PlatformIO build artifacts out of Git.
   - `.github/FUNDING.yml` was removed to avoid “Sponsor this project” badge.
@@ -107,17 +106,48 @@ PlatformIO Config (Reference)
   - `board_build.filesystem = littlefs`
   - Note: Keep vendor components (FastLED, Bluepad32, etc.) in `components/` as the project expects.
 
-FastLED on ESP‑IDF (Gotchas)
-- Code includes from FastLED expect headers under `components/FastLED/src` (e.g., `fl/ui_impl.h`).
-- Locally this resolves via IDF CMake; in CI we reinforce include path using environment vars.
+FastLED Notes
+- FastLED headers live under `components/FastLED/src` (e.g., `fl/ui_impl.h`).
 - Do not change FastLED to header‑only; it has `.cpp` implementations for IDF5 (RMT v5, RGBW utils, etc.).
-  - Build is driven by `components/FastLED/CMakeLists.txt` (kept as‑is from upstream/vendor state).
+- Build is driven by `components/FastLED/CMakeLists.txt` (kept as‑is from vendor).
+- If CI reports missing `fl/ui_impl.h`, verify the vendor tree is complete (e.g., .gitignore didn’t exclude it) rather than adding CI‑only include hacks.
 
 Do/Don’t Summary
 - Do: Keep Arduino‑ESP32 as managed component; no duplicate `components/arduino`.
-- Do: Use PlatformIO workflow; remove/avoid separate ESP‑IDF matrix unless needed.
+- Do: Use PlatformIO workflow; avoid separate ESP‑IDF CI unless necessary.
 - Do: Keep `.pio/` out of Git.
-- Don’t: Modify vendor trees (FastLED/Bluepad32) in CI to “fix” includes; prefer CI include path env instead.
+- Don’t: Modify vendor trees (FastLED/Bluepad32) to “fix” includes; fix root cause (correct vendor files/paths).
+
+Tools
+- `tools/auto_flasher.py`:
+  - Downloads latest release assets (bootloader.bin, partitions.bin, firmware.bin, littlefs.bin).
+  - Reads `platformio.ini` to locate partitions CSV and flash size; parses CSV to compute correct flash offsets.
+  - Flashes via `esptool` at:
+    - bootloader: 0x1000
+    - partitions: 0x8000
+    - app: from `factory` or `ota_0` (current: 0x20000)
+    - fs: from `spiffs`/`littlefs` (current: 0x620000, size 0x180000)
+  - Verifies `littlefs.bin` fits the FS partition; supports auto‑scan of CH340/CP210x serial adapters.
+
+Partition Table (Reference)
+- File: `partitions_dual3mb_1m5spiffs.csv` (8MB flash)
+- Layout:
+  - `ota_0`: app at 0x20000 size 0x300000
+  - `ota_1`: app at 0x320000 size 0x300000
+  - `spiffs` (used with LittleFS): at 0x620000 size 0x180000
+
+Release Artifacts
+- bootloader.bin: ESP-IDF bootloader (offset 0x1000).
+- partitions.bin: Partition table (offset 0x8000).
+- firmware.bin: Main application (offset from `factory`/`ota_0`, current 0x20000).
+- littlefs.bin: LittleFS image for `spiffs` partition (offset 0x620000, size 0x180000).
+
+**How To Flash**
+- Prereqs: Python 3; `pip install esptool requests tqdm pyserial`.
+- Run: `python tools/auto_flasher.py`.
+- Behavior: Downloads latest release assets, reads `platformio.ini` + partitions CSV to compute correct offsets, auto-detects CH340/CP210x ports, erases flash, and writes images.
+- Safety: Verifies `littlefs.bin` fits the FS partition; uses `blacklist.txt` to avoid re-flashing the same MAC.
+- Notes: Adjust erase behavior or port filtering by editing `tools/auto_flasher.py` if needed.
 
 
 **Control Mapping UI Plan**

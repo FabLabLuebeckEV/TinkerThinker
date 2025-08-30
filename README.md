@@ -23,6 +23,8 @@ Note: This project is set up for PlatformIO (recommended). ESP-IDF CLI/IDE can w
 - [BT/Wi‑Fi Coexistence (Scan Timing)](#btwi-fi-coexistence-scan-timing)
 - [Control Arbitration (Last‑Writer‑Wins)](#control-arbitration-lastwriterwins)
 - [Windows CLI Build Notes](#windows-cli-build-notes)
+- [Releases & CI](#releases--ci)
+- [Flash From Release Assets](#flash-from-release-assets)
 - [Arduino Core Note](#arduino-core-note)
 - [Gamepad Controls (Bluepad32)](#gamepad-controls-bluepad32)
 - [Configuration Reference](#configuration-reference)
@@ -217,6 +219,38 @@ If you prefer CLI over the VS Code tasks, use PowerShell and the PlatformIO penv
 - Build: `& "C:\\Users\\mgabr\\.platformio\\penv\\Scripts\\pio.exe" run -e esp32dev`
 - Upload: `& "C:\\Users\\mgabr\\.platformio\\penv\\Scripts\\pio.exe" run -e esp32dev -t upload`
 - Upload FS: `& "C:\\Users\\mgabr\\.platformio\\penv\\Scripts\\pio.exe" run -e esp32dev -t uploadfs`
+
+## Releases & CI
+
+- On every successful push to `main`, GitHub Actions builds the firmware and LittleFS image and creates a Release with a tag like `main-YYYYMMDD-HHMM-<shortsha>`.
+- Attached artifacts:
+  - `bootloader.bin` (offset 0x1000)
+  - `partitions.bin` (offset 0x8000)
+  - `firmware.bin` (app at 0x20000 for the default OTA layout)
+  - `littlefs.bin` (filesystem image for the `spiffs` partition)
+- The Release body summarizes board, platform, flash size, partition CSV, computed offsets, and artifact sizes.
+
+Partition reference (default `partitions_dual3mb_1m5spiffs.csv` on 8MB flash):
+- `ota_0`: 0x20000 size 0x300000
+- `ota_1`: 0x320000 size 0x300000
+- `spiffs` (used with LittleFS): 0x620000 size 0x180000
+
+## Flash From Release Assets
+
+Use the auto‑flasher to download the latest Release and flash with the correct offsets computed from `platformio.ini` + partition CSV.
+
+Prerequisites:
+- Python 3
+- `pip install esptool requests tqdm pyserial`
+
+Steps:
+1) `python tools/auto_flasher.py`
+2) The script downloads the latest artifacts, detects CH340/CP210x serial adapters, erases flash, then writes:
+   - 0x1000 → bootloader.bin
+   - 0x8000 → partitions.bin
+   - app offset from CSV (default 0x20000) → firmware.bin
+   - fs offset from CSV (default 0x620000) → littlefs.bin
+3) The script refuses to flash if `littlefs.bin` exceeds the FS partition size and keeps a `blacklist.txt` of flashed MACs.
 
 ## Arduino Core Note
 
