@@ -81,6 +81,44 @@ Contact/Context
 - This repo is typically built in Windows with PlatformIO.
 - Prior issues included double Arduino inclusion and BT starving Wi‑Fi during association; both addressed as above.
 
+CI/Workflow Notes (Important)
+- Primary CI: .github/workflows/esp32-platformio-build-release.yml
+  - Builds only `env:esp32dev` via PlatformIO, creates LittleFS image, uploads release assets.
+  - To match local ESP‑IDF builds, CI must see FastLED’s headers under `components/FastLED/src`.
+  - CI difference vs. local: IDF include path resolution can miss `fl/ui_impl.h` unless we add the include path explicitly.
+  - Current fix (no code change): set `CPATH` and `CPLUS_INCLUDE_PATH` to `components/FastLED/src` in workflow steps so GCC finds `fl/*` headers.
+- Removed CI: .github/workflows/esp-idf-latest.yaml
+  - Pure ESP‑IDF matrix build (esp32/s3/c3/c6/h2) was removed to avoid duplication; PlatformIO CI is the source of truth.
+- Repo hygiene
+  - `.pio/` is ignored via .gitignore; keep PlatformIO build artifacts out of Git.
+  - `.github/FUNDING.yml` was removed to avoid “Sponsor this project” badge.
+
+PlatformIO Config (Reference)
+- Global defaults (in `[env]`):
+  - `platform = https://github.com/pioarduino/platform-espressif32/releases/download/54.03.21/platform-espressif32.zip`
+  - `framework = espidf`
+  - `monitor_speed = 115200`, `upload_speed = 921600`
+  - `board_build.sdkconfig = sdkconfig.defaults`
+  - `board_build.flash_size = 8MB`, `board_upload.flash_size = 8MB`
+  - `board_build.partitions = partitions_dual3mb_1m5spiffs.csv`
+- `env:esp32dev`:
+  - `board = esp32dev`
+  - `board_build.sdkconfig = sdkconfig.esp32dev`
+  - `board_build.filesystem = littlefs`
+  - Note: Keep vendor components (FastLED, Bluepad32, etc.) in `components/` as the project expects.
+
+FastLED on ESP‑IDF (Gotchas)
+- Code includes from FastLED expect headers under `components/FastLED/src` (e.g., `fl/ui_impl.h`).
+- Locally this resolves via IDF CMake; in CI we reinforce include path using environment vars.
+- Do not change FastLED to header‑only; it has `.cpp` implementations for IDF5 (RMT v5, RGBW utils, etc.).
+  - Build is driven by `components/FastLED/CMakeLists.txt` (kept as‑is from upstream/vendor state).
+
+Do/Don’t Summary
+- Do: Keep Arduino‑ESP32 as managed component; no duplicate `components/arduino`.
+- Do: Use PlatformIO workflow; remove/avoid separate ESP‑IDF matrix unless needed.
+- Do: Keep `.pio/` out of Git.
+- Don’t: Modify vendor trees (FastLED/Bluepad32) in CI to “fix” includes; prefer CI include path env instead.
+
 
 **Control Mapping UI Plan**
 - Goal: Add a web UI to fully configure input→action mappings: map any gamepad button or stick direction/axis to actions such as driving specific motor pairs, setting servo positions or angles, changing LED colors, or toggling GPIO pins.
