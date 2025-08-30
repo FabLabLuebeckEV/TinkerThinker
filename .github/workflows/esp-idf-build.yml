@@ -18,33 +18,13 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Python 3.11
-        uses: actions/setup-python@v5
+      - name: Build with ESP-IDF (release-v5.4)
+        uses: espressif/esp-idf-ci-action@v1
         with:
-          python-version: '3.11'
-
-      - name: Cache pip
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements*.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
-
-      - name: Set up ESP-IDF 5.4.2
-        uses: espressif/setup-idf@v1
-        with:
-          version: v5.4.2
-
-      - name: Show IDF info
-        run: |
-          idf.py --version
-          cmake --version || true
-          python --version
-
-      - name: Build with ESP-IDF
-        run: |
-          idf.py fullclean build
+          esp_idf_version: release-v5.4
+          target: esp32
+          path: '.'
+          command: 'idf.py fullclean build'
 
       - name: Install PlatformIO (for LittleFS image)
         run: |
