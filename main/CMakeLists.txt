@@ -9,6 +9,7 @@ set(srcs
     "SystemMonitor.cpp"
     "TinkerThinkerBoard.cpp"
     "WebServerManager.cpp"
+    "InputBindingManager.cpp"
 )
 
 set(includes
