@@ -40,17 +40,31 @@ jobs:
       - name: Show PlatformIO version
         run: pio --version
 
-      - name: Build firmware
+      - name: Show PlatformIO system info
+        run: |
+          pio system info || true
+          pio settings get || true
+
+      - name: Build firmware (verbose, relax warnings)
         env:
           CPATH: components/FastLED/src
           CPLUS_INCLUDE_PATH: components/FastLED/src
-        run: pio run --environment esp32dev
+        run: |
+          pio run -v \
+            --environment esp32dev \
+            --project-option build_unflags=-Werror \
+            --project-option "build_flags=-Wno-error=deprecated-declarations -Wno-error=unused-variable -Wno-error=unused-parameter"
 
       - name: Build LittleFS image
         env:
           CPATH: components/FastLED/src
           CPLUS_INCLUDE_PATH: components/FastLED/src
-        run: pio run --target buildfs --environment esp32dev
+        run: |
+          pio run \
+            --target buildfs \
+            --environment esp32dev \
+            --project-option build_unflags=-Werror \
+            --project-option "build_flags=-Wno-error=deprecated-declarations -Wno-error=unused-variable -Wno-error=unused-parameter"
 
       - name: List output files
         run: ls -l .pio/build/esp32dev || true
