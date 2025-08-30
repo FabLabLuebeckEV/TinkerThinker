@@ -15,9 +15,6 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-    env:
-      CPATH: ${{ github.workspace }}/components/FastLED/src
-      CPLUS_INCLUDE_PATH: ${{ github.workspace }}/components/FastLED/src
 
     steps:
       - name: Checkout repository
@@ -50,29 +47,10 @@ jobs:
           pio system info || true
           pio settings get || true
 
-      - name: Warm up build config (compiledb)
-        run: |
-          # Generate compile_commands.json and initialize CMake/IDF config
-          pio run -e esp32dev -t compiledb -j 1 || true
-
-      - name: "Diagnostics: confirm FastLED files and include env"
-        run: |
-          echo "CPATH=$CPATH"
-          echo "CPLUS_INCLUDE_PATH=$CPLUS_INCLUDE_PATH"
-          ls -l components/FastLED/src/fl/ui.h || true
-          ls -l components/FastLED/src/fl/ui_impl.h || true
-          if [ -f .pio/build/esp32dev/compile_commands.json ]; then
-            echo "Found compile_commands.json"
-            echo "--- show lines mentioning sketch.cpp and commands ---"
-            grep -nE 'sketch.cpp|"command"|"arguments"' .pio/build/esp32dev/compile_commands.json | sed -n '1,120p' || true
-          else
-            echo "compile_commands.json missing"
-          fi
-
-      - name: Build firmware (verbose)
+      - name: Build firmware
         run: |
           # Build single-threaded to avoid occasional directory creation races
-          pio run -e esp32dev -j 1 -v
+          pio run -e esp32dev -j 1
 
       - name: Build LittleFS image
         run: |

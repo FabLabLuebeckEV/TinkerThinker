@@ -30,6 +30,3 @@ set(requires
 idf_component_register(SRCS "${srcs}"
                        INCLUDE_DIRS ${includes}
                        REQUIRES ${requires})
-
-# Ensure FastLED UI headers are not required during IDF builds
-target_compile_definitions(${COMPONENT_LIB} PRIVATE FASTLED_LEAN_AND_MEAN=1)
