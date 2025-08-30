@@ -59,6 +59,74 @@ jobs:
       - name: List output files
         run: ls -l .pio/build/esp32dev || true
 
+      - name: Generate release body
+        run: |
+          python3 - <<'PY'
+          import os, csv, json, hashlib
+          ini = 'platformio.ini'
+          pfile = None
+          board = 'unknown'
+          platform = 'unknown'
+          flash_size = 'unknown'
+          if os.path.isfile(ini):
+              with open(ini,'r',encoding='utf-8') as f:
+                  for line in f:
+                      s=line.strip()
+                      if s.startswith('board_build.partitions'):
+                          pfile=s.split('=',1)[1].strip()
+                      elif s.startswith('board ='):
+                          board=s.split('=',1)[1].strip()
+                      elif s.startswith('platform ='):
+                          platform=s.split('=',1)[1].strip()
+                      elif s.startswith('board_build.flash_size'):
+                          flash_size=s.split('=',1)[1].strip()
+          app_off = '0x20000'
+          fs_off = 'unknown'
+          fs_size = 'unknown'
+          if pfile and os.path.isfile(pfile):
+              with open(pfile,'r',encoding='utf-8') as f:
+                  r=csv.reader(f)
+                  for row in r:
+                      if not row or row[0].strip().startswith('#'):
+                          continue
+                      name=row[0].strip().lower(); typ=row[1].strip().lower(); sub=row[2].strip().lower()
+                      off=row[3].strip().lower(); size=row[4].strip().lower()
+                      def tohex(s):
+                          if s.startswith('0x'): return s
+                          if s.endswith('m'): return hex(int(s[:-1])*1024*1024)
+                          if s.endswith('k'): return hex(int(s[:-1])*1024)
+                          return hex(int(s))
+                      if typ=='app' and (name=='factory' or sub=='ota_0'):
+                          app_off = tohex(off)
+                      if typ=='data' and (sub=='spiffs' or sub=='littlefs'):
+                          fs_off = tohex(off); fs_size = tohex(size)
+          def sz(p):
+              try:
+                  return os.path.getsize(p)
+              except: return 0
+          bl='.pio/build/esp32dev/bootloader.bin'; pt='.pio/build/esp32dev/partitions.bin'; fw='.pio/build/esp32dev/firmware.bin'; fs='.pio/build/esp32dev/littlefs.bin'
+          body = []
+          body.append(f"Board: {board}")
+          body.append(f"Platform: {platform}")
+          body.append(f"Flash Size: {flash_size}")
+          body.append(f"Partitions CSV: {pfile or 'unknown'}")
+          body.append("")
+          body.append("Offsets")
+          body.append(f"- bootloader: 0x1000")
+          body.append(f"- partitions: 0x8000")
+          body.append(f"- app: {app_off}")
+          body.append(f"- fs: {fs_off} (size {fs_size})")
+          body.append("")
+          body.append("Artifacts (size bytes)")
+          body.append(f"- bootloader.bin: {sz(bl)}")
+          body.append(f"- partitions.bin: {sz(pt)}")
+          body.append(f"- firmware.bin: {sz(fw)}")
+          body.append(f"- littlefs.bin: {sz(fs)}")
+          with open('RELEASE_BODY.md','w',encoding='utf-8') as f:
+              f.write('\n'.join(body))
+          print('Generated RELEASE_BODY.md')
+          PY
+
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -70,6 +138,31 @@ jobs:
             .pio/build/esp32dev/littlefs.bin
           if-no-files-found: warn
 
+      - name: Compute release metadata (main branch)
+        if: github.ref == 'refs/heads/main'
+        id: relmeta
+        run: |
+          SHORT_SHA=${GITHUB_SHA::7}
+          DATE=$(date -u +'%Y%m%d-%H%M')
+          echo "tag=main-${DATE}-${SHORT_SHA}" >> $GITHUB_OUTPUT
+          echo "name=Main Build ${DATE} (${SHORT_SHA})" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release (main branch)
+        if: github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.relmeta.outputs.tag }}
+          name: ${{ steps.relmeta.outputs.name }}
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          body_path: RELEASE_BODY.md
+          files: |
+            .pio/build/esp32dev/bootloader.bin
+            .pio/build/esp32dev/partitions.bin
+            .pio/build/esp32dev/firmware.bin
+            .pio/build/esp32dev/littlefs.bin
+
       - name: Create GitHub Release and upload assets (tags only)
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
@@ -78,6 +171,7 @@ jobs:
           draft: false
           prerelease: false
           generate_release_notes: true
+          body_path: RELEASE_BODY.md
           files: |
             .pio/build/esp32dev/bootloader.bin
             .pio/build/esp32dev/partitions.bin
