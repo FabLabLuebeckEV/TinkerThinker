@@ -20,11 +20,13 @@ jobs:
 
       - name: Build with ESP-IDF (release-v5.4)
         uses: espressif/esp-idf-ci-action@v1
+        env:
+          IDF_COMPONENT_MANAGER_SKIP_LOCK_CHECK: "1"
         with:
           esp_idf_version: release-v5.4
           target: esp32
           path: '.'
-          command: 'idf.py fullclean build'
+          command: 'rm -rf managed_components || true && idf.py fullclean build'
 
       - name: Install PlatformIO (for LittleFS image)
         run: |
