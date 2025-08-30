@@ -1,0 +1,71 @@
+name: ESP32 PlatformIO Build & Release
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - '**'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Cache PlatformIO core and packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.platformio
+          key: pio-${{ runner.os }}-${{ hashFiles('platformio.ini') }}
+
+      - name: Install PlatformIO
+        run: pip install --upgrade platformio
+
+      - name: Show PlatformIO version
+        run: pio --version
+
+      - name: Build firmware
+        run: pio run --environment esp32dev
+
+      - name: Build LittleFS image
+        run: pio run --target buildfs --environment esp32dev
+
+      - name: List output files
+        run: ls -l .pio/build/esp32dev || true
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: esp32dev-artifacts
+          path: |
+            .pio/build/esp32dev/bootloader.bin
+            .pio/build/esp32dev/partitions.bin
+            .pio/build/esp32dev/firmware.bin
+            .pio/build/esp32dev/littlefs.bin
+          if-no-files-found: warn
+
+      - name: Create GitHub Release and upload assets
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}-${{ github.run_number }}
+          name: Release-${{ github.ref_name }}-${{ github.run_id }}-${{ github.run_number }}
+          draft: false
+          prerelease: false
+          generate_release_notes: false
+          files: |
+            .pio/build/esp32dev/bootloader.bin
+            .pio/build/esp32dev/partitions.bin
+            .pio/build/esp32dev/firmware.bin
+            .pio/build/esp32dev/littlefs.bin
