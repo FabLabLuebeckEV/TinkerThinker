@@ -7,6 +7,11 @@ cmake_minimum_required(VERSION 3.5)
 # Collect all source files
 file(GLOB FastLED_SRCS "src/*.cpp")
 file(GLOB FastLED_FL_SRCS "src/fl/*.cpp")
+# If the UI implementation header is missing in this vendor tree,
+# avoid compiling the UI sources which depend on it.
+if(NOT EXISTS "${CMAKE_CURRENT_LIST_DIR}/src/fl/ui_impl.h")
+    list(REMOVE_ITEM FastLED_FL_SRCS "${CMAKE_CURRENT_LIST_DIR}/src/fl/ui.cpp")
+endif()
 file(GLOB FastLED_SENSORS_SRCS "src/sensors/*.cpp")
 file(GLOB FastLED_FX_SRCS "src/fx/*.cpp" "src/fx/**/*.cpp")
 
