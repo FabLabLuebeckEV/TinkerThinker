@@ -75,9 +75,11 @@ input[type="submit"]:hover, .action-buttons button:hover, .test-buttons button:h
   margin-top: 10px;
 }
 
-.test-buttons button {
-  margin-right: 5px;
-}
+.test-buttons button { margin-right: 8px; }
+
+.motor-block, .servo-block { border: 1px solid #ddd; }
+
+.row label { min-width: 120px; }
 
 .action-buttons {
   text-align: center;

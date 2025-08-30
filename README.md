@@ -8,6 +8,31 @@ Key components used: Arduino-ESP32, Bluepad32, BTStack, ESPAsyncWebServer, Ardui
 
 Note: This project is set up for PlatformIO (recommended). ESP-IDF CLI/IDE can work, but is not the primary path here.
 
+## Inhaltsverzeichnis
+- [Features](#features)
+- [Hardware Overview (default pins)](#hardware-overview-default-pins)
+- [Project Layout](#project-layout)
+- [Quick Start (PlatformIO)](#quick-start-platformio)
+- [First Run and Web UI](#first-run-and-web-ui)
+- [Seitenübersicht & Bedienung](#seitenübersicht--bedienung)
+  - [Steuerung (`/`)](#steuerung-)
+  - [Konfiguration (`/config`)](#konfiguration-config)
+  - [Steuerungs-Editor (`/controls`)](#steuerungs-editor-controls)
+  - [Setup-Assistent (`/setup`)](#setup-assistent-setup)
+- [Controls-Editor Legende](#controls-editor-legende)
+- [BT/Wi‑Fi Coexistence (Scan Timing)](#btwi-fi-coexistence-scan-timing)
+- [Control Arbitration (Last‑Writer‑Wins)](#control-arbitration-lastwriterwins)
+- [Windows CLI Build Notes](#windows-cli-build-notes)
+- [Arduino Core Note](#arduino-core-note)
+- [Gamepad Controls (Bluepad32)](#gamepad-controls-bluepad32)
+- [Configuration Reference](#configuration-reference)
+- [Troubleshooting](#troubleshooting)
+- [Development Notes](#development-notes)
+- [License](#license)
+- [Acknowledgements](#acknowledgements)
+- [Further info](#further-info)
+- [Support](#support)
+
 ## Features
 
 - Gamepad control: Bluepad32 with automatic pairing and multiple controller types supported.
@@ -15,7 +40,7 @@ Note: This project is set up for PlatformIO (recommended). ESP-IDF CLI/IDE can w
 - 3 servos: Adjustable pulse width range per servo; angle control from gamepad and web UI.
 - WS2812 LEDs: Configurable LED count; simple color feedback and status.
 - Web UI (LittleFS): Live dashboard, motor/servo testing, and configuration at `/` and `/config`.
-- Controls mapping UI: Edit input→action mappings at `/controls` (JSON-based editor for now).
+- Controls mapping UI: Konfigurierbarer Steuerungs‑Editor unter `/controls` (formularbasiert).
 - Wi‑Fi AP/STA: Runs as hotspot or joins existing Wi‑Fi; live WebSocket updates.
 - Monitoring: Battery voltage/percentage estimation and H-bridge fault/current sampling.
 
@@ -94,10 +119,10 @@ Wi‑Fi defaults (change later in the config UI):
 
 Connect to the AP, then browse to `http://192.168.4.1/`:
 
-- `/` Dashboard: Live status (battery, motors, LEDs) and basic controls.
-- `/config`: Full configuration form (motors invert/deadband/frequency, LED count, Wi‑Fi mode/credentials, OTA flag, servo pulse ranges). Changes persist in LittleFS (`/config.json`).
-- `/controls`: JSON editor for "control_bindings" (map buttons/D‑Pad/sticks to actions like drive pairs, servo angles, LED colors, GPIO, speed scale).
-- `/setup`: Additional setup page (if used).
+- `/` Dashboard: Live‑Status (Batterie, Motoren, LEDs) und Grundfunktionen.
+- `/config`: Vollständige Konfiguration (Motor invert/deadband/frequency, LED‑Anzahl, Wi‑Fi, OTA, Servo‑Pulse). Änderungen persistieren in LittleFS (`/config.json`).
+- `/controls`: Steuerungs‑Editor für „control_bindings“ (Buttons/D‑Pad/Sticks → Aktionen wie Antriebspaare, Servo‑Winkel, LED‑Farben, GPIO, Speed‑Skalierung).
+- `/setup`: Setup‑Assistent für die Motor‑Zuordnung und Deadband‑Ermittlung.
 
 The UI communicates via WebSocket for low-latency updates and test actions.
 
@@ -122,6 +147,66 @@ Both a Bluetooth controller and the Web UI can drive the motors. To avoid confli
 - Prevents a neutral message from one source cancelling motion commanded by the other.
 
 Implementation lives in `TinkerThinkerBoard` via source‑aware methods like `requestDriveFromBT/WS()`.
+
+## Seitenübersicht & Bedienung
+
+### Steuerung (`/`)
+- Live‑Status der Hardware und einfache Tests (z. B. Servo‑Slider, Motor‑Buttons).
+- Nützlich für schnelle Funktionsprüfungen nach dem Flashen.
+
+### Konfiguration (`/config`)
+- Motoren: Invertierung, Deadband (mit Slider + Zahl und direktem Deadband‑Test), PWM‑Frequenz.
+- Servos: Min/Max‑Pulse (Slider + Zahl) mit Test‑Buttons 0°/90°/180°.
+- LEDs: Anzahl (Slider + Zahl).
+- Wi‑Fi: AP/STA‑Modus, SSID/Passwörter; Neustart‑Hinweis bei Änderung.
+- Erweiterte BT‑Scan‑Timings.
+- Tipp: Nach UI‑Änderungen „Speichern“, die Werte werden in `/config.json` abgelegt.
+- Querverweis: Für die Tasten‑ und Stick‑Belegung siehe [Steuerungs‑Editor](/controls).
+
+### Steuerungs-Editor (`/controls`)
+- Visueller Editor, um beliebige Eingaben (Buttons, D‑Pad, Sticks) auf Aktionen zu mappen.
+- Bindings laden/speichern; Änderungen greifen ohne Neustart (Bindings werden zyklisch neu geladen).
+- Querverweis: Die Actions nutzen die bestehenden `TinkerThinkerBoard`‑APIs und respektieren die [Control Arbitration](#control-arbitration-lastwriterwins).
+
+### Setup-Assistent (`/setup`)
+- Geführte Ersteinrichtung für Motor‑Zuordnung, Drehrichtung und Deadband‑Ermittlung.
+- Querverweis: Feinabstimmung später jederzeit unter [/config](/config).
+
+## Controls-Editor Legende
+
+Eingaben (Input):
+- Typ „button“:
+  - Codes: `BTN_A`, `BTN_B`, `BTN_X`, `BTN_Y`, `BUTTON_L1`, `BUTTON_R1`, `BUTTON_L2`, `BUTTON_R2`, `BUTTON_STICK_L`, `BUTTON_STICK_R`.
+  - Edge: `press` (Kante), `release`, `hold`.
+- Typ „dpad“:
+  - Richtung: `UP`, `DOWN`, `LEFT`, `RIGHT`.
+  - Edge: `press`, `release`, `hold`.
+- Typ „axis_pair“:
+  - Achsen: `X`, `Y`, `RX`, `RY` (Left/Right Stick, X/Y‑Achsen).
+  - Parameter: `deadband` (z. B. 16).
+
+Aktionen (Action):
+- `drive_pair`:
+  - Parameter: `target` = `gui` (konfiguriertes Paar) oder `other` (übriges Paar).
+- `servo_set`:
+  - Parameter: `servo` (0..2), `angle` (0..180).
+- `servo_toggle_band`:
+  - Parameter: `servo` (0..2), `bands` (z. B. `[0,90]` oder `[90,180]`).
+- `servo_nudge`:
+  - Parameter: `servo` (0..2), `delta` (z. B. `+10`/`-10`).
+- `servo_axes`:
+  - Parameter: `servo` (0..2), `scale` (z. B. 1.0). Interpretiert Achsenwert als Winkel um 90° (neutral).
+- `led_set`:
+  - Parameter: `start`, `count`, `color` (Hex `#RRGGBB`).
+- `gpio_set`:
+  - Parameter: `pin`, `level` (`0/1`).
+- `speed_adjust`:
+  - Parameter: `delta` (z. B. `+0.1`/`-0.1`). Skaliert PWM‑Ausgabe global.
+
+Hinweise:
+- Achsen‑Aktionen (`axis_pair`) senden kontinuierlich; Button/D‑Pad sind ereignisgesteuert (edge/hold).
+- Fahrbefehle laufen über die `requestDrive*`‑Methoden und unterliegen der [Last‑Writer‑Wins‑Arbitration](#control-arbitration-lastwriterwins).
+- Bindings liegen in `/config.json` unter `control_bindings` (werden per UI geladen/gespeichert).
 
 ## Windows CLI Build Notes
 

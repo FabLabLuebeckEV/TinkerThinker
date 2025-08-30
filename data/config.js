@@ -103,6 +103,14 @@ function testMotor(motorIndex, action) {
   sendWebSocketMessage(command);
 }
 
+// Direkte PWM-Testfunktion
+function testMotorPWM(motorIndex, pwm) {
+  let motorChar = String.fromCharCode(65 + motorIndex);
+  let command = {};
+  command[`motor${motorChar}`] = String(parseInt(pwm, 10));
+  sendWebSocketMessage(command);
+}
+
 // Test Servo Funktion
 function testServo(servoIndex, angle) {
   let command = {};
@@ -169,21 +177,50 @@ async function loadConfig() {
       mDiv.classList.add('motor-block');
       mDiv.innerHTML = `
         <h4>Motor ${motorLabels[i]}</h4>
-        <label>Umkehren:</label> <input type="checkbox" name="motor_invert_${i}" ${motor_invert[i] ? 'checked' : ''}><br>
-        <label>Deadband:</label> <input type="number" name="motor_deadband_${i}" value="${motor_deadband[i]}" min="0" max="1024"><br>
-        <label>Frequenz:</label> <input type="number" name="motor_frequency_${i}" value="${motor_frequency[i]}" min="100" max="100000"><br>
-        <!-- Test Buttons für den Motor -->
-        <div class="test-buttons">
+        <div class="row">
+          <label>Umkehren:</label> <input type="checkbox" name="motor_invert_${i}" ${motor_invert[i] ? 'checked' : ''}>
+        </div>
+        <div class="row" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+          <label for="motor_deadband_${i}">Deadband:</label>
+          <input type="number" id="motor_deadband_${i}" name="motor_deadband_${i}" value="${motor_deadband[i]}" min="0" max="255" style="width:90px;">
+          <input type="range" id="db_slider_${i}" min="0" max="255" value="${Math.min(255, Math.max(0, motor_deadband[i]))}">
+          <span id="db_val_${i}">${motor_deadband[i]}</span>
+          <button type="button" onclick="testMotorPWM(${i}, document.getElementById('motor_deadband_${i}').value)">Test Vorwärts (DB)</button>
+          <button type="button" onclick="testMotorPWM(${i}, -document.getElementById('motor_deadband_${i}').value)">Test Rückwärts (DB)</button>
+        </div>
+        <div class="row">
+          <label>Frequenz:</label> <input type="number" name="motor_frequency_${i}" value="${motor_frequency[i]}" min="100" max="100000">
+        </div>
+        <div class="row test-buttons">
           <button type="button" onclick="testMotor(${i}, 'forward')">Vorwärts</button>
           <button type="button" onclick="testMotor(${i}, 'backward')">Rückwärts</button>
           <button type="button" onclick="testMotor(${i}, 'stop')">Stopp</button>
         </div>
       `;
       motorsDiv.appendChild(mDiv);
+      // Slider <-> Number sync
+      const num = mDiv.querySelector(`#motor_deadband_${i}`);
+      const slider = mDiv.querySelector(`#db_slider_${i}`);
+      const lbl = mDiv.querySelector(`#db_val_${i}`);
+      const sync = (fromSlider) => {
+        if (fromSlider) num.value = slider.value; else slider.value = Math.min(255, Math.max(0, parseInt(num.value||'0',10)));
+        lbl.textContent = num.value;
+      };
+      num.addEventListener('input', () => sync(false));
+      slider.addEventListener('input', () => sync(true));
+      sync(true);
     }
 
     // LED
     document.getElementById('led_count').value = data.led_count;
+    const ledNum = document.getElementById('led_count');
+    const ledSl = document.getElementById('led_count_slider');
+    const ledLbl = document.getElementById('led_count_val');
+    ledSl.value = Math.max(parseInt(ledNum.min||'1',10), Math.min(parseInt(ledNum.max||'300',10), data.led_count||30));
+    ledLbl.textContent = ledNum.value;
+    const syncLed = (fromSlider)=>{ if (fromSlider) ledNum.value = ledSl.value; else ledSl.value = ledNum.value; ledLbl.textContent = ledNum.value; };
+    ledNum.addEventListener('input', ()=>syncLed(false));
+    ledSl.addEventListener('input', ()=>syncLed(true));
 
     // OTA
     document.getElementById('ota_enabled').checked = data.ota_enabled;
@@ -205,15 +242,37 @@ async function loadConfig() {
       sDiv.classList.add('servo-block');
       sDiv.innerHTML = `
         <h4>Servo ${idx}</h4>
-        <label>Min Pulse:</label> <input type="number" name="servo${idx}_min" value="${servo.min_pulsewidth}" min="100" max="3000"><br>
-        <label>Max Pulse:</label> <input type="number" name="servo${idx}_max" value="${servo.max_pulsewidth}" min="100" max="3000"><br>
-        <!-- Test Buttons für den Servo -->
+        <div class="row" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+          <label for="servo${idx}_min">Min Pulse:</label>
+          <input type="number" id="servo${idx}_min" name="servo${idx}_min" value="${servo.min_pulsewidth}" min="100" max="3000" style="width:100px;">
+          <input type="range" id="servo${idx}_min_slider" min="100" max="3000" value="${servo.min_pulsewidth}"> <span id="servo${idx}_min_val">${servo.min_pulsewidth}</span>
+        </div>
+        <div class="row" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+          <label for="servo${idx}_max">Max Pulse:</label>
+          <input type="number" id="servo${idx}_max" name="servo${idx}_max" value="${servo.max_pulsewidth}" min="100" max="3000" style="width:100px;">
+          <input type="range" id="servo${idx}_max_slider" min="100" max="3000" value="${servo.max_pulsewidth}"> <span id="servo${idx}_max_val">${servo.max_pulsewidth}</span>
+        </div>
         <div class="test-buttons">
           <button type="button" onclick="testServo(${idx}, 0)">0°</button>
+          <button type="button" onclick="testServo(${idx}, 90)">90°</button>
           <button type="button" onclick="testServo(${idx}, 180)">180°</button>
         </div>
       `;
       servosDiv.appendChild(sDiv);
+      // Servo sliders sync
+      const minNum = sDiv.querySelector(`#servo${idx}_min`);
+      const minS = sDiv.querySelector(`#servo${idx}_min_slider`);
+      const minV = sDiv.querySelector(`#servo${idx}_min_val`);
+      const maxNum = sDiv.querySelector(`#servo${idx}_max`);
+      const maxS = sDiv.querySelector(`#servo${idx}_max_slider`);
+      const maxV = sDiv.querySelector(`#servo${idx}_max_val`);
+      const syncMin = (fromSlider)=>{ if(fromSlider) minNum.value=minS.value; else minS.value=minNum.value; minV.textContent=minNum.value; };
+      const syncMax = (fromSlider)=>{ if(fromSlider) maxNum.value=maxS.value; else maxS.value=maxNum.value; maxV.textContent=maxNum.value; };
+      minNum.addEventListener('input', ()=>syncMin(false));
+      minS.addEventListener('input', ()=>syncMin(true));
+      maxNum.addEventListener('input', ()=>syncMax(false));
+      maxS.addEventListener('input', ()=>syncMax(true));
+      syncMin(true); syncMax(true);
     });
   } catch (error) {
     console.error("Fehler beim Laden der Konfiguration:", error);
