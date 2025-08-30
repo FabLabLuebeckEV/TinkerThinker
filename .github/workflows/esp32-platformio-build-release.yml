@@ -48,7 +48,7 @@ jobs:
               print $0;
               if ($0 ~ /^\[env:esp32dev\]/) {
                 print "build_unflags = -Werror";
-                print "build_flags = -Wno-error=deprecated-declarations -Wno-error=unused-variable -Wno-error=unused-parameter";
+                print "build_flags = -I components/FastLED/src -Wno-error=deprecated-declarations -Wno-error=unused-variable -Wno-error=unused-parameter";
               }
             }
           ' platformio.ini > .pio/ci_platformio.ini
