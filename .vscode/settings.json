@@ -1,6 +1,6 @@
 {
     "cmake.ignoreCMakeListsMissing": true,
-    "idf.portWin": "COM6",
+    "idf.portWin": "COM4",
     "idf.espIdfPathWin": "C:/Espressif/frameworks/esp-idf-v4.4/",
     "idf.toolsPathWin": "C:\\Espressif",
     "idf.pythonInstallPath": "C:\\Espressif\\tools\\idf-python\\3.11.2\\python.exe"
