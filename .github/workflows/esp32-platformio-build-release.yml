@@ -55,7 +55,7 @@ jobs:
           # Generate compile_commands.json and initialize CMake/IDF config
           pio run -e esp32dev -t compiledb -j 1 || true
 
-      - name: Diagnostics: confirm FastLED files and include env
+      - name: "Diagnostics: confirm FastLED files and include env"
         run: |
           echo "CPATH=$CPATH"
           echo "CPLUS_INCLUDE_PATH=$CPLUS_INCLUDE_PATH"
