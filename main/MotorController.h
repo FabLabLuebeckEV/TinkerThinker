@@ -23,6 +23,8 @@ public:
     void controlMotorBackward(int motorIndex);
     void controlMotorStop(int motorIndex);
     int getMotorPWM(int motorIndex);
+    void setSpeedMultiplier(float m);
+    float getSpeedMultiplier() const { return speedMultiplier; }
 
 private:
     Motor* motors;
@@ -32,6 +34,7 @@ private:
 
     int freq[4];
     int deadband[4];
+    float speedMultiplier = 1.0f;
 
     int scaleMovementToPWM(float movement);
 };

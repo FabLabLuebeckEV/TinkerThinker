@@ -64,14 +64,6 @@ void TinkerThinkerBoard::begin() {
     config->init();
     pinMode(POWER_ON_PIN, OUTPUT);
     digitalWrite(POWER_ON_PIN, HIGH);
-    pinMode(5, OUTPUT); // File 1
-    digitalWrite(5, HIGH); // File 1
-    pinMode(19, OUTPUT); // File 5
-    digitalWrite(19, HIGH); // File 5
-    pinMode(18, OUTPUT); // lauter
-    digitalWrite(18, HIGH); // lauter
-    pinMode(23, OUTPUT); // leiser
-    digitalWrite(23, HIGH); // leider
 
     reApplyConfig() ;   
 
@@ -160,6 +152,14 @@ float TinkerThinkerBoard::getHBridgeAmps(int motorIndex) {
 
 int TinkerThinkerBoard::getMotorPWM(int motorIndex) {
     return motorController->getMotorPWM(motorIndex);
+}
+
+void TinkerThinkerBoard::setSpeedMultiplier(float m) {
+    if (motorController) motorController->setSpeedMultiplier(m);
+}
+
+float TinkerThinkerBoard::getSpeedMultiplier() {
+    return motorController ? motorController->getSpeedMultiplier() : 1.0f;
 }
 
 void TinkerThinkerBoard::updateWebClients() {

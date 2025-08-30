@@ -53,12 +53,16 @@ void MotorController::controlMotor(int index, int pwmValue) {
 
     pwmValue = constrain(pwmValue, -maxPWM, maxPWM);
 
+    // Apply global speed multiplier just before output
+    int magnitude = (int)(abs(pwmValue) * speedMultiplier);
+    magnitude = constrain(magnitude, 0, maxPWM);
+
     if (pwmValue >= 0) {
-        ledcWrite(motors[index].pin1, pwmValue);
+        ledcWrite(motors[index].pin1, magnitude);
         ledcWrite(motors[index].pin2, 0);
     } else {
         ledcWrite(motors[index].pin1, 0);
-        ledcWrite(motors[index].pin2, -pwmValue);
+        ledcWrite(motors[index].pin2, magnitude);
     }
 }
 
@@ -143,4 +147,11 @@ int MotorController::getMotorPWM(int motorIndex) {
     }
     if (motorInvertArray[motorIndex]) val = -val;
     return val;
+}
+
+void MotorController::setSpeedMultiplier(float m) {
+    // Clamp to reasonable range
+    if (m < 0.2f) m = 0.2f;
+    if (m > 1.5f) m = 1.5f;
+    speedMultiplier = m;
 }

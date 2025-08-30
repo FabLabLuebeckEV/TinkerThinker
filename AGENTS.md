@@ -81,3 +81,90 @@ Contact/Context
 - This repo is typically built in Windows with PlatformIO.
 - Prior issues included double Arduino inclusion and BT starving Wi‑Fi during association; both addressed as above.
 
+
+**Control Mapping UI Plan**
+- Goal: Add a web UI to fully configure input→action mappings: map any gamepad button or stick direction/axis to actions such as driving specific motor pairs, setting servo positions or angles, changing LED colors, or toggling GPIO pins.
+
+**Scope**
+- Inputs: Gamepad buttons (A/B/X/Y, L1/L2/R1/R2, sticks pressed), D‑Pad directions, stick directions (up/down/left/right) and axes (X/Y, RX/RY) with thresholds.
+- Actions: Motor drive (pair selection and mode), Servo set (fixed angle, band toggle, axis mapping), LED set color (single, range), GPIO set/toggle (HIGH/LOW), No‑op.
+- Events: onPress, onRelease, onHold (repeat), continuous for axes with deadband and rate limits.
+
+**Config Schema (config.json)**
+- Add `control_bindings` array of objects, persisted by ConfigManager and editable via UI.
+- Binding shape examples:
+  - Button press → servo fixed angle:
+    - input: { type: "button", code: "BUTTON_R2", edge: "press" }
+    - action: { type: "servo_set", servo: 0, angle: 90 }
+  - Button press → toggle servo band:
+    - input: { type: "button", code: "BUTTON_L2", edge: "press" }
+    - action: { type: "servo_toggle_band", servo: 0, bands: [0,90,180] }
+  - D‑Pad RIGHT/LEFT → servo nudge:
+    - input: { type: "dpad", dir: "RIGHT", edge: "press" }
+    - action: { type: "servo_nudge", servo: 0, delta: +10 }
+  - Right stick axes → drive GUI pair (continuous):
+    - input: { type: "axis_pair", x: "RX", y: "RY", deadband: 16, scale: 1.0, rate_hz: 50 }
+    - action: { type: "drive_pair", target: "gui" }
+  - Left stick axes → drive other pair (continuous):
+    - input: { type: "axis_pair", x: "X", y: "Y", deadband: 16, scale: 1.0, rate_hz: 50 }
+    - action: { type: "drive_pair", target: "other" }
+  - Stick direction → LED color:
+    - input: { type: "stick_dir", axis: "RX", dir: "pos", edge: "press" }
+    - action: { type: "led_set", start: 0, count: 10, color: "#00FF00" }
+  - Button → GPIO:
+    - input: { type: "button", code: "BTN_A", edge: "press" }
+    - action: { type: "gpio_set", pin: 18, level: 1 }
+
+**Backend Design**
+- ConfigManager: extend to load/save `control_bindings` with validation and defaults; bump JSON doc capacity as needed.
+- New `InputBindingManager` (main/InputBindingManager.*):
+  - Maintains per‑controller previous states for edge detection.
+  - Evaluates button/dpad events and axis values each loop.
+  - Applies actions through TinkerThinkerBoard APIs, respecting last‑writer‑wins for drive commands.
+  - Enforces deadband, clamps, and rate limiting (e.g., 50 Hz for continuous axis actions, min interval for LED updates).
+- WebServerManager:
+  - Extend `/getConfig` and `/config` to expose/accept `control_bindings`.
+  - Add `/testAction` endpoint to execute a single action payload for UI previews (optional, safe‑guarded).
+- sketch.cpp:
+  - Replace hardcoded button/servo logic with calls into `InputBindingManager` using controller states from Bluepad32.
+  - Keep existing Wi‑Fi/BT scan duty cycle scheduler intact.
+
+**UI Design (data/controls.html + data/controls.js)**
+- New Controls page (or a tab in config.html) to manage bindings:
+  - Binding list with add/remove/reorder; each binding shows Input and Action editors.
+  - Input editor: select type (button/dpad/stick_dir/axis_pair), specific code(s)/axis, edge (press/release/hold), thresholds/deadband.
+  - Action editor: choose action type (drive_pair/servo_set/servo_toggle_band/servo_nudge/led_set/gpio_set), show relevant params with validation.
+  - Presets: button to load defaults (mirrors current behavior: right stick→GUI pair, left stick→other pair, D‑Pad nudges, R2/L2 servo bands).
+  - Preview: optional “Test” button to POST a single action to `/testAction`.
+  - Save/Reset: integrate with existing config save flow.
+
+**Defaults and Migration**
+- On first run or missing `control_bindings`, seed defaults equivalent to current logic.
+- If present, do not overwrite; allow reset to defaults via UI.
+
+**Safety and Limits**
+- Validate servo indices [0..2], angles [0..180].
+- Validate motor indices/pairs [0..3]; for `drive_pair` allow `target: gui|other|[left,right]`.
+- Limit LED ranges to configured `led_count` and throttle updates.
+- GPIO actions whitelist pins or warn in UI; document 3V3 and current limits.
+- Protect arbitration: axis‑based drive uses existing requestDrive* methods; button actions use dedicated methods and should not steal ownership unless configured as active drive.
+
+**Phased Implementation**
+- Phase 1: Data model + backend
+  - Add schema + ConfigManager support; implement InputBindingManager for button/dpad and axis_pair; wire into sketch.cpp.
+- Phase 2: UI minimal
+  - Basic CRUD UI for bindings; JSON round‑trip; default preset.
+- Phase 3: UI polish + previews
+  - Validation, conditional forms, color picker, action tester.
+- Phase 4: Extras
+  - Per‑controller profiles, import/export config, cloning bindings.
+
+**Acceptance Criteria**
+- User can map R/L sticks to motor pairs and/or servos; map buttons/D‑Pad to servo angles, LED colors, and GPIO.
+- Mappings persist in `/config.json` and apply at runtime without reflashing.
+- Drive arbitration remains last‑writer‑wins; Wi‑Fi/BT coexist scheduling unaffected.
+
+**Potential Pitfalls**
+- JSON size and ArduinoJson memory: increase document capacity and test `/config.json` size.
+- Update rate and CPU: cap continuous actions to sensible rates; avoid starving Wi‑Fi/BT.
+- Backwards compatibility: provide defaults and migrate safely.

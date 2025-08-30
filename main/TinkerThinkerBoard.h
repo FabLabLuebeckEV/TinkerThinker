@@ -55,6 +55,8 @@ public:
     void updateWebClients();
 
     int getMotorPWM(int motorIndex);
+    void setSpeedMultiplier(float m);
+    float getSpeedMultiplier();
 
 private:
     enum class ControlSource { None, Bluetooth, WebSocket };

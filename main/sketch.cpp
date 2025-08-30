@@ -11,16 +11,13 @@
 #include "soc/rtc_cntl_reg.h"
 #include "esp_bt.h"
 
-#include "HardwareSerial.h"
-#include <DFRobotDFPlayerMini.h>
+// Removed DFPlayer and HardwareSerial includes
 
 // Erzeuge globalen Board- und ConfigManager
 ConfigManager configManager;
 TinkerThinkerBoard board(&configManager);
 
-// DFPlayer Mini
-HardwareSerial mySoftwareSerial(2);
-DFRobotDFPlayerMini myDFPlayer;
+// Soundboard (DFPlayer) removed per request
 
 
 // --- ENUMS ---
@@ -53,9 +50,19 @@ enum class MiscButtons : unsigned long {
 
 // --- GLOBAL VARIABLES ---
 ControllerPtr myControllers[BP32_MAX_GAMEPADS];
-
+// Track previous button states per controller for clean edge handling
+static uint32_t prevButtonStates[BP32_MAX_GAMEPADS] = {0};
+// Discrete position band for servo 0: 0=0°, 1=90°, 2=180°
+static int servo0Band = 0;
 
 long timestampServo = 0;
+
+static int findControllerIndex(ControllerPtr ctl) {
+    for (int i = 0; i < BP32_MAX_GAMEPADS; ++i) {
+        if (myControllers[i] == ctl) return i;
+    }
+    return -1;
+}
 
 void processMouse(ControllerPtr ctl);        // Stub, falls unbenutzt einfach leer lassen
 void processKeyboard(ControllerPtr ctl);     //   "
@@ -93,6 +100,7 @@ void onDisconnectedController(ControllerPtr ctl) {
         if (myControllers[i] == ctl) {
             Console.printf("CALLBACK: Controller disconnected from index=%d\n", i);
             myControllers[i] = nullptr;
+            prevButtonStates[i] = 0;
             foundController = true;
             board.setLED(0, 255, 0, 0); // Red
             board.showLEDs();
@@ -112,6 +120,7 @@ void onDisconnectedController(ControllerPtr ctl) {
 void processButtons(ControllerPtr ctl) {
     // Regular buttons
     unsigned long buttonState = ctl->buttons();
+    int idx = findControllerIndex(ctl);
     if (buttonState) {
         if (buttonState & BTN_B) {
             for (int i = 1; i < 20; i++) board.setLED(i, 120, 120, 0);
@@ -129,30 +138,66 @@ void processButtons(ControllerPtr ctl) {
             for (int i = 1; i < 20; i++) board.setLED(i, 0, 0, 0);
             board.showLEDs();
         }
-        if (buttonState & BUTTON_R1) {
-            myDFPlayer.play(1);
+        // BUTTON_R1 / BUTTON_L1 previously triggered DFPlayer sounds; removed
+
+        // Speed multiplier control via shoulder buttons (edge-triggered)
+        if (idx >= 0) {
+            bool r1Now = (buttonState & BUTTON_R1);
+            bool r1Was = (prevButtonStates[idx] & BUTTON_R1);
+            if (r1Now && !r1Was) {
+                float m = board.getSpeedMultiplier();
+                m += 0.1f;
+                board.setSpeedMultiplier(m);
+                Serial.printf("Speed multiplier: %.2f\n", board.getSpeedMultiplier());
+            }
+
+            bool l1Now = (buttonState & BUTTON_L1);
+            bool l1Was = (prevButtonStates[idx] & BUTTON_L1);
+            if (l1Now && !l1Was) {
+                float m = board.getSpeedMultiplier();
+                m -= 0.1f;
+                board.setSpeedMultiplier(m);
+                Serial.printf("Speed multiplier: %.2f\n", board.getSpeedMultiplier());
+            }
         }
-        if (buttonState & BUTTON_L1) {
-            myDFPlayer.play(2);
+
+        // Edge-triggered toggles for Servo 0:
+        // - R2: toggle between 0° and 90° (if at 180°, step to 90°)
+        // - L2: toggle between 90° and 180° (if at 0°, step to 90°)
+        if (idx >= 0) {
+            bool r2Now = (buttonState & BUTTON_R2);
+            bool r2Was = (prevButtonStates[idx] & BUTTON_R2);
+            if (r2Now && !r2Was) {
+                // R2 pair: 0 <-> 90 (180 goes to 90)
+                if (servo0Band == 1) servo0Band = 0; else servo0Band = 1;
+                int target = (servo0Band == 0) ? 0 : 90;
+                board.setServoAngle(0, target);
+            }
+
+            bool l2Now = (buttonState & BUTTON_L2);
+            bool l2Was = (prevButtonStates[idx] & BUTTON_L2);
+            if (l2Now && !l2Was) {
+                // L2 pair: 90 <-> 180 (0 goes to 90)
+                if (servo0Band == 2) servo0Band = 1;
+                else if (servo0Band == 1) servo0Band = 2;
+                else /* 0 */ servo0Band = 1;
+                int target = (servo0Band == 1) ? 90 : 180;
+                board.setServoAngle(0, target);
+            }
         }
     }
+    // Always update prev state to capture releases
+    if (idx >= 0) prevButtonStates[idx] = buttonState;
 
     // D-Pad
     unsigned long dpadState = ctl->dpad();
     if (dpadState) {
-        if (dpadState & static_cast<unsigned long>(DPad::UP)) {
-            myDFPlayer.volumeUp();
-            delay(100);
-        }
-        if (dpadState & static_cast<unsigned long>(DPad::DOWN)) {
-            myDFPlayer.volumeDown();
-            delay(100);
-        }
+        // Volume control removed with DFPlayer
         if (dpadState & static_cast<unsigned long>(DPad::RIGHT)) {
-            board.setServoAngle(2, board.getServoAngle(2) + 10);
+            board.setServoAngle(0, board.getServoAngle(0) + 10);
         }
         if (dpadState & static_cast<unsigned long>(DPad::LEFT)) {
-            board.setServoAngle(2, board.getServoAngle(2) - 10);
+            board.setServoAngle(0, board.getServoAngle(0) - 10);
         }
     }
 
@@ -209,20 +254,7 @@ void setup() {
 
     Serial.begin(115200);
 
-    // Init DFPlayer
-    mySoftwareSerial.begin(9600, SERIAL_8N1, 5, 19);  // RX, TX
-    Serial.println();
-    Serial.println(F("Initializing DFPlayer ... (May take 3~5 seconds)"));
-    if (!myDFPlayer.begin(mySoftwareSerial)) {
-        Serial.println(F("Unable to begin:"));
-        Serial.println(F("1.Please recheck the connection!"));
-        Serial.println(F("2.Please insert the SD card!"));
-        while(true){
-            delay(0); // Code to compatible with ESP32 watch dog.
-        }
-    }
-    Serial.println(F("DFPlayer Mini online."));
-    myDFPlayer.volume(30);  //Set volume value. From 0 to 30
+    // DFPlayer initialization removed
 
     if (!configManager.init()) {
         Serial.println("Failed to init ConfigManager!");

@@ -20,6 +20,9 @@ Note: This project is set up for PlatformIO (recommended). ESP-IDF CLI/IDE can w
 
 - BT/Wi‑Fi coexistence: Configurable Bluetooth scanning duty‑cycle to avoid starving Wi‑Fi.
 - Control arbiter: Last active source (WebSocket vs. Bluetooth) owns motion; neutral inputs don't override the owner.
+- Flexible driving: Right stick controls the configured GUI motor pair; left stick controls the other pair. Motor pair selection is configurable in `/config`.
+- Quick servo control: D‑Pad LEFT/RIGHT nudges Servo 0 by ±10°. R2 toggles Servo 0 between 0°↔90°, L2 zwischen 90°↔180°.
+- Speed scaling: R1/L1 adjust a global speed multiplier (0.2–1.5) that scales motor PWM for finer control.
 
 ## Hardware Overview (default pins)
 
@@ -136,8 +139,10 @@ This project uses Arduino as an ESP‑IDF component (managed via `managed_compon
 ## Gamepad Controls (Bluepad32)
 
 - Pairing: Put your controller in pairing mode; device toggles new connections on when no controller is connected. Keys are cleared on each boot (`BP32.forgetBluetoothKeys()`), so pairing is straightforward.
-- Driving: Right/left stick controls differential drive (see `processGamepad()` and `MotorController::handleMotorControl`).
-- Buttons: Examples include LED feedback on A/B/X/Y and servo jog on R1/D‑Pad.
+- Driving: Right stick → GUI motor pair; Left stick → the other motor pair. Change the GUI pair in `/config` via `motor_left_gui` and `motor_right_gui`.
+- Servo: D‑Pad LEFT/RIGHT nudges Servo 0 by −/+10°. R2 toggles 0°↔90°, L2 toggles 90°↔180° for Servo 0.
+- Speed: R1 increases and L1 decreases the global speed multiplier used to scale PWM output.
+- Buttons: A/B/X/Y set LED feedback colors in the default demo.
 - Battery indication: Player LEDs reflect voltage bands.
 
 Tip: Consult Bluepad32 docs for controller-specific pairing steps and supported models.
