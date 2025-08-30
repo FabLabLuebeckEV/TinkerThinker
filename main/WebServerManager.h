@@ -32,4 +32,7 @@ private:
     void handleConfig(AsyncWebServerRequest* request);
 };
 
+// Helper to register control bindings REST endpoints
+void registerBindingsRoutes(AsyncWebServer& server, ConfigManager* config);
+
 #endif

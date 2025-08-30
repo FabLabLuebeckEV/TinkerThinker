@@ -15,6 +15,7 @@ Note: This project is set up for PlatformIO (recommended). ESP-IDF CLI/IDE can w
 - 3 servos: Adjustable pulse width range per servo; angle control from gamepad and web UI.
 - WS2812 LEDs: Configurable LED count; simple color feedback and status.
 - Web UI (LittleFS): Live dashboard, motor/servo testing, and configuration at `/` and `/config`.
+- Controls mapping UI: Edit input→action mappings at `/controls` (JSON-based editor for now).
 - Wi‑Fi AP/STA: Runs as hotspot or joins existing Wi‑Fi; live WebSocket updates.
 - Monitoring: Battery voltage/percentage estimation and H-bridge fault/current sampling.
 
@@ -95,6 +96,7 @@ Connect to the AP, then browse to `http://192.168.4.1/`:
 
 - `/` Dashboard: Live status (battery, motors, LEDs) and basic controls.
 - `/config`: Full configuration form (motors invert/deadband/frequency, LED count, Wi‑Fi mode/credentials, OTA flag, servo pulse ranges). Changes persist in LittleFS (`/config.json`).
+- `/controls`: JSON editor for "control_bindings" (map buttons/D‑Pad/sticks to actions like drive pairs, servo angles, LED colors, GPIO, speed scale).
 - `/setup`: Additional setup page (if used).
 
 The UI communicates via WebSocket for low-latency updates and test actions.

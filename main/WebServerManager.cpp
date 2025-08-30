@@ -14,6 +14,8 @@ void WebServerManager::init() {
     startWifi();
     setupWebSocket();
     setupRoutes();
+    // Register control bindings REST endpoints
+    registerBindingsRoutes(server, config);
     server.begin();
     Serial.println("Web Server started");
 }
@@ -54,6 +56,14 @@ void WebServerManager::setupRoutes() {
         request->send(LittleFS, "/config.html", "text/html");
     });
 
+    // Controls mapping page (raw JSON editor)
+    server.on("/controls", HTTP_GET, [this](AsyncWebServerRequest *request){
+        request->send(LittleFS, "/controls.html", "text/html");
+    });
+    server.on("/controls.js", HTTP_GET, [this](AsyncWebServerRequest *request){
+        request->send(LittleFS, "/controls.js", "application/javascript");
+    });
+
     server.on("/config.css", HTTP_GET, [this](AsyncWebServerRequest *request){
         request->send(LittleFS, "/config.css", "text/css");
     });
@@ -64,7 +74,7 @@ void WebServerManager::setupRoutes() {
 
     // JSON mit aktueller Config liefern
     server.on("/getConfig", HTTP_GET, [this](AsyncWebServerRequest *request){
-        DynamicJsonDocument doc(2048);
+        DynamicJsonDocument doc(4096);
 
         doc["wifi_mode"] = config->getWifiMode();
         doc["wifi_ssid"] = config->getWifiSSID();
@@ -99,6 +109,16 @@ void WebServerManager::setupRoutes() {
             JsonObject sObj = servoArr.createNestedObject();
             sObj["min_pulsewidth"] = config->getServoMinPulsewidth(i);
             sObj["max_pulsewidth"] = config->getServoMaxPulsewidth(i);
+        }
+
+        // Control bindings: embed JSON
+        {
+            String binds = config->getControlBindingsJson();
+            if (binds.length() == 0) binds = String(ConfigManager::getDefaultControlBindingsJson());
+            DynamicJsonDocument bd(8192);
+            if (deserializeJson(bd, binds) == DeserializationError::Ok) {
+                doc["control_bindings"] = bd;
+            }
         }
 
         String json;
@@ -249,6 +269,39 @@ void WebServerManager::handleConfig(AsyncWebServerRequest* request) {
 
     // Redirect
     request->redirect("/config");
+}
+
+// New endpoints for control bindings JSON
+// GET current bindings
+// POST new bindings as raw JSON body (Content-Type: application/json)
+// Minimal validation and persistence
+void registerBindingsRoutes(AsyncWebServer& server, ConfigManager* config) {
+    server.on("/getBindings", HTTP_GET, [config](AsyncWebServerRequest* request){
+        String binds = config->getControlBindingsJson();
+        if (binds.length() == 0) binds = String(ConfigManager::getDefaultControlBindingsJson());
+        request->send(200, "application/json", binds);
+    });
+    server.on("/control_bindings", HTTP_POST,
+        [config](AsyncWebServerRequest* request){
+            // completed in body handler
+            request->send(200, "text/plain", "OK");
+        },
+        NULL,
+        [config](AsyncWebServerRequest* request, uint8_t *data, size_t len, size_t index, size_t total){
+            String body;
+            body.reserve(total);
+            body.concat((const char*)data, len);
+            // naive: assume single chunk
+            DynamicJsonDocument bd(8192);
+            if (deserializeJson(bd, body) == DeserializationError::Ok) {
+                // reserialize normalized
+                String normalized;
+                serializeJson(bd, normalized);
+                config->setControlBindingsJson(normalized);
+                config->saveConfig();
+            }
+        }
+    );
 }
 
 

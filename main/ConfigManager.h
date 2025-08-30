@@ -68,6 +68,10 @@ public:
     bool fileExists(const char* path);
 
     const bool* getMotorInvertArray() { return motor_invert; }
+    // Control bindings JSON (raw). Stored as JSON array/object string.
+    String getControlBindingsJson() const { return control_bindings_json; }
+    void setControlBindingsJson(const String &json) { control_bindings_json = json; }
+    static const char* getDefaultControlBindingsJson();
 
 private:
     bool motor_invert[4];
@@ -97,6 +101,8 @@ private:
     int bt_scan_off_sta_ms = 850;
     int bt_scan_on_ap_ms = 100;
     int bt_scan_off_ap_ms = 1900;
+
+    String control_bindings_json; // raw JSON string for control mappings
 
     void setDefaults();
 };

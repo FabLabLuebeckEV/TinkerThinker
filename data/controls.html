@@ -1,0 +1,27 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Controls Mapping</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 16px; }
+    textarea { width: 100%; height: 60vh; font-family: monospace; }
+    .row { margin: 8px 0; }
+    button { margin-right: 8px; }
+    .status { margin-left: 8px; color: #066; }
+  </style>
+</head>
+<body>
+  <h1>Control Bindings</h1>
+  <div class="row">
+    <button id="load">Load</button>
+    <button id="save">Save</button>
+    <button id="defaults">Load Defaults</button>
+    <span class="status" id="status"></span>
+  </div>
+  <textarea id="bindings"></textarea>
+  <script src="/controls.js"></script>
+</body>
+</html>
+

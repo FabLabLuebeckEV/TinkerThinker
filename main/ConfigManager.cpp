@@ -37,6 +37,8 @@ void ConfigManager::setDefaults() {
         servos[i].max_pw = 2500;
     }
     // BT scan defaults already initialized in header
+    // Control bindings default: mirrors current hardcoded behavior
+    control_bindings_json = String(getDefaultControlBindingsJson());
 }
 
 bool ConfigManager::fileExists(const char* path) {
@@ -98,6 +100,13 @@ bool ConfigManager::loadConfig() {
     bt_scan_on_ap_ms      = doc["bt_scan_on_ap_ms"]      | bt_scan_on_ap_ms;
     bt_scan_off_ap_ms     = doc["bt_scan_off_ap_ms"]     | bt_scan_off_ap_ms;
 
+    // Control bindings (store raw JSON)
+    if (doc.containsKey("control_bindings")) {
+        String tmp;
+        serializeJson(doc["control_bindings"], tmp);
+        control_bindings_json = tmp;
+    }
+
     return true;
 }
 
@@ -142,6 +151,15 @@ bool ConfigManager::saveConfig() {
     doc["bt_scan_on_ap_ms"]      = bt_scan_on_ap_ms;
     doc["bt_scan_off_ap_ms"]     = bt_scan_off_ap_ms;
 
+    // Control bindings: embed stored JSON
+    if (control_bindings_json.length() > 0) {
+        DynamicJsonDocument binds(4096);
+        DeserializationError err = deserializeJson(binds, control_bindings_json);
+        if (!err) {
+            doc["control_bindings"] = binds;
+        }
+    }
+
     File file = LittleFS.open("/config.json", "w");
     if (!file) {
         Serial.println("Failed to open config file for writing");
@@ -157,6 +175,27 @@ bool ConfigManager::saveConfig() {
 bool ConfigManager::resetConfig() {
     setDefaults();
     return saveConfig();
+}
+
+const char* ConfigManager::getDefaultControlBindingsJson() {
+    return R"JSON([
+  {"input": {"type": "axis_pair", "x": "RX", "y": "RY", "deadband": 16},
+   "action": {"type": "drive_pair", "target": "gui"}},
+  {"input": {"type": "axis_pair", "x": "X",  "y": "Y",  "deadband": 16},
+   "action": {"type": "drive_pair", "target": "other"}},
+  {"input": {"type": "dpad", "dir": "RIGHT", "edge": "press"},
+   "action": {"type": "servo_nudge", "servo": 0, "delta": 10}},
+  {"input": {"type": "dpad", "dir": "LEFT",  "edge": "press"},
+   "action": {"type": "servo_nudge", "servo": 0, "delta": -10}},
+  {"input": {"type": "button", "code": "BUTTON_R2", "edge": "press"},
+   "action": {"type": "servo_toggle_band", "servo": 0, "bands": [0,90]}},
+  {"input": {"type": "button", "code": "BUTTON_L2", "edge": "press"},
+   "action": {"type": "servo_toggle_band", "servo": 0, "bands": [90,180]}},
+  {"input": {"type": "button", "code": "BUTTON_R1", "edge": "press"},
+   "action": {"type": "speed_adjust", "delta": 0.1}},
+  {"input": {"type": "button", "code": "BUTTON_L1", "edge": "press"},
+   "action": {"type": "speed_adjust", "delta": -0.1}}
+])JSON";
 }
 
 // Getter
