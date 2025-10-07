@@ -36,6 +36,11 @@ void ConfigManager::setDefaults() {
         servos[i].min_pw = 500;
         servos[i].max_pw = 2500;
     }
+    drive_mixer = "arcade";
+    drive_turn_gain = 1.0f;
+    drive_axis_deadband = 16;
+    motor_curve_type = "linear";
+    motor_curve_strength = 0.0f;
     // BT scan defaults already initialized in header
     // Control bindings default: mirrors current hardcoded behavior
     control_bindings_json = String(getDefaultControlBindingsJson());
@@ -51,7 +56,7 @@ bool ConfigManager::loadConfig() {
         Serial.println("Failed to open config file for reading");
         return false;
     }
-    StaticJsonDocument<2048> doc;
+    StaticJsonDocument<3072> doc;
     DeserializationError err = deserializeJson(doc, file);
     file.close();
     if (err) {
@@ -100,6 +105,22 @@ bool ConfigManager::loadConfig() {
     bt_scan_on_ap_ms      = doc["bt_scan_on_ap_ms"]      | bt_scan_on_ap_ms;
     bt_scan_off_ap_ms     = doc["bt_scan_off_ap_ms"]     | bt_scan_off_ap_ms;
 
+    if (doc.containsKey("drive_mixer")) {
+        setDriveMixer(String((const char*)doc["drive_mixer"]));
+    }
+    if (doc.containsKey("drive_turn_gain")) {
+        setDriveTurnGain(doc["drive_turn_gain"].as<float>());
+    }
+    if (doc.containsKey("drive_axis_deadband")) {
+        setDriveAxisDeadband(doc["drive_axis_deadband"].as<int>());
+    }
+    if (doc.containsKey("motor_curve_type")) {
+        setMotorCurveType(String((const char*)doc["motor_curve_type"]));
+    }
+    if (doc.containsKey("motor_curve_strength")) {
+        setMotorCurveStrength(doc["motor_curve_strength"].as<float>());
+    }
+
     // Control bindings (store raw JSON)
     if (doc.containsKey("control_bindings")) {
         String tmp;
@@ -111,7 +132,7 @@ bool ConfigManager::loadConfig() {
 }
 
 bool ConfigManager::saveConfig() {
-    StaticJsonDocument<2048> doc;
+    StaticJsonDocument<3072> doc;
     doc["wifi_mode"] = wifi_mode;
     doc["wifi_ssid"] = wifi_ssid;
     doc["wifi_password"] = wifi_password;
@@ -142,6 +163,13 @@ bool ConfigManager::saveConfig() {
         sObj["min_pulsewidth"] = servos[i].min_pw;
         sObj["max_pulsewidth"] = servos[i].max_pw;
     }
+
+    // Drive profile & motor curve
+    doc["drive_mixer"] = drive_mixer;
+    doc["drive_turn_gain"] = drive_turn_gain;
+    doc["drive_axis_deadband"] = drive_axis_deadband;
+    doc["motor_curve_type"] = motor_curve_type;
+    doc["motor_curve_strength"] = motor_curve_strength;
 
     // BT scan settings
     doc["bt_scan_on_normal_ms"]  = bt_scan_on_normal_ms;
@@ -241,6 +269,35 @@ void ConfigManager::setServoPulsewidthRange(int index, int min_pw, int max_pw){
 }
 void ConfigManager::setMotorDeadband(int index, int val){ motor_deadband[index] = val;}
 void ConfigManager::setMotorFrequency(int index, int val){ motor_frequency[index]=val;}
+void ConfigManager::setDriveMixer(const String& mixer){
+    if (mixer == "tank") {
+        drive_mixer = "tank";
+    } else {
+        drive_mixer = "arcade";
+    }
+}
+void ConfigManager::setDriveTurnGain(float gain){
+    if (gain < 0.0f) gain = 0.0f;
+    if (gain > 2.5f) gain = 2.5f;
+    drive_turn_gain = gain;
+}
+void ConfigManager::setDriveAxisDeadband(int deadband){
+    if (deadband < 0) deadband = 0;
+    if (deadband > 256) deadband = 256;
+    drive_axis_deadband = deadband;
+}
+void ConfigManager::setMotorCurveType(const String& type){
+    if (type == "expo") {
+        motor_curve_type = "expo";
+    } else {
+        motor_curve_type = "linear";
+    }
+}
+void ConfigManager::setMotorCurveStrength(float strength){
+    if (strength < -0.8f) strength = -0.8f;
+    if (strength > 3.0f) strength = 3.0f;
+    motor_curve_strength = strength;
+}
 
 // BT scan setters
 void ConfigManager::setBtScanOnNormal(int v)  { bt_scan_on_normal_ms  = v; }

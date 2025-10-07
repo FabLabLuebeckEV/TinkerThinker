@@ -45,6 +45,7 @@ Note: This project is set up for PlatformIO (recommended). ESP-IDF CLI/IDE can w
 - Controls mapping UI: Konfigurierbarer Steuerungs‑Editor unter `/controls` (formularbasiert).
 - Wi‑Fi AP/STA: Runs as hotspot or joins existing Wi‑Fi; live WebSocket updates.
 - Monitoring: Battery voltage/percentage estimation and H-bridge fault/current sampling.
+- Fahrprofile: Arcade/Tank-Mix mit Lenkfaktor und optionaler Expo-Motorkurve für feinfühlige Steuerung.
 
 - BT/Wi‑Fi coexistence: Configurable Bluetooth scanning duty‑cycle to avoid starving Wi‑Fi.
 - Control arbiter: Last active source (WebSocket vs. Bluetooth) owns motion; neutral inputs don't override the owner.
@@ -274,6 +275,8 @@ Tip: Consult Bluepad32 docs for controller-specific pairing steps and supported 
 
 - Motors
   - Invert per motor, global side swap (left/right), per‑motor deadband and PWM frequency.
+  - Drive profile: `drive_mixer` (`arcade`/`tank`), `drive_turn_gain` (0.0–2.5) und `drive_axis_deadband` (0–256) regeln den Mix.
+  - Motor curve: `motor_curve_type` (`linear` oder `expo`) samt `motor_curve_strength` (−0.8…3.0) formt die PWM-Kennlinie.
 - Servos
   - Min/max pulse width per servo; angles clamped 0–180°.
 - LEDs

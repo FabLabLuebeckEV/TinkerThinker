@@ -10,6 +10,7 @@
 #include "soc/soc.h"
 #include "soc/rtc_cntl_reg.h"
 #include "esp_bt.h"
+#include <uni.h>
 
 // Removed DFPlayer and HardwareSerial includes
 
@@ -151,6 +152,7 @@ void setup() {
     BP32.enableVirtualDevice(false);
     BP32.enableBLEService(false);
     sm_set_secure_connections_only_mode(false);                        // SC ausschalten
+    uni_bt_allowlist_set_enabled(false);                             // Allowlist ausschalten
 }
 
 // Arduino loop function. Runs in CPU 1.
@@ -194,6 +196,24 @@ void loop() {
     wifi_mode_t mode = WiFi.getMode();
     bool staConnecting = (mode == WIFI_STA || mode == WIFI_AP_STA) && (WiFi.status() != WL_CONNECTED);
     bool apActive = (mode == WIFI_AP || mode == WIFI_AP_STA) && (WiFi.softAPgetStationNum() > 0);
+    bool wifiDisabledUntilRestart = (mode == WIFI_OFF);
+
+    if (wifiDisabledUntilRestart) {
+        // Keep Bluetooth scanning fully enabled while Wi-Fi is down.
+        if (!anyController) {
+            if (!scanEnabled) {
+                BP32.enableNewBluetoothConnections(true);
+                scanEnabled = true;
+                phase = PHASE_ON;
+            }
+        } else if (scanEnabled) {
+            BP32.enableNewBluetoothConnections(false);
+            scanEnabled = false;
+            phase = PHASE_OFF;
+        }
+        vTaskDelay(10);
+        return;
+    }
 
     // Policy:
     // - If a controller is already connected: don't scan.

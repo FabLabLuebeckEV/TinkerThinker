@@ -83,6 +83,13 @@
         </label>
         <input type="password" name="hotspot_password" id="hotspot_password"><br>
       </div>
+
+      <div class="wifi-disable" style="margin-top: 12px;">
+        <button type="button" id="wifi_disable_btn">WLAN deaktivieren (bis Neustart)</button>
+        <p id="wifi_disable_notice" style="display:none; margin-top:8px; color:#b22222;">
+          WLAN wurde deaktiviert. Bluetooth-Suche bleibt dauerhaft aktiv, bis das Gerät neu gestartet wird.
+        </p>
+      </div>
     </section>
 
     <!-- Motor Einstellungen -->
@@ -101,7 +108,77 @@
         <!-- Dynamisch per JS befüllt -->
       </div>
     </section>
-    
+   
+    <!-- Fahrprofil -->
+    <section>
+      <h2>Fahrprofil</h2>
+      <div class="row" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+        <label for="drive_mixer">
+          Fahrmodus:
+          <span class="tooltip">i
+            <span class="tooltiptext">
+              Arcade mischt Vorwärts/Zurück mit Lenkung (ein Stick). Tank erwartet getrennte Achsen für links/rechts.
+            </span>
+          </span>
+        </label>
+        <select id="drive_mixer" name="drive_mixer">
+          <option value="arcade">Arcade (Throttle + Drehung)</option>
+          <option value="tank">Tank (zweite Achse für rechts)</option>
+        </select>
+      </div>
+      <div class="row" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+        <label for="drive_turn_gain">
+          Lenkfaktor:
+          <span class="tooltip">i
+            <span class="tooltiptext">
+              Skaliert die Drehkomponente im Arcade-Mix. 1.0 entspricht dem bisherigen Verhalten.
+            </span>
+          </span>
+        </label>
+        <input type="number" id="drive_turn_gain" name="drive_turn_gain" step="0.05" min="0" max="2.5" style="width:100px;">
+        <input type="range" id="drive_turn_gain_slider" min="0" max="250" step="5">
+        <span id="drive_turn_gain_val">1.00</span>
+      </div>
+      <div class="row" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+        <label for="drive_axis_deadband">
+          Achsen-Deadband:
+          <span class="tooltip">i
+            <span class="tooltiptext">
+              Bereich (0-256) der Joystickwerte, der ignoriert wird, um Drift zu verhindern.
+            </span>
+          </span>
+        </label>
+        <input type="number" id="drive_axis_deadband" name="drive_axis_deadband" min="0" max="256" style="width:100px;">
+      </div>
+      <div class="row" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+        <label for="motor_curve_type">
+          Motorkurve:
+          <span class="tooltip">i
+            <span class="tooltiptext">
+              Expo glättet den Bereich nahe 0. Linear entspricht der bisherigen Geraden.
+            </span>
+          </span>
+        </label>
+        <select id="motor_curve_type" name="motor_curve_type">
+          <option value="linear">Linear</option>
+          <option value="expo">Expo</option>
+        </select>
+      </div>
+      <div class="row" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+        <label for="motor_curve_strength">
+          Kurven-Stärke:
+          <span class="tooltip">i
+            <span class="tooltiptext">
+              Bei Expo &gt;0 wird die Fahrt sanfter. Negative Werte (<0) machen sie direkter.
+            </span>
+          </span>
+        </label>
+        <input type="number" id="motor_curve_strength" name="motor_curve_strength" step="0.1" min="-0.8" max="3" style="width:100px;">
+        <input type="range" id="motor_curve_strength_slider" min="-80" max="300" step="10">
+        <span id="motor_curve_strength_val">0.0</span>
+      </div>
+    </section>
+
     <!-- LED Einstellungen -->
     <section>
       <h2>LED Einstellungen</h2>

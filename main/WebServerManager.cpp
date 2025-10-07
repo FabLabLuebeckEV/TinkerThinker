@@ -41,6 +41,23 @@ void WebServerManager::startWifi() {
     }
 }
 
+void WebServerManager::disableWifiUntilRestart() {
+    if (wifiDisabledUntilRestart) {
+        return;
+    }
+
+    Serial.println("Disabling WiFi until next reboot per user request...");
+    wifiDisabledUntilRestart = true;
+    delay(150);
+    ws.closeAll();
+    server.end();
+
+    WiFi.disconnect(true, true);
+    WiFi.mode(WIFI_OFF);
+    delay(50);
+    Serial.println("WiFi disabled. Web UI unavailable until restart; Bluetooth scanning forced on.");
+}
+
 void WebServerManager::setupWebSocket() {
     ws.onEvent([this](AsyncWebSocket *server, AsyncWebSocketClient *client, 
                       AwsEventType type, void *arg, uint8_t *data, size_t len) {
@@ -72,15 +89,27 @@ void WebServerManager::setupRoutes() {
         request->send(LittleFS, "/setup.html", "text/html");
     });
 
+    server.on("/wifi/disable", HTTP_POST, [this](AsyncWebServerRequest *request){
+        if (wifiDisabledUntilRestart || WiFi.getMode() == WIFI_OFF) {
+            request->send(409, "application/json", "{\"error\":\"already_disabled\"}");
+            return;
+        }
+        AsyncWebServerResponse* res = request->beginResponse(200, "application/json", "{\"status\":\"ok\"}");
+        res->addHeader("Connection", "close");
+        request->send(res);
+        disableWifiUntilRestart();
+    });
+
     // JSON mit aktueller Config liefern
     server.on("/getConfig", HTTP_GET, [this](AsyncWebServerRequest *request){
-        DynamicJsonDocument doc(4096);
+        DynamicJsonDocument doc(8192);
 
         doc["wifi_mode"] = config->getWifiMode();
         doc["wifi_ssid"] = config->getWifiSSID();
         doc["wifi_password"] = config->getWifiPassword();
         doc["hotspot_ssid"] = config->getHotspotSSID();
         doc["hotspot_password"] = config->getHotspotPassword();
+        doc["wifi_disabled_until_restart"] = wifiDisabledUntilRestart || (WiFi.getMode() == WIFI_OFF);
 
         JsonArray invArr = doc.createNestedArray("motor_invert");
         for (int i=0; i<4; i++) invArr.add(config->getMotorInvert(i));
@@ -95,6 +124,12 @@ void WebServerManager::setupRoutes() {
 
         doc["led_count"] = config->getLedCount();
         doc["ota_enabled"] = config->getOTAEnabled();
+
+        doc["drive_mixer"] = config->getDriveMixer();
+        doc["drive_turn_gain"] = config->getDriveTurnGain();
+        doc["drive_axis_deadband"] = config->getDriveAxisDeadband();
+        doc["motor_curve_type"] = config->getMotorCurveType();
+        doc["motor_curve_strength"] = config->getMotorCurveStrength();
 
         // Bluetooth scan duty-cycle
         doc["bt_scan_on_normal_ms"]  = config->getBtScanOnNormal();
@@ -251,6 +286,22 @@ void WebServerManager::handleConfig(AsyncWebServerRequest* request) {
             max_pw = request->getParam(maxField, true)->value().toInt();
         }
         config->setServoPulsewidthRange(i, min_pw, max_pw);
+    }
+
+    if (request->hasParam("drive_mixer", true)) {
+        config->setDriveMixer(request->getParam("drive_mixer", true)->value());
+    }
+    if (request->hasParam("drive_turn_gain", true)) {
+        config->setDriveTurnGain(request->getParam("drive_turn_gain", true)->value().toFloat());
+    }
+    if (request->hasParam("drive_axis_deadband", true)) {
+        config->setDriveAxisDeadband(request->getParam("drive_axis_deadband", true)->value().toInt());
+    }
+    if (request->hasParam("motor_curve_type", true)) {
+        config->setMotorCurveType(request->getParam("motor_curve_type", true)->value());
+    }
+    if (request->hasParam("motor_curve_strength", true)) {
+        config->setMotorCurveStrength(request->getParam("motor_curve_strength", true)->value().toFloat());
     }
 
     // Config speichern

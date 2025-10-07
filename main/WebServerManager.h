@@ -15,6 +15,7 @@ public:
     WebServerManager(TinkerThinkerBoard* board, ConfigManager* config);
     void init();
     void sendStatusUpdate();
+    bool isWifiDisabled() const { return wifiDisabledUntilRestart; }
 
 private:
     TinkerThinkerBoard* board;
@@ -23,6 +24,7 @@ private:
     AsyncWebSocket ws;
     //Timeout als millisekunden seit dem letzten paket
     unsigned long lastPacketTime = 0;
+    bool wifiDisabledUntilRestart = false;
 
     void onWebSocketEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, 
                           AwsEventType type, void *arg, uint8_t *data, size_t len);
@@ -30,6 +32,7 @@ private:
     void setupWebSocket();
     void startWifi();
     void handleConfig(AsyncWebServerRequest* request);
+    void disableWifiUntilRestart();
 };
 
 // Helper to register control bindings REST endpoints

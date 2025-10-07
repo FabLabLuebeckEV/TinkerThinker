@@ -33,7 +33,18 @@ void TinkerThinkerBoard::reApplyConfig() {
         inv[i] = config->getMotorInvert(i);
     }
 
-    motorController = new MotorController(motors, MOTOR_COUNT, freqs, dbs, inv, config->getMotorSwap());
+    MotorController::DriveProfileConfig driveCfg;
+    driveCfg.axisDeadband = config->getDriveAxisDeadband();
+    driveCfg.turnGain = config->getDriveTurnGain();
+    driveCfg.mixer = (config->getDriveMixer() == "tank") ? MotorController::DriveProfileConfig::Mixer::Tank
+                                                         : MotorController::DriveProfileConfig::Mixer::Arcade;
+
+    MotorController::MotorCurveConfig curveCfg;
+    curveCfg.type = (config->getMotorCurveType() == "expo") ? MotorController::MotorCurveConfig::Type::Expo
+                                                             : MotorController::MotorCurveConfig::Type::Linear;
+    curveCfg.strength = config->getMotorCurveStrength();
+
+    motorController = new MotorController(motors, MOTOR_COUNT, freqs, dbs, inv, config->getMotorSwap(), driveCfg, curveCfg);
     // Update GUI-selected motor pair from config
     motorLeftGUI = config->getMotorLeftGUI();
     motorRightGUI = config->getMotorRightGUI();

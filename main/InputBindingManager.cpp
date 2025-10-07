@@ -93,6 +93,13 @@ void InputBindingManager::applyAction(JsonObject action, ControllerPtr ctl) {
     } else if (!strcmp(type, "speed_adjust")) {
         float delta = action["delta"] | 0.0f;
         board->setSpeedMultiplier(board->getSpeedMultiplier() + delta);
+    } else if (!strcmp(type, "motor_direct")) {
+        int idx = action["motor"] | 0;
+        int pwm = action["pwm"] | 0;
+        if (idx >= 0 && idx < 4) {
+            pwm = constrain(pwm, -255, 255);
+            board->requestMotorDirectFromBT(idx, pwm);
+        }
     }
 }
 

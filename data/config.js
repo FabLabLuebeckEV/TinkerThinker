@@ -130,6 +130,130 @@ function toggleWifiFields() {
   }
 }
 
+function updateWifiDisableUI(disabled) {
+  const btn = document.getElementById('wifi_disable_btn');
+  const notice = document.getElementById('wifi_disable_notice');
+  if (!btn || !notice) return;
+  if (disabled) {
+    btn.disabled = true;
+    btn.textContent = 'WLAN deaktiviert (bis Neustart)';
+    notice.style.display = 'block';
+  } else {
+    btn.disabled = false;
+    btn.textContent = 'WLAN deaktivieren (bis Neustart)';
+    notice.style.display = 'none';
+  }
+}
+
+async function handleWifiDisableClick() {
+  const btn = document.getElementById('wifi_disable_btn');
+  const notice = document.getElementById('wifi_disable_notice');
+  if (!btn || !notice) return;
+  if (btn.disabled) return;
+
+  if (!confirm('WLAN wirklich deaktivieren? Die Weboberfläche ist danach bis zum Neustart nicht erreichbar.')) {
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'WLAN wird deaktiviert...';
+  notice.style.display = 'block';
+  notice.textContent = 'WLAN wird deaktiviert. Die Verbindung bricht gleich ab.';
+
+  try {
+    const res = await fetch('/wifi/disable', { method: 'POST' });
+    if (res.ok) {
+      updateWifiDisableUI(true);
+      notice.textContent = 'WLAN wird deaktiviert. Bitte Gerät neu starten, um WLAN wieder einzuschalten.';
+    } else if (res.status === 409) {
+      updateWifiDisableUI(true);
+      notice.textContent = 'WLAN ist bereits deaktiviert. Bitte Gerät neu starten.';
+    } else {
+      throw new Error(`HTTP ${res.status}`);
+    }
+  } catch (error) {
+    console.error('Fehler beim Deaktivieren des WLAN:', error);
+    notice.textContent = 'Verbindung getrennt – vermutlich wurde WLAN deaktiviert.';
+  }
+}
+
+function setupWifiDisableButton() {
+  const btn = document.getElementById('wifi_disable_btn');
+  if (btn) {
+    btn.addEventListener('click', handleWifiDisableClick);
+  }
+}
+
+function setTurnGainUI(val) {
+  const num = document.getElementById('drive_turn_gain');
+  const slider = document.getElementById('drive_turn_gain_slider');
+  const label = document.getElementById('drive_turn_gain_val');
+  if (!num || !slider || !label) return;
+  let value = parseFloat(val);
+  if (isNaN(value)) value = 1.0;
+  if (value < 0) value = 0;
+  if (value > 2.5) value = 2.5;
+  num.value = value.toFixed(2);
+  slider.value = Math.round(value * 100);
+  label.textContent = value.toFixed(2);
+}
+
+function setCurveStrengthUI(val) {
+  const num = document.getElementById('motor_curve_strength');
+  const slider = document.getElementById('motor_curve_strength_slider');
+  const label = document.getElementById('motor_curve_strength_val');
+  if (!num || !slider || !label) return;
+  let value = parseFloat(val);
+  if (isNaN(value)) value = 0;
+  if (value < -0.8) value = -0.8;
+  if (value > 3.0) value = 3.0;
+  num.value = value.toFixed(2);
+  slider.value = Math.round(value * 100);
+  label.textContent = value.toFixed(2);
+}
+
+function updateCurveStrengthDisabled() {
+  const typeSel = document.getElementById('motor_curve_type');
+  const num = document.getElementById('motor_curve_strength');
+  const slider = document.getElementById('motor_curve_strength_slider');
+  const disabled = typeSel && typeSel.value !== 'expo';
+  if (num) num.disabled = disabled;
+  if (slider) slider.disabled = disabled;
+}
+
+function setupDriveProfileControls() {
+  const turnSlider = document.getElementById('drive_turn_gain_slider');
+  const turnNum = document.getElementById('drive_turn_gain');
+  if (turnSlider) {
+    turnSlider.addEventListener('input', () => {
+      setTurnGainUI(parseInt(turnSlider.value, 10) / 100);
+    });
+  }
+  if (turnNum) {
+    turnNum.addEventListener('input', () => {
+      setTurnGainUI(turnNum.value);
+    });
+  }
+
+  const curveSlider = document.getElementById('motor_curve_strength_slider');
+  const curveNum = document.getElementById('motor_curve_strength');
+  if (curveSlider) {
+    curveSlider.addEventListener('input', () => {
+      setCurveStrengthUI(parseInt(curveSlider.value, 10) / 100);
+    });
+  }
+  if (curveNum) {
+    curveNum.addEventListener('input', () => {
+      setCurveStrengthUI(curveNum.value);
+    });
+  }
+
+  const curveType = document.getElementById('motor_curve_type');
+  if (curveType) {
+    curveType.addEventListener('change', updateCurveStrengthDisabled);
+  }
+}
+
 // Collapsible für erweiterte Einstellungen
 function setupCollapsibles() {
   var coll = document.getElementsByClassName("collapsible");
@@ -163,6 +287,7 @@ async function loadConfig() {
     document.getElementById('wifi_password').value = data.wifi_password;
     document.getElementById('hotspot_ssid').value = data.hotspot_ssid;
     document.getElementById('hotspot_password').value = data.hotspot_password;
+    updateWifiDisableUI(!!data.wifi_disabled_until_restart);
 
     // Motoren
     document.getElementById('motor_swap').checked = data.motor_swap;
@@ -224,6 +349,19 @@ async function loadConfig() {
 
     // OTA
     document.getElementById('ota_enabled').checked = data.ota_enabled;
+
+    if (document.getElementById('drive_mixer')) {
+      document.getElementById('drive_mixer').value = data.drive_mixer || 'arcade';
+    }
+    setTurnGainUI(data.drive_turn_gain !== undefined ? data.drive_turn_gain : 1.0);
+    if (document.getElementById('drive_axis_deadband')) {
+      document.getElementById('drive_axis_deadband').value = data.drive_axis_deadband !== undefined ? data.drive_axis_deadband : 16;
+    }
+    if (document.getElementById('motor_curve_type')) {
+      document.getElementById('motor_curve_type').value = data.motor_curve_type || 'linear';
+    }
+    setCurveStrengthUI(data.motor_curve_strength !== undefined ? data.motor_curve_strength : 0.0);
+    updateCurveStrengthDisabled();
 
     // BT scan timings
     if (typeof data.bt_scan_on_normal_ms !== 'undefined') {
@@ -343,5 +481,7 @@ function closePopup() {
 window.onload = function() {
   connectWebSocket();
   setupCollapsibles();
+  setupWifiDisableButton();
+  setupDriveProfileControls();
   loadConfig();
 };

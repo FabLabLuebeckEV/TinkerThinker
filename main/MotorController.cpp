@@ -1,12 +1,14 @@
 // MotorController.cpp
 #include <Arduino.h>
+#include <math.h>
 #include "MotorController.h"
 
 #define MAX_PWM_VALUE 255
 #define MAX_JOYSTICK_VALUE 512
 
-MotorController::MotorController(Motor motors[], size_t motorCount, const int motorFrequencies[], const int motorDeadbands[], const bool motorInvertArr[], bool motorSwap)
-: motors(motors), count(motorCount), motorSwap(motorSwap)
+MotorController::MotorController(Motor motors[], size_t motorCount, const int motorFrequencies[], const int motorDeadbands[], const bool motorInvertArr[], bool motorSwap,
+                                 const DriveProfileConfig& driveCfg, const MotorCurveConfig& curveCfg)
+: motors(motors), count(motorCount), motorSwap(motorSwap), driveProfile(driveCfg), motorCurve(curveCfg)
 {
     for (int i = 0; i < (int)count; i++) {
         freq[i] = motorFrequencies[i];
@@ -33,83 +35,76 @@ void MotorController::init() {
 
 
 void MotorController::controlMotor(int index, int pwmValue) {
-    Serial.printf("Controlling motor %d with PWM value: %d\n", index, pwmValue);
     if (index >= (int)count) return;
 
-    // Invert if needed
+    // Apply per-motor invert first
     if (motorInvertArray[index]) pwmValue = -pwmValue;
 
-    int db = deadband[index];
-    int maxPWM = MAX_PWM_VALUE;
+    // Clamp incoming request to valid range
+    pwmValue = constrain(pwmValue, -MAX_PWM_VALUE, MAX_PWM_VALUE);
 
-    if (abs(pwmValue) < 10) {
-        pwmValue = 0; // Below deadband, no movement
-    } else {
-        // Scale between deadband and maxPWM
-        pwmValue = (pwmValue > 0) 
-                   ? map(pwmValue, 10, maxPWM, db, maxPWM) 
-                   : map(pwmValue, -maxPWM, -10, -maxPWM, -db);
+    // Compute output magnitude with per-motor deadband once
+    int db = constrain(deadband[index], 0, MAX_PWM_VALUE);
+    int inMag = abs(pwmValue);
+    int outMag = 0;
+    if (inMag > 0) {
+        // Map 1..255 → db..255 linearly (0 stays 0)
+        outMag = db + (inMag * (MAX_PWM_VALUE - db)) / MAX_PWM_VALUE;
     }
 
-    pwmValue = constrain(pwmValue, -maxPWM, maxPWM);
-
-    // Apply global speed multiplier just before output
-    int magnitude = (int)(abs(pwmValue) * speedMultiplier);
-    magnitude = constrain(magnitude, 0, maxPWM);
+    // Apply global speed multiplier
+    outMag = (int)(outMag * speedMultiplier);
+    outMag = constrain(outMag, 0, MAX_PWM_VALUE);
 
     if (pwmValue >= 0) {
-        ledcWrite(motors[index].pin1, magnitude);
+        ledcWrite(motors[index].pin1, outMag);
         ledcWrite(motors[index].pin2, 0);
     } else {
         ledcWrite(motors[index].pin1, 0);
-        ledcWrite(motors[index].pin2, magnitude);
+        ledcWrite(motors[index].pin2, outMag);
     }
 }
 
 
 int MotorController::scaleMovementToPWM(float movement) {
-    if (movement > 0.0f) {
-        return 110 + (int)(movement * (255 - 110));
-    } else if (movement < 0.0f) {
-        return -110 - (int)(abs(movement) * (255 - 110));
-    } else {
-        return 0;
-    }
+    if (movement > 1.0f) movement = 1.0f;
+    if (movement < -1.0f) movement = -1.0f;
+    float curved = applyMotorCurve(movement);
+    return (int)roundf(curved * MAX_PWM_VALUE);
 }
 
 void MotorController::handleMotorControl(int axisX, int axisY, int leftMotorIndex, int rightMotorIndex) {
-    // Wir nehmen hier an, dass der erste Motor seine deadband[i] betrifft
-    // Allerdings ist das joystick-basierte Handling komplexer,
-    // da wir für jeden Motor unterschiedliche Deadbands haben.
-    // Der Einfachheit halber gilt: Wir nutzen den gleichen deadband
-    // für die X/Y Berechnung. Man kann dies weiter anpassen.
-    
-    // Für ein differenziertes Handling müsste man überlegen, wie man die Deadband pro Motor anwendet.
-    // Hier ein vereinfachter Ansatz:
-    int db = deadband[leftMotorIndex]; // Annahme: gleicher Deadband für beide Motoren, oder du nimmst einen Mittelwert
-    // Alternativ könnte man so etwas tun:
-    // int db = (deadband[leftMotorIndex] + deadband[rightMotorIndex]) / 2;
+    float turn = applyAxisDeadband(normalizeAxis(axisX));
+    float throttle = applyAxisDeadband(normalizeAxis(axisY));
 
-    int normX = (abs(axisX) < db) ? 0 : axisX;
-    int normY = (abs(axisY) < db) ? 0 : axisY;
-    Serial.printf("normX: %d, normY: %d\n", normX, normY);
+    float movementLeft = 0.0f;
+    float movementRight = 0.0f;
 
-    float maxMovement = (float)(MAX_JOYSTICK_VALUE - db);
-    float movementLeft = (float)(normY + normX) / maxMovement;
-    float movementRight = (float)(normY - normX) / maxMovement;
+    switch (driveProfile.mixer) {
+        case DriveProfileConfig::Mixer::Arcade: {
+            mixArcade(throttle, turn, movementLeft, movementRight);
+            break;
+        }
+        case DriveProfileConfig::Mixer::Tank: {
+            // Interpret axisY as left stick (throttle) and axisX as right stick by convention
+            movementLeft = throttle;
+            movementRight = turn;
+            break;
+        }
+    }
 
-    int rightPWM = scaleMovementToPWM(movementLeft);
-    int leftPWM = scaleMovementToPWM(movementRight);
+    const float outputDeadband = driveProfile.axisDeadband / (float)MAX_JOYSTICK_VALUE;
+    if (fabsf(movementLeft) < outputDeadband) movementLeft = 0.0f;
+    if (fabsf(movementRight) < outputDeadband) movementRight = 0.0f;
 
-    leftPWM = constrain(leftPWM, -MAX_PWM_VALUE, MAX_PWM_VALUE);
-    rightPWM = constrain(rightPWM, -MAX_PWM_VALUE, MAX_PWM_VALUE);
+    int pwmLeft = scaleMovementToPWM(movementLeft);
+    int pwmRight = scaleMovementToPWM(movementRight);
 
     int motorLeft = motorSwap ? rightMotorIndex : leftMotorIndex;
     int motorRight = motorSwap ? leftMotorIndex : rightMotorIndex;
 
-    Serial.printf("Left PWM: %d, Right PWM: %d\n", leftPWM, rightPWM);
-    controlMotor(motorLeft, leftPWM);
-    controlMotor(motorRight, rightPWM);
+    controlMotor(motorLeft, pwmLeft);
+    controlMotor(motorRight, pwmRight);
 }
 
 void MotorController::controlMotorForward(int motorIndex) {
@@ -154,4 +149,53 @@ void MotorController::setSpeedMultiplier(float m) {
     if (m < 0.2f) m = 0.2f;
     if (m > 1.5f) m = 1.5f;
     speedMultiplier = m;
+}
+
+float MotorController::normalizeAxis(int raw) const {
+    float v = raw / (float)MAX_JOYSTICK_VALUE;
+    if (v > 1.0f) v = 1.0f;
+    if (v < -1.0f) v = -1.0f;
+    return v;
+}
+
+float MotorController::applyAxisDeadband(float value) const {
+    int dbRaw = driveProfile.axisDeadband;
+    if (dbRaw <= 0) return value;
+    if (dbRaw >= MAX_JOYSTICK_VALUE) return 0.0f;
+    float db = dbRaw / (float)MAX_JOYSTICK_VALUE;
+    if (fabsf(value) <= db) return 0.0f;
+    float sign = (value >= 0.0f) ? 1.0f : -1.0f;
+    float scaled = (fabsf(value) - db) / (1.0f - db);
+    if (scaled < 0.0f) scaled = 0.0f;
+    return sign * scaled;
+}
+
+void MotorController::mixArcade(float throttle, float turn, float& left, float& right) const {
+    float scaledTurn = turn * driveProfile.turnGain;
+    left = throttle + scaledTurn;
+    right = throttle - scaledTurn;
+    float maxMag = fmaxf(fabsf(left), fabsf(right));
+    if (maxMag > 1.0f) {
+        left /= maxMag;
+        right /= maxMag;
+    }
+}
+
+float MotorController::applyMotorCurve(float value) const {
+    float sign = (value >= 0.0f) ? 1.0f : -1.0f;
+    float absVal = fabsf(value);
+
+    switch (motorCurve.type) {
+        case MotorCurveConfig::Type::Linear:
+            break;
+        case MotorCurveConfig::Type::Expo: {
+            float exponent = 1.0f + motorCurve.strength;
+            if (exponent < 0.2f) exponent = 0.2f;
+            if (exponent > 5.0f) exponent = 5.0f;
+            absVal = powf(absVal, exponent);
+            break;
+        }
+    }
+
+    return sign * absVal;
 }

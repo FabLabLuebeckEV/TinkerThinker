@@ -32,6 +32,12 @@ public:
     int getServoMinPulsewidth(int index);
     int getServoMaxPulsewidth(int index);
 
+    String getDriveMixer() const { return drive_mixer; }
+    float getDriveTurnGain() const { return drive_turn_gain; }
+    int getDriveAxisDeadband() const { return drive_axis_deadband; }
+    String getMotorCurveType() const { return motor_curve_type; }
+    float getMotorCurveStrength() const { return motor_curve_strength; }
+
     // BT scan duty-cycle (ms)
     int getBtScanOnNormal();
     int getBtScanOffNormal();
@@ -57,6 +63,12 @@ public:
     void setMotorRightGUI(int motorIndex);
 
     void setServoPulsewidthRange(int index, int min_pw, int max_pw);
+
+    void setDriveMixer(const String& mixer);
+    void setDriveTurnGain(float gain);
+    void setDriveAxisDeadband(int deadband);
+    void setMotorCurveType(const String& type);
+    void setMotorCurveStrength(float strength);
 
     void setBtScanOnNormal(int v);
     void setBtScanOffNormal(int v);
@@ -93,6 +105,12 @@ private:
         int max_pw;
     };
     ServoConfig servos[3];
+
+    String drive_mixer = "arcade";
+    float drive_turn_gain = 1.0f;
+    int drive_axis_deadband = 16;
+    String motor_curve_type = "linear";
+    float motor_curve_strength = 0.0f;
 
     // Bluetooth scan duty-cycle settings
     int bt_scan_on_normal_ms = 500;

@@ -14,7 +14,21 @@ struct Motor {
 class MotorController {
 public:
     // Neuer Konstruktor erwartet Arrays für Frequenz und Deadband
-    MotorController(Motor motors[], size_t motorCount, const int motorFrequencies[], const int motorDeadbands[], const bool motorInvert[], bool motorSwap);
+    struct DriveProfileConfig {
+        enum class Mixer : uint8_t { Arcade, Tank };
+        Mixer mixer = Mixer::Arcade;
+        int axisDeadband = 16;
+        float turnGain = 1.0f;
+    };
+
+    struct MotorCurveConfig {
+        enum class Type : uint8_t { Linear, Expo };
+        Type type = Type::Linear;
+        float strength = 0.0f;
+    };
+
+    MotorController(Motor motors[], size_t motorCount, const int motorFrequencies[], const int motorDeadbands[], const bool motorInvert[], bool motorSwap,
+                    const DriveProfileConfig& driveProfile, const MotorCurveConfig& motorCurve);
     void init();
     void controlMotor(int index, int pwmValue);
     void handleMotorControl(int axisX, int axisY, int leftMotorIndex, int rightMotorIndex);
@@ -36,7 +50,14 @@ private:
     int deadband[4];
     float speedMultiplier = 1.0f;
 
+    DriveProfileConfig driveProfile;
+    MotorCurveConfig motorCurve;
+
     int scaleMovementToPWM(float movement);
+    float normalizeAxis(int raw) const;
+    float applyAxisDeadband(float value) const;
+    void mixArcade(float throttle, float turn, float& left, float& right) const;
+    float applyMotorCurve(float value) const;
 };
 
 #endif

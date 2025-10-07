@@ -7,7 +7,7 @@
   const DPAD_DIRS = ['UP','DOWN','LEFT','RIGHT'];
   const EDGES = ['press','release','hold'];
   const AXES = ['X','Y','RX','RY'];
-  const ACTION_TYPES = ['drive_pair','servo_set','servo_toggle_band','servo_nudge','led_set','gpio_set','speed_adjust','servo_axes'];
+  const ACTION_TYPES = ['drive_pair','servo_set','servo_toggle_band','servo_nudge','led_set','gpio_set','speed_adjust','servo_axes','motor_direct'];
 
   function el(tag, attrs={}, children=[]) {
     const e = document.createElement(tag);
@@ -96,6 +96,10 @@
         const idx = el('input',{type:'number', min:0, max:2, value: action.servo??0, style:'width:80px;'});
         const sc = el('input',{type:'number', step:'0.1', value: action.scale??1.0, style:'width:100px;'});
         holder.append('Servo:', idx, 'Scale:', sc); action.idxEl=idx; action.scaleEl=sc;
+      } else if (t==='motor_direct') {
+        const idx = el('input',{type:'number', min:0, max:3, value: action.motor??0, style:'width:80px;'});
+        const pwm = el('input',{type:'number', min:-255, max:255, value: action.pwm??255, style:'width:100px;'});
+        holder.append('Motor:', idx, 'PWM:', pwm); action.motorEl=idx; action.pwmEl=pwm;
       }
     }
     typeSel.addEventListener('change', render);
@@ -128,6 +132,7 @@
         case 'gpio_set': action.pin = parseInt(AE.action.pinEl.value||'-1'); action.level = (AE.action.levelSel.value==='HIGH') ? 1 : 0; break;
         case 'speed_adjust': action.delta = parseFloat(AE.action.deltaEl.value||'0'); break;
         case 'servo_axes': action.servo = parseInt(AE.action.idxEl.value||'0'); action.scale = parseFloat(AE.action.scaleEl.value||'1.0'); break;
+        case 'motor_direct': action.motor = parseInt(AE.action.motorEl.value||'0'); action.pwm = parseInt(AE.action.pwmEl.value||'255'); break;
       }
       return { input, action };
     };
