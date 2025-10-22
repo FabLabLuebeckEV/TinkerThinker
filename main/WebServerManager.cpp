@@ -292,16 +292,28 @@ void WebServerManager::handleConfig(AsyncWebServerRequest* request) {
         config->setDriveMixer(request->getParam("drive_mixer", true)->value());
     }
     if (request->hasParam("drive_turn_gain", true)) {
-        config->setDriveTurnGain(request->getParam("drive_turn_gain", true)->value().toFloat());
+        String v = request->getParam("drive_turn_gain", true)->value();
+        v.trim();
+        if (v.length() > 0) {
+            config->setDriveTurnGain(v.toFloat());
+        }
     }
     if (request->hasParam("drive_axis_deadband", true)) {
-        config->setDriveAxisDeadband(request->getParam("drive_axis_deadband", true)->value().toInt());
+        String v = request->getParam("drive_axis_deadband", true)->value();
+        v.trim();
+        if (v.length() > 0) {
+            config->setDriveAxisDeadband(v.toInt());
+        }
     }
     if (request->hasParam("motor_curve_type", true)) {
         config->setMotorCurveType(request->getParam("motor_curve_type", true)->value());
     }
     if (request->hasParam("motor_curve_strength", true)) {
-        config->setMotorCurveStrength(request->getParam("motor_curve_strength", true)->value().toFloat());
+        String v = request->getParam("motor_curve_strength", true)->value();
+        v.trim();
+        if (v.length() > 0) {
+            config->setMotorCurveStrength(v.toFloat());
+        }
     }
 
     // Config speichern

@@ -292,6 +292,7 @@ async function loadConfig() {
     // Motoren
     document.getElementById('motor_swap').checked = data.motor_swap;
     const motorsDiv = document.getElementById('motors');
+    motorsDiv.innerHTML = '';
     let motor_invert = data.motor_invert;
     let motor_deadband = data.motor_deadband;
     let motor_frequency = data.motor_frequency;
@@ -375,6 +376,7 @@ async function loadConfig() {
 
     // Servos
     const servosDiv = document.getElementById('servos');
+    servosDiv.innerHTML = '';
     data.servo_settings.forEach((servo, idx) => {
       let sDiv = document.createElement('div');
       sDiv.classList.add('servo-block');

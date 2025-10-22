@@ -56,7 +56,7 @@ bool ConfigManager::loadConfig() {
         Serial.println("Failed to open config file for reading");
         return false;
     }
-    StaticJsonDocument<3072> doc;
+    StaticJsonDocument<8192> doc;
     DeserializationError err = deserializeJson(doc, file);
     file.close();
     if (err) {
@@ -132,7 +132,7 @@ bool ConfigManager::loadConfig() {
 }
 
 bool ConfigManager::saveConfig() {
-    StaticJsonDocument<3072> doc;
+    StaticJsonDocument<8192> doc;
     doc["wifi_mode"] = wifi_mode;
     doc["wifi_ssid"] = wifi_ssid;
     doc["wifi_password"] = wifi_password;

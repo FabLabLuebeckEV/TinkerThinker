@@ -49,6 +49,7 @@ const centerX = canvasSize / 2;
 const centerY = canvasSize / 2;
 let touchX = centerX;
 let touchY = centerY;
+let isMouseDown = false;
 
 let lastSentData = { x: 0, y: 0, servo: 90 };
 
@@ -191,14 +192,10 @@ function draw() {
     ctx.closePath();
 }
 
-// Touch-Events für den Joystick
-function handleTouch(event) {
-    event.preventDefault();
+function updateJoystickPosition(clientX, clientY) {
     const rect = canvas.getBoundingClientRect();
-    const touch = event.touches[0];
-    const x = touch.clientX - rect.left;
-    const y = touch.clientY - rect.top;
-
+    const x = clientX - rect.left;
+    const y = clientY - rect.top;
     const dx = x - centerX;
     const dy = y - centerY;
     const distance = Math.sqrt(dx * dx + dy * dy);
@@ -216,10 +213,51 @@ function handleTouch(event) {
     draw();
 }
 
+// Touch-Events für den Joystick
+function handleTouch(event) {
+    event.preventDefault();
+    const touch = event.touches[0];
+    if (!touch) {
+        return;
+    }
+    updateJoystickPosition(touch.clientX, touch.clientY);
+}
+
 function handleTouchEnd() {
     touchX = centerX;
     touchY = centerY;
     draw();
+}
+
+// Maus-Events für den Joystick
+function handleMouseDown(event) {
+    event.preventDefault();
+    isMouseDown = true;
+    updateJoystickPosition(event.clientX, event.clientY);
+}
+
+function handleMouseMove(event) {
+    if (!isMouseDown) {
+        return;
+    }
+    event.preventDefault();
+    updateJoystickPosition(event.clientX, event.clientY);
+}
+
+function handleMouseUp() {
+    if (!isMouseDown) {
+        return;
+    }
+    isMouseDown = false;
+    handleTouchEnd();
+}
+
+function handleMouseLeave() {
+    if (!isMouseDown) {
+        return;
+    }
+    isMouseDown = false;
+    handleTouchEnd();
 }
 
 // Slider-Event
@@ -230,13 +268,13 @@ function handleSliderChange() {
 // Daten senden an den Server
 function sendData() {
     console.log("SendData: " + socket.readyStat);
-    const normalizedX = (touchX - centerX) / (canvasSize / 2 - 15);
-    const normalizedY = (centerY - touchY) / (canvasSize / 2 - 15);
+    const normalizedHorizontal = (touchX - centerX) / (canvasSize / 2 - 15);
+    const normalizedVertical = (centerY - touchY) / (canvasSize / 2 - 15);
     const servoAngle = parseInt(servoSlider.value);
 
     const currentData = {
-        x: parseFloat(normalizedX.toFixed(4))*-1,
-        y: parseFloat(normalizedY.toFixed(4))*-1,
+        x: parseFloat(normalizedVertical.toFixed(4)),
+        y: parseFloat(normalizedHorizontal.toFixed(4)) * -1,
         servo0: servoAngle
     };
 
@@ -352,6 +390,10 @@ servoSlider.addEventListener('input', handleSliderChange);
 canvas.addEventListener('touchstart', handleTouch);
 canvas.addEventListener('touchmove', handleTouch);
 canvas.addEventListener('touchend', handleTouchEnd);
+canvas.addEventListener('mousedown', handleMouseDown);
+canvas.addEventListener('mousemove', handleMouseMove);
+canvas.addEventListener('mouseleave', handleMouseLeave);
+window.addEventListener('mouseup', handleMouseUp);
 
 // Event Listener für Statusbox Einklappen
 statusHeader.addEventListener('click', () => {
