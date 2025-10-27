@@ -11,6 +11,8 @@
 #include "soc/rtc_cntl_reg.h"
 #include "esp_bt.h"
 #include <uni.h>
+#include "ConfigManager.h"
+#include "esp_timer.h"
 
 // Removed DFPlayer and HardwareSerial includes
 
@@ -64,6 +66,44 @@ void onConnectedController(ControllerPtr ctl) {
     }
     if (!foundEmptySlot) {
         Console.println("CALLBACK: Controller connected, but could not find empty slot");
+    }
+}
+
+constexpr int WIFI_RESET_PIN = 39; // GPIO39 (VN)
+constexpr bool PRESSED_LEVEL = LOW; // Active low
+constexpr uint64_t HOLD_TIME_US = 10ULL * 100000; // 10 seconds
+
+// Check if the Wi-Fi reset button is currently pressed
+static bool buttonIsPressed() {
+    pinMode(WIFI_RESET_PIN, INPUT_PULLUP);
+    return (digitalRead(WIFI_RESET_PIN) == PRESSED_LEVEL);
+}
+
+// Check if the Wi-Fi reset button has been pressed continuously for 10 seconds
+static bool pressedContinuouslyFor10s() {
+    if (!buttonIsPressed()) {
+        return false;
+    }
+    uint64_t startTime = esp_timer_get_time();
+    while (buttonIsPressed()) {
+        uint64_t now = esp_timer_get_time();
+        if ((now - startTime) >= HOLD_TIME_US) {
+            return true;
+        }
+        vTaskDelay(10);
+    }
+    return false;
+}
+
+// Reset Wi-Fi configuration if the reset button has been pressed for 10 seconds
+void resetWiFiIfRequested() {
+    if (pressedContinuouslyFor10s()) {
+        Console.println("Resetting WiFi configuration as requested by user...");
+        configManager.setWifiMode("AP");
+        configManager.setWifiSSID("TinkerThinkerAP");
+        configManager.setWifiPassword("");
+        configManager.saveConfig();
+        ESP.restart();
     }
 }
 
@@ -130,6 +170,18 @@ void processControllers() {
 
 // Arduino setup function. Runs in CPU 1
 void setup() {
+
+    // Check if Wi-Fi reset is requested
+    pinMode(WIFI_RESET_PIN, INPUT_PULLUP);
+
+    // Wait for button press
+    if (pressedContinuouslyFor10s()) {
+        Serial.println("Resetting WiFi configuration as requested by user...");
+        resetWiFiIfRequested();
+        delay(200);
+        ESP.restart();
+    }
+
     WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0); //disable brownout detector
 
     Serial.begin(115200);
@@ -168,7 +220,8 @@ static bool scanEnabled = false;
 static uint32_t nextToggleAt = 0;
 static uint32_t curOnMs = SCAN_ON_MS_NORMAL;
 static uint32_t curOffMs = SCAN_OFF_MS_NORMAL;
-static enum { PHASE_ON, PHASE_OFF } phase = PHASE_OFF;
+enum Phase { PHASE_ON, PHASE_OFF };
+static Phase phase = PHASE_OFF;
 
 void loop() {
     // This call fetches all the controllers' data.

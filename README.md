@@ -294,6 +294,21 @@ All settings persist in `/config.json` on LittleFS. Use “Reset to defaults” 
 - No controller connects: Re‑enter pairing on the controller; watch serial logs; ensure Bluetooth is enabled and not blocked.
 - Motors run backward: Use per‑motor invert or side swap in `/config`.
 - Jerky/slow movement: Adjust per‑motor deadband and frequency; verify power and H‑bridge wiring.
+ 
+### Wi‑Fi: Passwort zurücksetzen
+
+Falls das Gerät die gespeicherte WLAN‑Konfiguration nicht mehr verbindet oder das Passwort zurückgesetzt werden soll, gibt es eine hardware‑basierte Zurücksetzfunktion in der Firmware.
+
+- Auslöser: physischer Taster an GPIO39 (konstant `WIFI_RESET_PIN` im Quellcode, Beschriftung: VN). Der Eingang ist aktiv niedrig (mit GND verbinden). Halte den Taster beim Einschalten des Geräts für ca. 10 Sekunden. Die Firmware prüft diesen Taster beim Boot.
+- Sichtbarkeit: Auf der seriellen Konsole (115200 Baud) erscheint die Meldung:
+  "Resetting WiFi configuration as requested by user..."
+- Wirkung: Die Firmware setzt den Wi‑Fi‑Modus auf `AP`, benutzt die SSID `TinkerThinkerAP`, setzt das Passwort auf leer, speichert die Konfiguration und startet das Gerät neu.
+
+Technische Referenz (Quellcode): `main/sketch.cpp`
+- Wichtige Symbole: `WIFI_RESET_PIN` (GPIO39), `PRESSED_LEVEL`, `HOLD_TIME_US`.
+- Funktionen: `pressedContinuouslyFor10s()` prüft die 10‑Sekunden‑Haltezeit, `resetWiFiIfRequested()` führt das Zurücksetzen durch.
+
+Hinweis: Aktuell erfolgt die Prüfung beim Boot; wenn du einen remote/Runtime‑Reset wünschst, kann die Funktion in `sketch.cpp` erweitert werden. Öffne zur Diagnose den seriellen Monitor auf 115200 Baud.
 
 ## Development Notes
 
