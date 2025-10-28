@@ -7,6 +7,7 @@
 #define GPIO_CURRENT_1 34
 #define GPIO_CURRENT_2 36
 #define BATTERY_PIN 35
+#define WIFI_RESET_PIN 39
 
 TinkerThinkerBoard::TinkerThinkerBoard(ConfigManager* configManager)
 : config(configManager)
@@ -19,6 +20,10 @@ TinkerThinkerBoard::TinkerThinkerBoard(ConfigManager* configManager)
     servos[0] = {13, 8, 180, 500, 2500};
     servos[1] = {33, 9, 180, 500, 2500};
     servos[2] = {17, 10, 180, 500, 2500};
+}
+
+int TinkerThinkerBoard::getWifiPin() {
+    return WIFI_RESET_PIN;
 }
 
 void TinkerThinkerBoard::reApplyConfig() {

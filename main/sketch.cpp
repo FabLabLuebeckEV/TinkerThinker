@@ -27,6 +27,13 @@ TinkerThinkerBoard board(&configManager);
 
 // --- GLOBAL VARIABLES ---
 ControllerPtr myControllers[BP32_MAX_GAMEPADS];
+constexpr unsigned long BUTTON_DEBOUNCE_MS = 200;   // 200 ms
+constexpr unsigned long BUTTON_LONGPRESS_MS = 10000; // 10 s
+
+static unsigned long lastButtonPress = 0;
+static bool buttonPressed = false;
+
+
 // Input binding processor
 #include "InputBindingManager.h"
 static InputBindingManager inputBindings(&board, &configManager);
@@ -69,41 +76,31 @@ void onConnectedController(ControllerPtr ctl) {
     }
 }
 
-constexpr int WIFI_RESET_PIN = 39; // GPIO39 (VN)
-constexpr bool PRESSED_LEVEL = LOW; // Active low
-constexpr uint64_t HOLD_TIME_US = 10ULL * 100000; // 10 seconds
-
-// Check if the Wi-Fi reset button is currently pressed
-static bool buttonIsPressed() {
-    pinMode(WIFI_RESET_PIN, INPUT_PULLUP);
-    return (digitalRead(WIFI_RESET_PIN) == PRESSED_LEVEL);
-}
-
-// Check if the Wi-Fi reset button has been pressed continuously for 10 seconds
-static bool pressedContinuouslyFor10s() {
-    if (!buttonIsPressed()) {
-        return false;
-    }
-    uint64_t startTime = esp_timer_get_time();
-    while (buttonIsPressed()) {
-        uint64_t now = esp_timer_get_time();
-        if ((now - startTime) >= HOLD_TIME_US) {
-            return true;
+bool buttonLongPressed() {
+    if (digitalRead(board.getWifiPin()) == LOW) {
+        // Button gedrückt
+        if (!buttonPressed) {
+            lastButtonPress = millis();
+            buttonPressed = true;
+        } else if (millis() - lastButtonPress >= BUTTON_LONGPRESS_MS) {
+            return true; // 10 s gedrückt
         }
-        vTaskDelay(10);
+    } else {
+        // Button losgelassen
+        buttonPressed = false;
     }
     return false;
 }
 
 // Reset Wi-Fi configuration if the reset button has been pressed for 10 seconds
-void resetWiFiIfRequested() {
-    if (pressedContinuouslyFor10s()) {
+void resetWifiIfRequested() {
+    if (buttonLongPressed()) {          // 10 s gedrückt
         Console.println("Resetting WiFi configuration as requested by user...");
         configManager.setWifiMode("AP");
         configManager.setWifiSSID("TinkerThinkerAP");
         configManager.setWifiPassword("");
         configManager.saveConfig();
-        ESP.restart();
+        ESP.restart();                   // **einmal** restart
     }
 }
 
@@ -171,23 +168,17 @@ void processControllers() {
 // Arduino setup function. Runs in CPU 1
 void setup() {
 
-    // Check if Wi-Fi reset is requested
-    pinMode(WIFI_RESET_PIN, INPUT_PULLUP);
+    
+    pinMode(board.getWifiPin(), INPUT_PULLUP);
 
-    // Wait for button press
-    if (pressedContinuouslyFor10s()) {
-        Serial.println("Resetting WiFi configuration as requested by user...");
-        resetWiFiIfRequested();
-        delay(200);
-        ESP.restart();
-    }
+    // Check if Wi-Fi reset is requested
+    resetWifiIfRequested();
 
     WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0); //disable brownout detector
 
     Serial.begin(115200);
 
     // DFPlayer initialization removed
-
     if (!configManager.init()) {
         Serial.println("Failed to init ConfigManager!");
     }

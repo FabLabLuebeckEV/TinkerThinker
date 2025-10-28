@@ -58,6 +58,8 @@ public:
     void setSpeedMultiplier(float m);
     float getSpeedMultiplier();
 
+    int getWifiPin();
+
 private:
     enum class ControlSource { None, Bluetooth, WebSocket };
     ControlSource lastSource = ControlSource::None;
