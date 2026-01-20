@@ -28,31 +28,19 @@ def eprint(*args, **kwargs):
     print(*args, file=sys.stderr, **kwargs)
 
 
-def read_platformio_partitions() -> Tuple[str, str]:
-    """Return (partitions_csv_path, flash_size_str) based on platformio.ini in repo root."""
-    ini_path = os.path.join(os.getcwd(), 'platformio.ini')
-    partitions = None
-    flash_size = '8MB'
-    if not os.path.isfile(ini_path):
-        return ('partitions_dual3mb_1m5spiffs.csv', flash_size)
+def read_partitions_csv_path() -> Optional[str]:
+    """Return partitions CSV path from CWD if present; otherwise None."""
+    preferred = os.path.join(os.getcwd(), 'partitions_dual3mb_1m5spiffs.csv')
+    if os.path.isfile(preferred):
+        return preferred
     try:
-        with open(ini_path, 'r', encoding='utf-8') as f:
-            for line in f:
-                s = line.strip()
-                if s.startswith('board_build.partitions'):
-                    # board_build.partitions = <file>
-                    parts = s.split('=', 1)
-                    if len(parts) == 2:
-                        partitions = parts[1].strip()
-                elif s.startswith('board_build.flash_size'):
-                    parts = s.split('=', 1)
-                    if len(parts) == 2:
-                        flash_size = parts[1].strip()
+        for name in os.listdir(os.getcwd()):
+            lname = name.lower()
+            if lname.endswith('.csv') and 'partitions' in lname:
+                return os.path.join(os.getcwd(), name)
     except Exception:
-        pass
-    if not partitions:
-        partitions = 'partitions_dual3mb_1m5spiffs.csv'
-    return (partitions, flash_size)
+        return None
+    return None
 
 
 def parse_partitions_csv(csv_path: str) -> Dict[str, Dict[str, int]]:
@@ -140,6 +128,27 @@ def download_release_assets() -> None:
         eprint(f'Error downloading release assets: {e}')
 
 
+def find_image(preferred: str, contains_any: Tuple[str, ...]) -> Optional[str]:
+    """Find image file in CWD by preferred name or fuzzy contains match (case-insensitive)."""
+    if os.path.isfile(preferred):
+        return preferred
+    try:
+        candidates = []
+        for name in os.listdir(os.getcwd()):
+            if not name.lower().endswith('.bin'):
+                continue
+            lname = name.lower()
+            if any(tok in lname for tok in contains_any):
+                candidates.append(name)
+        if not candidates:
+            return None
+        # Prefer shortest filename to avoid picking composite bundles
+        candidates.sort(key=lambda s: (len(s), s))
+        return candidates[0]
+    except Exception:
+        return None
+
+
 def ensure_esptool() -> str:
     """Return python -m esptool invocation path using current interpreter."""
     return sys.executable
@@ -159,31 +168,36 @@ def get_mac(port: str) -> str:
 
 
 def program(port: str) -> bool:
-    partitions_csv, flash_size = read_platformio_partitions()
-    csv_path = os.path.join(os.getcwd(), partitions_csv)
-    parts = parse_partitions_csv(csv_path)
+    csv_path = read_partitions_csv_path()
+    flash_size = '8MB'
+    parts = parse_partitions_csv(csv_path) if csv_path else {}
+    if not csv_path:
+        print('No partitions CSV found; using default 8MB offsets.')
 
+    # Defaults for 8MB layout if no CSV is present
     bootloader_off = 0x1000
     parttable_off = 0x8000
     app_off = parts.get('app', {}).get('offset', 0x20000)
-    fs_off = parts.get('fs', {}).get('offset')
-    fs_size = parts.get('fs', {}).get('size', 0)
+    fs_off = parts.get('fs', {}).get('offset', 0x620000)
+    fs_size = parts.get('fs', {}).get('size', 0x180000)
 
-    if not fs_off:
-        eprint('Filesystem partition not found in CSV. Abort.')
-        return False
+    bootloader_img = find_image('bootloader.bin', ('bootloader',))
+    partitions_img = find_image('partitions.bin', ('partitions', 'partition'))
+    firmware_img = find_image('firmware.bin', ('firmware', 'app'))
+    littlefs_img = find_image('littlefs.bin', ('littlefs', 'spiffs'))
 
     # Basic sanity
-    if not os.path.isfile('bootloader.bin') or not os.path.isfile('partitions.bin') or not os.path.isfile('firmware.bin'):
-        eprint('Missing required images (bootloader.bin / partitions.bin / firmware.bin). Run download first.')
+    if not bootloader_img or not partitions_img or not firmware_img:
+        eprint('Missing required images (bootloader / partitions / firmware). Run download first.')
+        eprint(f'Found: bootloader={bootloader_img}, partitions={partitions_img}, firmware={firmware_img}')
         return False
-    if not os.path.isfile('littlefs.bin'):
-        eprint('Missing littlefs.bin. If your build doesn\'t include FS, remove it from flashing or build it.')
+    if not littlefs_img:
+        eprint('Missing littlefs image. If your build doesn\'t include FS, remove it from flashing or build it.')
         return False
 
-    fs_bytes = os.path.getsize('littlefs.bin')
+    fs_bytes = os.path.getsize(littlefs_img)
     if fs_size and fs_bytes > fs_size:
-        eprint(f'littlefs.bin ({fs_bytes} bytes) is larger than partition size ({fs_size} bytes). Abort.')
+        eprint(f'{littlefs_img} ({fs_bytes} bytes) is larger than partition size ({fs_size} bytes). Abort.')
         return False
 
     mac = get_mac(port)
@@ -212,10 +226,10 @@ def program(port: str) -> bool:
         '--flash_mode', 'dio',
         '--flash_size', flash_size,
         '--flash_freq', '40m',
-        hex(bootloader_off), 'bootloader.bin',
-        hex(parttable_off), 'partitions.bin',
-        hex(app_off), 'firmware.bin',
-        hex(fs_off), 'littlefs.bin'
+        hex(bootloader_off), bootloader_img,
+        hex(parttable_off), partitions_img,
+        hex(app_off), firmware_img,
+        hex(fs_off), littlefs_img
     ]
     print('Flashing with command:\n  ' + ' '.join(cmd))
     res = subprocess.run(cmd)
@@ -263,4 +277,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
