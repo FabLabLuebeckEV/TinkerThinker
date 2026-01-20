@@ -50,6 +50,7 @@ qrc_*.cpp
 
 # Object files
 *.o
+/*.map
 
 # Vagrant stuff
 .vagrant

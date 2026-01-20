@@ -61,6 +61,12 @@ Recent Changes (Important)
    - config.js: Loads these values from /getConfig, included in POST /config via form submission.
    - WebServerManager: /getConfig and /config were updated to expose/accept these fields.
 
+4) sdkconfig cleanup (Jan 2026)
+   - env:esp32dev now points to sdkconfig.esp32dev aligned with the working skip_power_pin build.
+   - Wi-Fi/BT SW coexistence forced on (CONFIG_ESP_COEX_SW_COEXIST_ENABLE plus *_SW_COEXIST).
+   - Disabled unused stacks to free IRAM/flash: RainMaker, Insights, Matter/OpenThread, Ethernet/PPP; GDB stub and all coredumps off.
+   - Rationale: Only BT Classic via Bluepad32 and Wi-Fi AP/STA are used; IRAM was tight. Re-enable BLE/RainMaker if needed.
+
 Editing Guidelines
 - Keep changes focused; do not introduce a second Arduino core.
 - Respect the control arbiter API; route all new control surfaces through TinkerThinkerBoard request* methods.
