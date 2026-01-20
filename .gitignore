@@ -56,3 +56,10 @@ qrc_*.cpp
 .vagrant
 /.pio/
 .venv/
+
+#Auto flasher downloads                                                                                                                    
+tools/blacklist.txt                                                                                                                         
+tools/bootloader.bin                                                                                                                        
+tools/firmware.bin                                                                                                                          
+tools/littlefs.bin                                                                                                                          
+tools/partitions.bin
