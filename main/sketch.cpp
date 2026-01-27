@@ -13,6 +13,7 @@
 #include <uni.h>
 
 // Removed DFPlayer and HardwareSerial includes
+#define MODE_BUTTON_PIN 39
 
 // Erzeuge globalen Board- und ConfigManager
 ConfigManager configManager;
@@ -30,6 +31,20 @@ ControllerPtr myControllers[BP32_MAX_GAMEPADS];
 static InputBindingManager inputBindings(&board, &configManager);
 
 long timestampServo = 0;
+
+enum class RadioMode { Normal, BluetoothOnly, WifiOnly };
+static RadioMode radioMode = RadioMode::Normal;
+static RadioMode lastAppliedMode = RadioMode::Normal;
+static bool lastModeButtonState = true;
+static uint32_t lastModeButtonChangeMs = 0;
+static const uint32_t modeButtonDebounceMs = 50;
+static int modeStep = 0;
+static uint32_t wifiPauseUntilMs = 0;
+static bool wifiPausedForBt = false;
+static const uint32_t wifiPauseOnConnectMs = 3000;
+
+static void setStatusLed(uint8_t r, uint8_t g, uint8_t b);
+static void applyRadioMode(RadioMode mode);
 
 static int findControllerIndex(ControllerPtr ctl) {
     for (int i = 0; i < BP32_MAX_GAMEPADS; ++i) {
@@ -59,6 +74,9 @@ void onConnectedController(ControllerPtr ctl) {
             foundEmptySlot = true;
             board.setLED(0, 0, 255, 0); // Green
             board.showLEDs();
+            if (radioMode == RadioMode::Normal) {
+                wifiPauseUntilMs = millis() + wifiPauseOnConnectMs;
+            }
             break;
         }
     }
@@ -153,6 +171,9 @@ void setup() {
     BP32.enableBLEService(false);
     sm_set_secure_connections_only_mode(false);                        // SC ausschalten
     uni_bt_allowlist_set_enabled(false);                             // Allowlist ausschalten
+
+    pinMode(MODE_BUTTON_PIN, INPUT_PULLUP);
+    setStatusLed(60, 60, 60);
 }
 
 // Arduino loop function. Runs in CPU 1.
@@ -170,6 +191,43 @@ static uint32_t curOnMs = SCAN_ON_MS_NORMAL;
 static uint32_t curOffMs = SCAN_OFF_MS_NORMAL;
 static enum { PHASE_ON, PHASE_OFF } phase = PHASE_OFF;
 
+static void setStatusLed(uint8_t r, uint8_t g, uint8_t b) {
+    board.setLED(0, r, g, b);
+    board.showLEDs();
+}
+
+static void applyRadioMode(RadioMode mode) {
+    if (mode == lastAppliedMode) return;
+    lastAppliedMode = mode;
+
+    if (mode == RadioMode::Normal) {
+        board.requestWifiEnable();
+        BP32.enableNewBluetoothConnections(false);
+        scanEnabled = false;
+        phase = PHASE_OFF;
+        nextToggleAt = millis();
+        setStatusLed(60, 60, 60); // dim white
+    } else if (mode == RadioMode::BluetoothOnly) {
+        board.requestWifiDisable(false);
+        BP32.enableNewBluetoothConnections(true);
+        scanEnabled = true;
+        phase = PHASE_ON;
+        setStatusLed(0, 0, 255);
+    } else if (mode == RadioMode::WifiOnly) {
+        // First drop BT connections, then disable scanning, then set color
+        for (int i = 0; i < BP32_MAX_GAMEPADS; i++) {
+            if (myControllers[i] && myControllers[i]->isConnected()) {
+                myControllers[i]->disconnect();
+            }
+        }
+        BP32.enableNewBluetoothConnections(false);
+        scanEnabled = false;
+        phase = PHASE_OFF;
+        board.requestWifiEnable();
+        setStatusLed(255, 120, 0);
+    }
+}
+
 void loop() {
     // This call fetches all the controllers' data.
     // Call this function in your main loop.
@@ -184,6 +242,40 @@ void loop() {
     SCAN_ON_MS_AP_ACTIVE    = configManager.getBtScanOnAp();
     SCAN_OFF_MS_AP_ACTIVE   = configManager.getBtScanOffAp();
 
+    // Mode button handling (active-low)
+    bool modeNow = (digitalRead(MODE_BUTTON_PIN) == LOW);
+    uint32_t nowMs = millis();
+    if (modeNow != lastModeButtonState && (nowMs - lastModeButtonChangeMs) > modeButtonDebounceMs) {
+        lastModeButtonChangeMs = nowMs;
+        lastModeButtonState = modeNow;
+        if (modeNow) {
+            modeStep = (modeStep + 1) % 4;
+            if (modeStep == 0) radioMode = RadioMode::Normal;
+            else if (modeStep == 1) radioMode = RadioMode::WifiOnly;
+            else if (modeStep == 2) radioMode = RadioMode::BluetoothOnly;
+            else radioMode = RadioMode::WifiOnly;
+        }
+    }
+    applyRadioMode(radioMode);
+
+    // Temporary WiFi pause to boost BT during connect (only in Normal mode)
+    if (radioMode == RadioMode::Normal) {
+        uint32_t now = millis();
+        if (wifiPauseUntilMs > now) {
+            if (!wifiPausedForBt) {
+                board.requestWifiDisable(false);
+                BP32.enableNewBluetoothConnections(true);
+                wifiPausedForBt = true;
+            }
+        } else if (wifiPausedForBt) {
+            board.requestWifiEnable();
+            wifiPausedForBt = false;
+        }
+    } else if (wifiPausedForBt) {
+        wifiPausedForBt = false;
+        wifiPauseUntilMs = 0;
+    }
+
     // Determine current scenario and duty cycle settings
     bool anyController = false;
     for (int i = 0; i < BP32_MAX_GAMEPADS; i++) {
@@ -197,6 +289,25 @@ void loop() {
     bool staConnecting = (mode == WIFI_STA || mode == WIFI_AP_STA) && (WiFi.status() != WL_CONNECTED);
     bool apActive = (mode == WIFI_AP || mode == WIFI_AP_STA) && (WiFi.softAPgetStationNum() > 0);
     bool wifiDisabledUntilRestart = (mode == WIFI_OFF);
+
+    if (radioMode == RadioMode::BluetoothOnly) {
+        if (!scanEnabled) {
+            BP32.enableNewBluetoothConnections(true);
+            scanEnabled = true;
+        }
+        vTaskDelay(10);
+        return;
+    }
+
+    if (radioMode == RadioMode::WifiOnly) {
+        if (scanEnabled) {
+            BP32.enableNewBluetoothConnections(false);
+            scanEnabled = false;
+            phase = PHASE_OFF;
+        }
+        vTaskDelay(10);
+        return;
+    }
 
     if (wifiDisabledUntilRestart) {
         // Keep Bluetooth scanning fully enabled while Wi-Fi is down.

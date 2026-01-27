@@ -5,15 +5,12 @@
 
 class SystemMonitor {
 public:
-    SystemMonitor(int faultPin1, int currentPin1, int currentPin2);
+    SystemMonitor(int currentPin1, int currentPin2);
     void init();
-    void checkMotorDriverFault();
-    bool isMotorInFault();
     float getHBridgeAmps(int motorIndex);
     float readAverageCurrent(int adcPin);
     
 private:
-    int fault1Pin;
     int currentPin1;
     int currentPin2;
     int pwmFrequency = 5000;        // PWM-Frequenz in Hz

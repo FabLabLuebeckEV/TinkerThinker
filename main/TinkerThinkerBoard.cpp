@@ -3,7 +3,7 @@
 
 // Pins wie gehabt
 #define POWER_ON_PIN 26
-#define GPIO_FAULT_1 39
+#define MODE_BUTTON_PIN 39
 #define GPIO_CURRENT_1 34
 #define GPIO_CURRENT_2 36
 #define BATTERY_PIN 35
@@ -59,14 +59,14 @@ void TinkerThinkerBoard::reApplyConfig() {
     ledController = new LEDController(config->getLedCount());
     ledController->init();
     for (int i = 0; i < config->getLedCount(); i++) {
-        ledController->setPixelColor(i, 50, 150, 80);
+        ledController->setPixelColor(i, 60, 60, 60);
     }
     FastLED.show();
 
     batteryMonitor = new BatteryMonitor(BATTERY_PIN);
     batteryMonitor->init();
 
-    systemMonitor = new SystemMonitor(GPIO_FAULT_1, GPIO_CURRENT_1, GPIO_CURRENT_2);
+    systemMonitor = new SystemMonitor(GPIO_CURRENT_1, GPIO_CURRENT_2);
     systemMonitor->init();
     return;
 }
@@ -149,14 +149,6 @@ float TinkerThinkerBoard::getBatteryPercentage() {
     return batteryMonitor->readPercentage();
 }
 
-void TinkerThinkerBoard::checkFaults() {
-    systemMonitor->checkMotorDriverFault();
-}
-
-bool TinkerThinkerBoard::isMotorInFault() {
-    return systemMonitor->isMotorInFault();
-}
-
 float TinkerThinkerBoard::getHBridgeAmps(int motorIndex) {
     return systemMonitor->getHBridgeAmps(motorIndex);
 }
@@ -175,6 +167,18 @@ float TinkerThinkerBoard::getSpeedMultiplier() {
 
 void TinkerThinkerBoard::updateWebClients() {
     webServerManager->sendStatusUpdate();
+}
+
+void TinkerThinkerBoard::requestWifiDisable(bool untilRestart) {
+    if (webServerManager) {
+        webServerManager->requestWifiDisable(untilRestart);
+    }
+}
+
+void TinkerThinkerBoard::requestWifiEnable() {
+    if (webServerManager) {
+        webServerManager->requestWifiEnable();
+    }
 }
 
 // --- Arbitration helpers ---

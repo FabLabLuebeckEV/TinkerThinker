@@ -1,0 +1,4 @@
+esptool
+pyserial
+requests
+tqdm

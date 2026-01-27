@@ -46,13 +46,12 @@ public:
     float getBatteryVoltage();
     float getBatteryPercentage();
 
-    // Systemüberwachung
-    void checkFaults();
-    bool isMotorInFault();
     float getHBridgeAmps(int motorIndex);
 
     // Webserver-Update
     void updateWebClients();
+    void requestWifiDisable(bool untilRestart);
+    void requestWifiEnable();
 
     int getMotorPWM(int motorIndex);
     void setSpeedMultiplier(float m);

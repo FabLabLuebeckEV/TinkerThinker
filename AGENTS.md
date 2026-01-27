@@ -65,7 +65,18 @@ Recent Changes (Important)
    - env:esp32dev now points to sdkconfig.esp32dev aligned with the working skip_power_pin build.
    - Wi-Fi/BT SW coexistence forced on (CONFIG_ESP_COEX_SW_COEXIST_ENABLE plus *_SW_COEXIST).
    - Disabled unused stacks to free IRAM/flash: RainMaker, Insights, Matter/OpenThread, Ethernet/PPP; GDB stub and all coredumps off.
-   - Rationale: Only BT Classic via Bluepad32 and Wi-Fi AP/STA are used; IRAM was tight. Re-enable BLE/RainMaker if needed.
+- Rationale: Only BT Classic via Bluepad32 and Wi-Fi AP/STA are used; IRAM was tight. Re-enable BLE/RainMaker if needed.
+
+5) MODE button + radio modes (Jan 2026) **BREAKING**
+   - The former H‑bridge fault pin is now a MODE button on GPIO39 (active‑low, pulled to GND on press).
+   - Fault monitoring was removed; any code relying on motorFaults/checkFaults must be updated.
+   - Mode cycle: Normal → Wi‑Fi only → BT scan only → Wi‑Fi only → Normal.
+   - Status LED (LED0): Normal = dim white, Wi‑Fi = orange, BT scan = blue.
+   - On controller connect, Wi‑Fi is paused for 3000 ms to boost BT pairing.
+
+6) Battery percentage curve (Jan 2026)
+   - Voltage measurement reverted to the original analogRead method.
+   - Percentage now uses a Li‑ion discharge curve (non‑linear) for more realistic %.
 
 Editing Guidelines
 - Keep changes focused; do not introduce a second Arduino core.

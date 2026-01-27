@@ -48,6 +48,7 @@ Note: This project is set up for PlatformIO (recommended). ESP-IDF CLI/IDE can w
 - Fahrprofile: Arcade/Tank-Mix mit Lenkfaktor und optionaler Expo-Motorkurve für feinfühlige Steuerung.
 
 - BT/Wi‑Fi coexistence: Configurable Bluetooth scanning duty‑cycle to avoid starving Wi‑Fi.
+- MODE button (GPIO39, active‑low): cycles radio modes (Normal → Wi‑Fi only → BT scan only → Wi‑Fi only).
 - Control arbiter: Last active source (WebSocket vs. Bluetooth) owns motion; neutral inputs don't override the owner.
 - Flexible driving: Right stick controls the configured GUI motor pair; left stick controls the other pair. Motor pair selection is configurable in `/config`.
 - Quick servo control: D‑Pad LEFT/RIGHT nudges Servo 0 by ±10°. R2 toggles Servo 0 between 0°↔90°, L2 zwischen 90°↔180°.
@@ -66,7 +67,7 @@ Note: This project is set up for PlatformIO (recommended). ESP-IDF CLI/IDE can w
   - S2: `pin=17`, channel 10
 - LEDs: WS2812 data `pin=2` (count configurable)
 - Battery ADC: `pin=35`
-- H-bridge fault: `pin=39`
+- MODE button: `pin=39` (active‑low, GND on press) **BREAKING change**
 - H-bridge current sense: `pin=34`, `pin=36`
 
 Adjust these in `main/TinkerThinkerBoard.cpp` or via runtime settings where available.
@@ -292,6 +293,7 @@ All settings persist in `/config.json` on LittleFS. Use “Reset to defaults” 
 
 - Web UI 404 or blank: Upload the filesystem image (LittleFS) after flashing firmware.
 - No controller connects: Re‑enter pairing on the controller; watch serial logs; ensure Bluetooth is enabled and not blocked.
+- Web UI flaky right after controller connect: Wi‑Fi is paused for ~3s to boost BT pairing.
 - Motors run backward: Use per‑motor invert or side swap in `/config`.
 - Jerky/slow movement: Adjust per‑motor deadband and frequency; verify power and H‑bridge wiring.
 
@@ -300,6 +302,7 @@ All settings persist in `/config.json` on LittleFS. Use “Reset to defaults” 
 - Code style: Arduino APIs inside an ESP‑IDF component; main loop in `sketch.cpp`.
 - PWM: 8‑bit resolution used for motor channels; servo channels run at ~50 Hz.
 - Current/fault sampling: Averaging over PWM cycles; see `SystemMonitor`.
+  - Note: Fault pin removed; only current sampling remains.
 
 ## License
 

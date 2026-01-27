@@ -1,13 +1,11 @@
 #include "SystemMonitor.h"
 
-SystemMonitor::SystemMonitor(int xfaultPin1, int xcurrentPin1, int xcurrentPin2) {
-    fault1Pin = xfaultPin1;
+SystemMonitor::SystemMonitor(int xcurrentPin1, int xcurrentPin2) {
     currentPin1 = xcurrentPin1;
     currentPin2 = xcurrentPin2;
 }
 
 void SystemMonitor::init() {
-    pinMode(fault1Pin, INPUT);
     pinMode(currentPin1, INPUT);
     pinMode(currentPin2, INPUT);
 }
@@ -32,22 +30,6 @@ float SystemMonitor::readAverageCurrent(int adcPin) {
     float current = voltage / (0.5926 * 20 * 0.2); // Spannungsteiler- und Verstärkungsfaktor berücksichtigen
 
     return current; // Strom in Ampere
-}
-
-void SystemMonitor::checkMotorDriverFault() {
-    int fault1 = digitalRead(fault1Pin);
-    #ifdef DEBUG_OUTPUT
-    if (fault1 == HIGH) {
-        Serial.println("Motor Driver Fault");
-    }
-    if (fault1 == LOW) {
-        Serial.println("Motor Drivers OK");
-    }
-    #endif
-}
-
-bool SystemMonitor::isMotorInFault() {
-    return digitalRead(fault1Pin) == HIGH;
 }
 
 float SystemMonitor::getHBridgeAmps(int motorIndex) {

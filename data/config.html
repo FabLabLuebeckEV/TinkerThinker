@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Konfiguration</title>
-  <link rel="stylesheet" href="/config.css">
+  <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
   <!-- Navigationsmenü -->
@@ -22,9 +22,10 @@
     WebSocket Status: <span style="color: green;">verbunden</span>
   </div>
 
-  <h1>TinkerThinker Konfiguration</h1>
+  <div class="controls">
+    <h1>TinkerThinker Konfiguration</h1>
   
-  <form id="configForm" method="post" action="/config">
+    <form id="configForm" method="post" action="/config">
     
     <!-- WLAN Einstellungen -->
     <section>
@@ -131,7 +132,7 @@
           Lenkfaktor:
           <span class="tooltip">i
             <span class="tooltiptext">
-              Skaliert die Drehkomponente im Arcade-Mix. 1.0 entspricht dem bisherigen Verhalten.
+              Skaliert die Drehung im Arcade-Modus. 1.0 ist Standard, kleiner = weniger Lenkung, groesser = mehr.
             </span>
           </span>
         </label>
@@ -144,7 +145,7 @@
           Achsen-Deadband:
           <span class="tooltip">i
             <span class="tooltiptext">
-              Bereich (0-256) der Joystickwerte, der ignoriert wird, um Drift zu verhindern.
+              Totzone um die Stick-Mitte (0-256), die ignoriert wird, damit der Roboter nicht von selbst driftet.
             </span>
           </span>
         </label>
@@ -155,7 +156,7 @@
           Motorkurve:
           <span class="tooltip">i
             <span class="tooltiptext">
-              Expo glättet den Bereich nahe 0. Linear entspricht der bisherigen Geraden.
+              Linear reagiert direkt. Expo macht die Mitte weicher fuer feinfuehliges Fahren.
             </span>
           </span>
         </label>
@@ -169,7 +170,7 @@
           Kurven-Stärke:
           <span class="tooltip">i
             <span class="tooltiptext">
-              Bei Expo &gt;0 wird die Fahrt sanfter. Negative Werte (<0) machen sie direkter.
+              Staerke der Expo-Kurve (nicht die Lenkstaerke). 0 = keine Kurve, &gt;0 sanfter um die Mitte, &lt;0 direkter.
             </span>
           </span>
         </label>
@@ -213,36 +214,73 @@
         </label>
         <input type="checkbox" name="ota_enabled" id="ota_enabled"><br>
         
-        <h3>Servo Einstellungen</h3>
+        <h3>Servo Einstellungen
+          <span class="tooltip">i
+            <span class="tooltiptext">
+              Pulsbreiten in Mikrosekunden (us). Damit legst du den Winkel-Bereich des Servos fest.
+            </span>
+          </span>
+        </h3>
         <div id="servos">
           <!-- Dynamisch per JS befüllt -->
         </div>
 
-        <h3>Bluetooth Scan Timings (ms)</h3>
+        <h3>Bluetooth Scan Timings (ms)
+          <span class="tooltip">i
+            <span class="tooltiptext">
+              Schaltet die BT-Suche im Wechsel ein/aus, damit WLAN stabil bleibt. Werte in Millisekunden.
+            </span>
+          </span>
+        </h3>
         <div class="bt-scan">
-          <label>Normal ON:</label>
+          <label>Normal ON:
+            <span class="tooltip">i
+              <span class="tooltiptext">Scan-Zeit im normalen Betrieb.</span>
+            </span>
+          </label>
           <input type="number" name="bt_scan_on_normal_ms" id="bt_scan_on_normal_ms" min="0" max="5000"><br>
-          <label>Normal OFF:</label>
+          <label>Normal OFF:
+            <span class="tooltip">i
+              <span class="tooltiptext">Pause im normalen Betrieb.</span>
+            </span>
+          </label>
           <input type="number" name="bt_scan_off_normal_ms" id="bt_scan_off_normal_ms" min="0" max="5000"><br>
-          <label>STA Connect ON:</label>
+          <label>STA Connect ON:
+            <span class="tooltip">i
+              <span class="tooltiptext">Scan-Zeit waehrend WLAN-Verbindung (Client).</span>
+            </span>
+          </label>
           <input type="number" name="bt_scan_on_sta_ms" id="bt_scan_on_sta_ms" min="0" max="5000"><br>
-          <label>STA Connect OFF:</label>
+          <label>STA Connect OFF:
+            <span class="tooltip">i
+              <span class="tooltiptext">Pause waehrend WLAN-Verbindung (Client).</span>
+            </span>
+          </label>
           <input type="number" name="bt_scan_off_sta_ms" id="bt_scan_off_sta_ms" min="0" max="5000"><br>
-          <label>AP Active ON:</label>
+          <label>AP Active ON:
+            <span class="tooltip">i
+              <span class="tooltiptext">Scan-Zeit, wenn der Hotspot aktiv genutzt wird.</span>
+            </span>
+          </label>
           <input type="number" name="bt_scan_on_ap_ms" id="bt_scan_on_ap_ms" min="0" max="5000"><br>
-          <label>AP Active OFF:</label>
+          <label>AP Active OFF:
+            <span class="tooltip">i
+              <span class="tooltiptext">Pause, wenn der Hotspot aktiv genutzt wird.</span>
+            </span>
+          </label>
           <input type="number" name="bt_scan_off_ap_ms" id="bt_scan_off_ap_ms" min="0" max="5000"><br>
         </div>
       </div>
     </section>
 
     <input type="submit" value="Speichern">
-  </form>
+    </form>
   
-  <!-- Reset und Reboot Buttons -->
-  <div class="action-buttons">
-    <button onclick="resetConfig()">Auf Werkseinstellungen zurücksetzen</button>
-    <button onclick="reboot()">Neustarten</button>
+    <!-- Reset und Reboot Buttons -->
+    <div class="action-buttons">
+      <button onclick="resetConfig()">Auf Werkseinstellungen zurücksetzen</button>
+      <button onclick="reboot()">Neustarten</button>
+    </div>
   </div>
 
   <!-- Popup für Neustart -->

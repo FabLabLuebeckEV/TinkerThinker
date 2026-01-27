@@ -16,6 +16,8 @@ const motor1CurrentElem = document.getElementById('motor1Current');
 const firstLEDR = document.getElementById('firstLEDR');
 const firstLEDG = document.getElementById('firstLEDG');
 const firstLEDB = document.getElementById('firstLEDB');
+const ledColorPicker = document.getElementById('ledColorPicker');
+const ledApplyButton = document.getElementById('ledApply');
 
 // Steuerung Elemente
 const canvas = document.getElementById('touchCanvas');
@@ -42,6 +44,23 @@ document.querySelectorAll('.control-button').forEach(button => {
         e.preventDefault(); // Verhindert die Textauswahl bei Klick
     });
 });
+
+function bindActiveState(button) {
+    if (!button) return;
+    const on = () => button.classList.add('is-active');
+    const off = () => button.classList.remove('is-active');
+    button.addEventListener('mousedown', on);
+    button.addEventListener('touchstart', on);
+    button.addEventListener('mouseup', off);
+    button.addEventListener('mouseleave', off);
+    button.addEventListener('touchend', off);
+    button.addEventListener('touchcancel', off);
+}
+
+bindActiveState(motorAForwardButton);
+bindActiveState(motorABackwardButton);
+bindActiveState(motorBForwardButton);
+bindActiveState(motorBBackwardButton);
 
 // Joystick Variablen
 const canvasSize = canvas.width;
@@ -96,7 +115,7 @@ function connectWebSocket() {
         motor2PWMElem.textContent = data.motorPWMs[2];
         motor3PWMElem.textContent = data.motorPWMs[3];
     }
-    if (data.motorFaults) {
+    if (data.motorFaults && motor0FaultElem) {
         motor0FaultElem.textContent = data.motorFaults ? 'True' : 'False';
     }
     if (data.motorCurrents) {
@@ -291,6 +310,25 @@ function sendData() {
     //}
 }
 
+function hexToRgb(hex) {
+    const h = hex.replace('#', '');
+    if (h.length !== 6) return null;
+    const r = parseInt(h.slice(0, 2), 16);
+    const g = parseInt(h.slice(2, 4), 16);
+    const b = parseInt(h.slice(4, 6), 16);
+    if (Number.isNaN(r) || Number.isNaN(g) || Number.isNaN(b)) return null;
+    return { r, g, b };
+}
+
+function sendLedColor(hex) {
+    const rgb = hexToRgb(hex);
+    if (!rgb) return;
+    const data = {
+        led_set: { start: 0, count: 1, color: hex.toLowerCase() }
+    };
+    socket.send(JSON.stringify(data));
+}
+
 // Motor C Steuerung
 function controlMotorA(direction) {
     //if (socket.readyState === WebSocket.OPEN) {
@@ -386,6 +424,13 @@ motorABackwardButton.addEventListener('touchend', () => {
 // Event Listener für Servo Slider
 servoSlider.addEventListener('input', handleSliderChange);
 
+if (ledColorPicker) {
+    ledColorPicker.addEventListener('input', () => sendLedColor(ledColorPicker.value));
+}
+if (ledApplyButton && ledColorPicker) {
+    ledApplyButton.addEventListener('click', () => sendLedColor(ledColorPicker.value));
+}
+
 // Event Listener für Touch Canvas
 canvas.addEventListener('touchstart', handleTouch);
 canvas.addEventListener('touchmove', handleTouch);
@@ -404,6 +449,10 @@ statusHeader.addEventListener('click', () => {
 
 window.onload = function() {
     connectWebSocket();
+    if (statusContent.classList.contains('collapsed')) {
+        toggleStatusButton.textContent = '►';
+        toggleStatusButton.style.transform = 'rotate(0deg)';
+    }
     // Initiales Zeichnen des Joysticks
     draw();
     // Regelmäßig Daten senden (alle 200 ms)

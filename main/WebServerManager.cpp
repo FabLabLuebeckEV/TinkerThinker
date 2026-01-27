@@ -42,20 +42,69 @@ void WebServerManager::startWifi() {
 }
 
 void WebServerManager::disableWifiUntilRestart() {
-    if (wifiDisabledUntilRestart) {
+    requestWifiDisable(true);
+}
+
+void WebServerManager::requestWifiDisable(bool untilRestart) {
+    if (wifiDisabledUntilRestart || wifiShutdownInProgress) {
         return;
     }
+    if (untilRestart) {
+        wifiDisabledUntilRestart = true;
+    } else {
+        wifiTemporarilyDisabled = true;
+    }
+    wifiShutdownInProgress = true;
 
-    Serial.println("Disabling WiFi until next reboot per user request...");
-    wifiDisabledUntilRestart = true;
+    xTaskCreate([](void* arg) {
+        WebServerManager* self = static_cast<WebServerManager*>(arg);
+        self->disableWifiInternal();
+        self->wifiShutdownInProgress = false;
+        vTaskDelete(NULL);
+    }, "WifiShutdown", 4096, this, 1, NULL);
+}
+
+void WebServerManager::requestWifiEnable() {
+    if (wifiDisabledUntilRestart || wifiStartupInProgress) {
+        return;
+    }
+    if (!wifiTemporarilyDisabled && WiFi.getMode() != WIFI_OFF) {
+        return;
+    }
+    wifiTemporarilyDisabled = false;
+    wifiStartupInProgress = true;
+
+    xTaskCreate([](void* arg) {
+        WebServerManager* self = static_cast<WebServerManager*>(arg);
+        self->enableWifiInternal();
+        self->wifiStartupInProgress = false;
+        vTaskDelete(NULL);
+    }, "WifiStartup", 6144, this, 1, NULL);
+}
+
+void WebServerManager::disableWifiInternal() {
+    Serial.println("Disabling WiFi per user request...");
     delay(150);
     ws.closeAll();
     server.end();
 
-    WiFi.disconnect(true, true);
+    wifi_mode_t mode = WiFi.getMode();
+    if (mode == WIFI_STA || mode == WIFI_AP_STA) {
+        WiFi.disconnect(true, true);
+    }
+    if (mode == WIFI_AP || mode == WIFI_AP_STA) {
+        WiFi.softAPdisconnect(true);
+    }
     WiFi.mode(WIFI_OFF);
     delay(50);
     Serial.println("WiFi disabled. Web UI unavailable until restart; Bluetooth scanning forced on.");
+}
+
+void WebServerManager::enableWifiInternal() {
+    Serial.println("Enabling WiFi per user request...");
+    startWifi();
+    server.begin();
+    Serial.println("Web Server started");
 }
 
 void WebServerManager::setupWebSocket() {
@@ -422,6 +471,22 @@ void WebServerManager::onWebSocketEvent(AsyncWebSocket *server, AsyncWebSocketCl
                     board->setServoAngle(i, angle);
                 }
             }
+
+            // LED set (expects {"led_set":{"start":0,"count":1,"color":"#RRGGBB"}})
+            if (doc.containsKey("led_set")) {
+                JsonObject led = doc["led_set"].as<JsonObject>();
+                int start = led["start"] | 0;
+                int count = led["count"] | 1;
+                const char* color = led["color"] | "#000000";
+                long rgb = strtol(color + 1, nullptr, 16);
+                uint8_t r = (rgb >> 16) & 0xFF;
+                uint8_t g = (rgb >> 8) & 0xFF;
+                uint8_t b = (rgb) & 0xFF;
+                for (int i = start; i < start + count; i++) {
+                    board->setLED(i, r, g, b);
+                }
+                board->showLEDs();
+            }
             // Optionale Einstellung zum Setzen des Swap-Flags, falls von der UI gesendet
             // z.B. {"swap":true} oder {"swap":false}
             if (doc.containsKey("swap")) {
@@ -465,8 +530,6 @@ void WebServerManager::sendStatusUpdate() {
         for (int i = 0; i < 4; i++) {
             motorPWMs.add(board->getMotorPWM(i));
         }
-
-        doc["motorFaults"] = board->isMotorInFault();
 
         JsonArray motorCurrents = doc.createNestedArray("motorCurrents");
         for (int i = 0; i < 2; i++) {

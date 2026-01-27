@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MyCustomBoard Dashboard</title>
+    <title>TinkerThinker Steuerung</title>
     <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
@@ -22,17 +22,16 @@
     WebSocket Status: <span style="color: green;">verbunden</span>
   </div>
 
-    <h1>MyCustomBoard Steuerung</h1>
+    <h1>TinkerThinker Steuerung</h1>
     
     <div class="status">
-        <h2 class="status-header">Status <span id="toggleStatus" class="toggle-button">▼</span></h2>
-        <div class="status-content">
+        <h2 class="status-header">Status <span id="toggleStatus" class="toggle-button">►</span></h2>
+        <div class="status-content collapsed">
             <p>Batteriespannung: <span id="batteryVoltage">-</span> V</p>
             <p>Batterie-Level: <span id="batteryPercentage">-</span> %</p>
             <p>Servo-Winkel: <span id="servoAngles">-</span></p>
             <h3>Motoren</h3>
             <div id="motorStatus">
-                <p>Motor Fehler: <span id="motor0Fault">False</span></p>
                 <p>Motor A speed: <span id="motor0PWM">0</span>, Current: <span id="motor0Current">0</span>mA</p>
                 <p>Motor B speed: <span id="motor1PWM">0</span>, Current: <span id="motor1Current">0</span>mA</p>
                 <p>Motor C speed: <span id="motor2PWM">0</span></p>
@@ -51,12 +50,20 @@
             <input type="range" id="servoSlider" class="slider" min="0" max="180" value="90">
         </div>
         <div class="motor-controls">
-            <h3>Motor C Steuerung</h3>
+            <h3>Motor C/D Steuerung</h3>
             <div class="button-container">
-                <button id="motorAForward" class="control-button">Vorwärts</button>
-                <button id="motorABackward" class="control-button">Rückwärts</button>
+                <button id="motorAForward" class="control-button"><span class="btn-text">Vorwärts</span><span class="btn-icon">↑</span></button>
+                <button id="motorABackward" class="control-button"><span class="btn-text">Rückwärts</span><span class="btn-icon">↓</span></button>
                 <button id="motorBForward" class="control-button">An</button>
                 <button id="motorBBackward" class="control-button">Aus</button>
+            </div>
+        </div>
+        <div class="led-controls">
+            <h3>WS2812 Farbe</h3>
+            <div class="button-container led-row">
+                <label for="ledColorPicker">Farbe</label>
+                <input type="color" id="ledColorPicker" value="#00ff00">
+                <button id="ledApply" class="control-button">Setzen</button>
             </div>
         </div>
     </div>

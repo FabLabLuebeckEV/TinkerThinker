@@ -304,18 +304,35 @@ async function loadConfig() {
       mDiv.innerHTML = `
         <h4>Motor ${motorLabels[i]}</h4>
         <div class="row">
-          <label>Umkehren:</label> <input type="checkbox" name="motor_invert_${i}" ${motor_invert[i] ? 'checked' : ''}>
+          <label>Umkehren:
+            <span class="tooltip">i
+              <span class="tooltiptext">Dreht die Richtung um, falls Vorwärts/Rückwärts vertauscht sind.</span>
+            </span>
+          </label>
+          <div class="field">
+            <input type="checkbox" name="motor_invert_${i}" ${motor_invert[i] ? 'checked' : ''}>
+          </div>
         </div>
         <div class="row" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-          <label for="motor_deadband_${i}">Deadband:</label>
+          <label for="motor_deadband_${i}">Deadband:
+            <span class="tooltip">i
+              <span class="tooltiptext">PWM-Schwelle (0-255), unter der der Motor nicht anlaeuft. Hilft gegen Summen und Drift.</span>
+            </span>
+          </label>
           <input type="number" id="motor_deadband_${i}" name="motor_deadband_${i}" value="${motor_deadband[i]}" min="0" max="255" style="width:90px;">
           <input type="range" id="db_slider_${i}" min="0" max="255" value="${Math.min(255, Math.max(0, motor_deadband[i]))}">
           <span id="db_val_${i}">${motor_deadband[i]}</span>
+        </div>
+        <div class="row test-buttons">
           <button type="button" onclick="testMotorPWM(${i}, document.getElementById('motor_deadband_${i}').value)">Test Vorwärts (DB)</button>
           <button type="button" onclick="testMotorPWM(${i}, -document.getElementById('motor_deadband_${i}').value)">Test Rückwärts (DB)</button>
         </div>
         <div class="row">
-          <label>Frequenz:</label> <input type="number" name="motor_frequency_${i}" value="${motor_frequency[i]}" min="100" max="100000">
+          <label>Frequenz:
+            <span class="tooltip">i
+              <span class="tooltiptext">PWM-Frequenz in Hz. Niedriger = mehr Kraft, aber hoerbarer. Hoeher = leiser, ggf. weniger Drehmoment.</span>
+            </span>
+          </label> <input type="number" name="motor_frequency_${i}" value="${motor_frequency[i]}" min="100" max="100000">
         </div>
         <div class="row test-buttons">
           <button type="button" onclick="testMotor(${i}, 'forward')">Vorwärts</button>
@@ -383,12 +400,20 @@ async function loadConfig() {
       sDiv.innerHTML = `
         <h4>Servo ${idx}</h4>
         <div class="row" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-          <label for="servo${idx}_min">Min Pulse:</label>
+          <label for="servo${idx}_min">Min Pulse:
+            <span class="tooltip">i
+              <span class="tooltiptext">Kleinste Pulsbreite in us fuer 0 Grad. Passe an, wenn der Servo anschlaegt.</span>
+            </span>
+          </label>
           <input type="number" id="servo${idx}_min" name="servo${idx}_min" value="${servo.min_pulsewidth}" min="100" max="3000" style="width:100px;">
           <input type="range" id="servo${idx}_min_slider" min="100" max="3000" value="${servo.min_pulsewidth}"> <span id="servo${idx}_min_val">${servo.min_pulsewidth}</span>
         </div>
         <div class="row" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-          <label for="servo${idx}_max">Max Pulse:</label>
+          <label for="servo${idx}_max">Max Pulse:
+            <span class="tooltip">i
+              <span class="tooltiptext">Groesste Pulsbreite in us fuer 180 Grad. Passe an, wenn der Servo anschlaegt.</span>
+            </span>
+          </label>
           <input type="number" id="servo${idx}_max" name="servo${idx}_max" value="${servo.max_pulsewidth}" min="100" max="3000" style="width:100px;">
           <input type="range" id="servo${idx}_max_slider" min="100" max="3000" value="${servo.max_pulsewidth}"> <span id="servo${idx}_max_val">${servo.max_pulsewidth}</span>
         </div>

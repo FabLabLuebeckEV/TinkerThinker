@@ -12,9 +12,11 @@ public:
     
 private:
     int pin;
-    // Kalibrierungsfaktoren für Lithium-Ionen-Akkus
-    float voltageMin = 3.0;
-    float voltageMax = 4.2;
+    float mapVoltageToPercent(float voltage);
+
+    // Divider ratio: Vbat = Vpin * dividerRatio
+    // Adjust if resistor values differ.
+    float dividerRatio = 2.14f;
 };
 
 #endif
