@@ -121,6 +121,11 @@ void TinkerThinkerBoard::controlMotorDirect(int motorIndex, int pwmValue) {
     motorController->controlMotor(motorIndex, pwmValue);
 }
 
+void TinkerThinkerBoard::controlMotorRaw(int motorIndex, int pwmValue) {
+    if (motorIndex < 0 || motorIndex >= 4) return;
+    motorController->controlMotorRaw(motorIndex, pwmValue);
+}
+
 void TinkerThinkerBoard::setServoAngle(int servoIndex, int angle) {
     servoController->setServoAngle(servoIndex, angle);
 }

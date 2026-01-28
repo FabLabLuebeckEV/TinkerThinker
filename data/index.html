@@ -22,7 +22,7 @@
     WebSocket Status: <span style="color: green;">verbunden</span>
   </div>
 
-    <h1>TinkerThinker Steuerung</h1>
+    <h1><span id="deviceName">TinkerThinker</span> Steuerung</h1>
     
     <div class="status">
         <h2 class="status-header">Status <span id="toggleStatus" class="toggle-button">►</span></h2>
@@ -58,12 +58,23 @@
                 <button id="motorBBackward" class="control-button">Aus</button>
             </div>
         </div>
-        <div class="led-controls">
-            <h3>WS2812 Farbe</h3>
+    </div>
+
+    <div class="controls led-controls">
+        <h2>WS2812 LEDs</h2>
+        <div class="led-section">
             <div class="button-container led-row">
                 <label for="ledColorPicker">Farbe</label>
                 <input type="color" id="ledColorPicker" value="#00ff00">
-                <button id="ledApply" class="control-button">Setzen</button>
+            </div>
+            <div class="button-container led-row led-range">
+                <label for="ledRangeStart">Bereich</label>
+                <div class="dual-range" id="ledRangeWrap">
+                    <div class="dual-range-track"></div>
+                    <input type="range" id="ledRangeStart" min="0" max="29" value="0">
+                    <input type="range" id="ledRangeEnd" min="0" max="29" value="0">
+                </div>
+                <span class="range-values"><span id="ledRangeStartVal">0</span>–<span id="ledRangeEndVal">0</span></span>
             </div>
         </div>
     </div>

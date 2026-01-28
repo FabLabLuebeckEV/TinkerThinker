@@ -130,6 +130,26 @@ void MotorController::controlMotorStop(int motorIndex) {
     ledcWrite(motors[motorIndex].pin2, 0);
 }
 
+void MotorController::controlMotorRaw(int motorIndex, int pwmValue) {
+    if (motorIndex >= (int)count) return;
+
+    // Apply per-motor invert, but skip deadband mapping
+    if (motorInvertArray[motorIndex]) pwmValue = -pwmValue;
+    pwmValue = constrain(pwmValue, -MAX_PWM_VALUE, MAX_PWM_VALUE);
+
+    int outMag = abs(pwmValue);
+    outMag = (int)(outMag * speedMultiplier);
+    outMag = constrain(outMag, 0, MAX_PWM_VALUE);
+
+    if (pwmValue >= 0) {
+        ledcWrite(motors[motorIndex].pin1, outMag);
+        ledcWrite(motors[motorIndex].pin2, 0);
+    } else {
+        ledcWrite(motors[motorIndex].pin1, 0);
+        ledcWrite(motors[motorIndex].pin2, outMag);
+    }
+}
+
 int MotorController::getMotorPWM(int motorIndex) {
     if (motorIndex >= (int)count) return 0;
     int pwmForward = ledcRead(motors[motorIndex].pin1);

@@ -165,10 +165,26 @@
     st.textContent = 'Standards geladen';
   }
 
+  function applyDeviceName(cfg) {
+    const name = (cfg.hotspot_ssid || cfg.wifi_ssid || 'TinkerThinker').trim();
+    const el = document.getElementById('deviceName');
+    if (el) el.textContent = name;
+    document.title = `${name} Steuerungs-Editor`;
+  }
+
+  async function setupDeviceName() {
+    try {
+      const r = await fetch('/getConfig');
+      const cfg = await r.json();
+      applyDeviceName(cfg);
+    } catch (_) {}
+  }
+
   document.getElementById('addBinding').addEventListener('click', () => list.appendChild(createBindingView({input:{type:'button',code:'BTN_A',edge:'press'}, action:{type:'led_set',start:0,count:1,color:'#00ff00'}})) );
   document.getElementById('load').addEventListener('click', load);
   document.getElementById('save').addEventListener('click', save);
   document.getElementById('defaults').addEventListener('click', defaults);
 
+  setupDeviceName();
   load();
 })();

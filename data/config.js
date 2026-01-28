@@ -279,6 +279,7 @@ async function loadConfig() {
       throw new Error(`HTTP error! status: ${res.status}`);
     }
     let data = await res.json();
+    applyDeviceName(data);
 
     // WiFi
     document.getElementById('wifi_mode').value = data.wifi_mode;
@@ -443,6 +444,13 @@ async function loadConfig() {
     console.error("Fehler beim Laden der Konfiguration:", error);
     alert("Fehler beim Laden der Konfiguration. Bitte versuche es später erneut.");
   }
+}
+
+function applyDeviceName(cfg) {
+  const name = (cfg.hotspot_ssid || cfg.wifi_ssid || 'TinkerThinker').trim();
+  const el = document.getElementById('deviceName');
+  if (el) el.textContent = name;
+  document.title = `${name} Konfiguration`;
 }
 
 // Event Listener für das Formular

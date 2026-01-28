@@ -461,6 +461,17 @@ void WebServerManager::onWebSocketEvent(AsyncWebSocket *server, AsyncWebSocketCl
                 }
             }
 
+            // Raw Motor PWM (bypasses deadband, used by setup)
+            if (doc.containsKey("motor_raw")) {
+                JsonObject raw = doc["motor_raw"].as<JsonObject>();
+                int idx = raw["motor"] | -1;
+                int pwm = raw["pwm"] | 0;
+                pwm = constrain(pwm, -255, 255);
+                if (idx >= 0 && idx < 4) {
+                    board->controlMotorRaw(idx, pwm);
+                }
+            }
+
             // Servo setzen
             // Erwartetes Format: {"servo0": <angle>, "servo1": <angle>, "servo2": <angle>}
             for (int i = 0; i < 3; i++) {

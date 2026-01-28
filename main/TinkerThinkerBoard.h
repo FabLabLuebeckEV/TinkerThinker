@@ -21,6 +21,7 @@ public:
     void controlMotorBackward(int motorIndex);
     void controlMotorStop(int motorIndex);
     void controlMotorDirect(int motorIndex, int pwmValue);
+    void controlMotorRaw(int motorIndex, int pwmValue);
 
     // Source-aware control API
     void requestDriveFromBT(int axisX, int axisY);

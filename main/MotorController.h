@@ -36,6 +36,7 @@ public:
     void controlMotorForward(int motorIndex);
     void controlMotorBackward(int motorIndex);
     void controlMotorStop(int motorIndex);
+    void controlMotorRaw(int motorIndex, int pwmValue);
     int getMotorPWM(int motorIndex);
     void setSpeedMultiplier(float m);
     float getSpeedMultiplier() const { return speedMultiplier; }

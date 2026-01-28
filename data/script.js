@@ -17,7 +17,12 @@ const firstLEDR = document.getElementById('firstLEDR');
 const firstLEDG = document.getElementById('firstLEDG');
 const firstLEDB = document.getElementById('firstLEDB');
 const ledColorPicker = document.getElementById('ledColorPicker');
-const ledApplyButton = document.getElementById('ledApply');
+const ledRangeStart = document.getElementById('ledRangeStart');
+const ledRangeEnd = document.getElementById('ledRangeEnd');
+const ledRangeWrap = document.getElementById('ledRangeWrap');
+const ledRangeStartVal = document.getElementById('ledRangeStartVal');
+const ledRangeEndVal = document.getElementById('ledRangeEndVal');
+const deviceNameEl = document.getElementById('deviceName');
 
 // Steuerung Elemente
 const canvas = document.getElementById('touchCanvas');
@@ -323,8 +328,9 @@ function hexToRgb(hex) {
 function sendLedColor(hex) {
     const rgb = hexToRgb(hex);
     if (!rgb) return;
+    const range = getLedRange();
     const data = {
-        led_set: { start: 0, count: 1, color: hex.toLowerCase() }
+        led_set: { start: range.start, count: range.count, color: hex.toLowerCase() }
     };
     socket.send(JSON.stringify(data));
 }
@@ -427,8 +433,72 @@ servoSlider.addEventListener('input', handleSliderChange);
 if (ledColorPicker) {
     ledColorPicker.addEventListener('input', () => sendLedColor(ledColorPicker.value));
 }
-if (ledApplyButton && ledColorPicker) {
-    ledApplyButton.addEventListener('click', () => sendLedColor(ledColorPicker.value));
+
+function getLedRange() {
+    const start = ledRangeStart ? parseInt(ledRangeStart.value || '0', 10) : 0;
+    const end = ledRangeEnd ? parseInt(ledRangeEnd.value || '0', 10) : start;
+    const safeStart = Math.min(start, end);
+    const safeEnd = Math.max(start, end);
+    return { start: safeStart, count: (safeEnd - safeStart + 1) };
+}
+
+function syncLedRangeLabels() {
+    if (!ledRangeStart || !ledRangeEnd) return;
+    let start = parseInt(ledRangeStart.value || '0', 10);
+    let end = parseInt(ledRangeEnd.value || '0', 10);
+    if (start > end) {
+        end = start;
+        ledRangeEnd.value = String(end);
+    }
+    if (ledRangeStartVal) ledRangeStartVal.textContent = String(start);
+    if (ledRangeEndVal) ledRangeEndVal.textContent = String(end);
+    updateLedRangeTrack(start, end);
+}
+
+function updateLedRangeTrack(start, end) {
+    if (!ledRangeWrap || !ledRangeStart) return;
+    const max = parseInt(ledRangeStart.max || '1', 10);
+    if (max <= 0) {
+        ledRangeWrap.style.setProperty('--min-pct', '0%');
+        ledRangeWrap.style.setProperty('--max-pct', '0%');
+        return;
+    }
+    const minPct = Math.round((start / max) * 100);
+    const maxPct = Math.round((end / max) * 100);
+    ledRangeWrap.style.setProperty('--min-pct', `${minPct}%`);
+    ledRangeWrap.style.setProperty('--max-pct', `${maxPct}%`);
+}
+
+function setupLedRange() {
+    if (!ledRangeStart || !ledRangeEnd) return;
+    ledRangeStart.addEventListener('input', syncLedRangeLabels);
+    ledRangeEnd.addEventListener('input', syncLedRangeLabels);
+    syncLedRangeLabels();
+    fetch('/getConfig')
+        .then(r => r.json())
+        .then(cfg => {
+            const count = parseInt(cfg.led_count || '0', 10);
+            if (!Number.isNaN(count) && count > 0) {
+                const max = String(count - 1);
+                ledRangeStart.max = max;
+                ledRangeEnd.max = max;
+                ledRangeStart.value = '0';
+                ledRangeEnd.value = max;
+                syncLedRangeLabels();
+            }
+        })
+        .catch(() => {});
+}
+
+function setupDeviceName() {
+    fetch('/getConfig')
+        .then(r => r.json())
+        .then(cfg => {
+            const name = (cfg.hotspot_ssid || cfg.wifi_ssid || 'TinkerThinker').trim();
+            if (deviceNameEl) deviceNameEl.textContent = name;
+            document.title = `${name} Steuerung`;
+        })
+        .catch(() => {});
 }
 
 // Event Listener für Touch Canvas
@@ -449,6 +519,8 @@ statusHeader.addEventListener('click', () => {
 
 window.onload = function() {
     connectWebSocket();
+    setupLedRange();
+    setupDeviceName();
     if (statusContent.classList.contains('collapsed')) {
         toggleStatusButton.textContent = '►';
         toggleStatusButton.style.transform = 'rotate(0deg)';
