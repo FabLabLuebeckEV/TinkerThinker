@@ -49,6 +49,7 @@ Note: This project is set up for PlatformIO (recommended). ESP-IDF CLI/IDE can w
 
 - BT/Wi‑Fi coexistence: Configurable Bluetooth scanning duty‑cycle to avoid starving Wi‑Fi.
 - MODE button (GPIO39, active‑low): cycles radio modes (Normal → Wi‑Fi only → BT scan only → Wi‑Fi only).
+- Startup factory reset: Hold MODE during boot for 10s to reset config and reboot; LED blinks red/white/orange. Release early to cancel.
 - Control arbiter: Last active source (WebSocket vs. Bluetooth) owns motion; neutral inputs don't override the owner.
 - Flexible driving: Right stick controls the configured GUI motor pair; left stick controls the other pair. Motor pair selection is configurable in `/config`.
 - Quick servo control: D‑Pad LEFT/RIGHT nudges Servo 0 by ±10°. R2 toggles Servo 0 between 0°↔90°, L2 zwischen 90°↔180°.
@@ -288,6 +289,7 @@ Tip: Consult Bluepad32 docs for controller-specific pairing steps and supported 
   - Flag present in UI/config (integration point for future OTA flow).
 
 All settings persist in `/config.json` on LittleFS. Use “Reset to defaults” in the UI to regenerate.
+You can also reset on boot by holding the MODE button for 10 seconds; it will blink red/white/orange while waiting and reboot after reset.
 
 ## Troubleshooting
 

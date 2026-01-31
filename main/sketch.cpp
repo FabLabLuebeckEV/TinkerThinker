@@ -45,6 +45,7 @@ static const uint32_t wifiPauseOnConnectMs = 3000;
 
 static void setStatusLed(uint8_t r, uint8_t g, uint8_t b);
 static void applyRadioMode(RadioMode mode);
+static bool handleStartupReset();
 
 static int findControllerIndex(ControllerPtr ctl) {
     for (int i = 0; i < BP32_MAX_GAMEPADS; ++i) {
@@ -158,6 +159,11 @@ void setup() {
         Serial.println("Failed to init ConfigManager!");
     }
     board.begin();
+    pinMode(MODE_BUTTON_PIN, INPUT_PULLUP);
+    if (handleStartupReset()) {
+        return;
+    }
+
     // Load input bindings from config
     inputBindings.reload();
 
@@ -172,7 +178,6 @@ void setup() {
     sm_set_secure_connections_only_mode(false);                        // SC ausschalten
     uni_bt_allowlist_set_enabled(false);                             // Allowlist ausschalten
 
-    pinMode(MODE_BUTTON_PIN, INPUT_PULLUP);
     setStatusLed(60, 60, 60);
 }
 
@@ -194,6 +199,36 @@ static enum { PHASE_ON, PHASE_OFF } phase = PHASE_OFF;
 static void setStatusLed(uint8_t r, uint8_t g, uint8_t b) {
     board.setLED(0, r, g, b);
     board.showLEDs();
+}
+
+static bool handleStartupReset() {
+    const uint32_t holdMs = 10000;
+    const uint32_t stepMs = 250;
+    if (digitalRead(MODE_BUTTON_PIN) != LOW) {
+        return false;
+    }
+
+    uint32_t start = millis();
+    int phaseIndex = 0;
+    while ((millis() - start) < holdMs) {
+        if (digitalRead(MODE_BUTTON_PIN) != LOW) {
+            setStatusLed(60, 60, 60);
+            return false;
+        }
+        if ((phaseIndex % 3) == 0) setStatusLed(255, 0, 0);       // red
+        else if ((phaseIndex % 3) == 1) setStatusLed(255, 255, 255); // white
+        else setStatusLed(255, 120, 0);                           // orange
+        delay(stepMs);
+        phaseIndex++;
+    }
+
+    bool ok = configManager.resetConfig();
+    if (!ok) {
+        Serial.println("Config reset failed!");
+    }
+    delay(200);
+    ESP.restart();
+    return true;
 }
 
 static void applyRadioMode(RadioMode mode) {
