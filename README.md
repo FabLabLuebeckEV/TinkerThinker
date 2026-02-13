@@ -44,11 +44,11 @@ Note: This project is set up for PlatformIO (recommended). ESP-IDF CLI/IDE can w
 - Web UI (LittleFS): Live dashboard, motor/servo testing, and configuration at `/` and `/config`.
 - Controls mapping UI: Konfigurierbarer Steuerungs‑Editor unter `/controls` (formularbasiert).
 - Wi‑Fi AP/STA: Runs as hotspot or joins existing Wi‑Fi; live WebSocket updates.
-- Monitoring: Battery voltage/percentage estimation and H-bridge fault/current sampling.
+- Monitoring: Battery voltage/percentage estimation and current sampling.
 - Fahrprofile: Arcade/Tank-Mix mit Lenkfaktor und optionaler Expo-Motorkurve für feinfühlige Steuerung.
 
 - BT/Wi‑Fi coexistence: Configurable Bluetooth scanning duty‑cycle to avoid starving Wi‑Fi.
-- MODE button (GPIO39, active‑low): cycles radio modes (Normal → Wi‑Fi only → BT scan only → Wi‑Fi only).
+- MODE button (GPIO39, active‑low): hold to cycle radio modes (Normal → Wi‑Fi only → BT scan only → Wi‑Fi only).
 - Startup factory reset: Hold MODE during boot for 10s to reset config and reboot; LED blinks red/white/orange. Release early to cancel.
 - Control arbiter: Last active source (WebSocket vs. Bluetooth) owns motion; neutral inputs don't override the owner.
 - Flexible driving: Right stick controls the configured GUI motor pair; left stick controls the other pair. Motor pair selection is configurable in `/config`.
@@ -69,6 +69,7 @@ Note: This project is set up for PlatformIO (recommended). ESP-IDF CLI/IDE can w
 - LEDs: WS2812 data `pin=2` (count configurable)
 - Battery ADC: `pin=35`
 - MODE button: `pin=39` (active‑low, GND on press) **BREAKING change**
+  - Note: GPIO39 is input-only and has no internal pull-up. Use external pull-up on hardware.
 - H-bridge current sense: `pin=34`, `pin=36`
 
 Adjust these in `main/TinkerThinkerBoard.cpp` or via runtime settings where available.
@@ -177,6 +178,9 @@ Implementation lives in `TinkerThinkerBoard` via source‑aware methods like `re
 
 ### Setup-Assistent (`/setup`)
 - Geführte Ersteinrichtung für Motor‑Zuordnung, Drehrichtung und Deadband‑Ermittlung.
+- Die im Setup gewählte Fahrpaar-Zuordnung wird in `motor_left_gui` / `motor_right_gui` gespeichert.
+- Setup-WebSocket verbindet sich bei Verbindungsabbruch automatisch neu (Backoff).
+- Setup-Seite wurde für Mobilgeräte responsiver gemacht (Viewport + mobile Button/Nav-Verhalten).
 - Querverweis: Feinabstimmung später jederzeit unter [/config](/config).
 
 ## Controls-Editor Legende
@@ -222,6 +226,10 @@ If you prefer CLI over the VS Code tasks, use PowerShell and the PlatformIO penv
 - Build: `& "C:\\Users\\mgabr\\.platformio\\penv\\Scripts\\pio.exe" run -e esp32dev`
 - Upload: `& "C:\\Users\\mgabr\\.platformio\\penv\\Scripts\\pio.exe" run -e esp32dev -t upload`
 - Upload FS: `& "C:\\Users\\mgabr\\.platformio\\penv\\Scripts\\pio.exe" run -e esp32dev -t uploadfs`
+
+If PlatformIO fails with `TypeError: ParamType.get_metavar() missing 1 required positional argument: 'ctx'`, fix the penv Click version:
+
+- `& "C:\\Users\\mgabr\\.platformio\\penv\\Scripts\\python.exe" -m pip install --upgrade "click==8.1.7"`
 
 ## Releases & CI
 

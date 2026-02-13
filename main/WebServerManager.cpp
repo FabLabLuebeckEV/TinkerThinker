@@ -164,6 +164,8 @@ void WebServerManager::setupRoutes() {
         for (int i=0; i<4; i++) invArr.add(config->getMotorInvert(i));
 
         doc["motor_swap"] = config->getMotorSwap();
+        doc["motor_left_gui"] = config->getMotorLeftGUI();
+        doc["motor_right_gui"] = config->getMotorRightGUI();
 
         JsonArray dbArr = doc.createNestedArray("motor_deadband");
         for (int i=0; i<4; i++) dbArr.add(config->getMotorDeadband(i));
@@ -259,6 +261,17 @@ void WebServerManager::handleConfig(AsyncWebServerRequest* request) {
         config->setMotorSwap(sw);
     } else {
         config->setMotorSwap(false);
+    }
+
+    if (request->hasParam("motor_left_gui", true)) {
+        int left = request->getParam("motor_left_gui", true)->value().toInt();
+        left = constrain(left, 0, 3);
+        config->setMotorLeftGUI(left);
+    }
+    if (request->hasParam("motor_right_gui", true)) {
+        int right = request->getParam("motor_right_gui", true)->value().toInt();
+        right = constrain(right, 0, 3);
+        config->setMotorRightGUI(right);
     }
 
     // Motoren (invert, deadband, frequency)

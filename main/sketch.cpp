@@ -35,10 +35,10 @@ long timestampServo = 0;
 enum class RadioMode { Normal, BluetoothOnly, WifiOnly };
 static RadioMode radioMode = RadioMode::Normal;
 static RadioMode lastAppliedMode = RadioMode::Normal;
-static bool lastModeButtonState = true;
-static uint32_t lastModeButtonChangeMs = 0;
-static const uint32_t modeButtonDebounceMs = 50;
 static int modeStep = 0;
+static uint32_t modeButtonPressStartMs = 0;
+static bool modeButtonLongPressHandled = false;
+static const uint32_t modeButtonHoldToSwitchMs = 700;
 static uint32_t wifiPauseUntilMs = 0;
 static bool wifiPausedForBt = false;
 static const uint32_t wifiPauseOnConnectMs = 3000;
@@ -159,7 +159,9 @@ void setup() {
         Serial.println("Failed to init ConfigManager!");
     }
     board.begin();
-    pinMode(MODE_BUTTON_PIN, INPUT_PULLUP);
+    // GPIO39 is input-only on ESP32 and has no internal pull-up.
+    // The board uses external pull-up with active-low button wiring.
+    pinMode(MODE_BUTTON_PIN, INPUT);
     if (handleStartupReset()) {
         return;
     }
@@ -175,10 +177,11 @@ void setup() {
     BP32.forgetBluetoothKeys();
     BP32.enableVirtualDevice(false);
     BP32.enableBLEService(false);
+    BP32.enableNewBluetoothConnections(false);
     sm_set_secure_connections_only_mode(false);                        // SC ausschalten
     uni_bt_allowlist_set_enabled(false);                             // Allowlist ausschalten
 
-    setStatusLed(60, 60, 60);
+    applyRadioMode(radioMode);
 }
 
 // Arduino loop function. Runs in CPU 1.
@@ -277,19 +280,24 @@ void loop() {
     SCAN_ON_MS_AP_ACTIVE    = configManager.getBtScanOnAp();
     SCAN_OFF_MS_AP_ACTIVE   = configManager.getBtScanOffAp();
 
-    // Mode button handling (active-low)
+    // Mode button handling (active-low, hold-to-switch for noise immunity)
     bool modeNow = (digitalRead(MODE_BUTTON_PIN) == LOW);
     uint32_t nowMs = millis();
-    if (modeNow != lastModeButtonState && (nowMs - lastModeButtonChangeMs) > modeButtonDebounceMs) {
-        lastModeButtonChangeMs = nowMs;
-        lastModeButtonState = modeNow;
-        if (modeNow) {
+    if (modeNow) {
+        if (modeButtonPressStartMs == 0) {
+            modeButtonPressStartMs = nowMs;
+            modeButtonLongPressHandled = false;
+        } else if (!modeButtonLongPressHandled && (nowMs - modeButtonPressStartMs) >= modeButtonHoldToSwitchMs) {
             modeStep = (modeStep + 1) % 4;
             if (modeStep == 0) radioMode = RadioMode::Normal;
             else if (modeStep == 1) radioMode = RadioMode::WifiOnly;
             else if (modeStep == 2) radioMode = RadioMode::BluetoothOnly;
             else radioMode = RadioMode::WifiOnly;
+            modeButtonLongPressHandled = true;
         }
+    } else {
+        modeButtonPressStartMs = 0;
+        modeButtonLongPressHandled = false;
     }
     applyRadioMode(radioMode);
 

@@ -57,6 +57,9 @@ qrc_*.cpp
 /.pio/
 .venv/
 
+# Local generated vendor components (keep out of commits)
+/managed_components/
+
 #Auto flasher downloads                                                                                                                    
 tools/blacklist.txt                                                                                                                         
 tools/bootloader.bin                                                                                                                        

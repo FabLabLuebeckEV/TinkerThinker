@@ -1,6 +1,9 @@
 let currentStep = 1;
 let ws;
 let configData = {};
+let reconnectTimer = null;
+let reconnectDelayMs = 1000;
+const maxReconnectDelayMs = 30000;
 
 // motorSettings speichert für jeden Motor: side (left/right), invert (bool), deadband (int)
 let motorSettings = {
@@ -24,10 +27,52 @@ function goToStep(n) {
 
 function connectWebSocket() {
     ws = new WebSocket(`ws://${window.location.hostname}/ws`);
-    ws.onopen = () => { console.log("WebSocket connected"); };
+    ws.onopen = () => {
+        console.log("WebSocket connected");
+        reconnectDelayMs = 1000;
+        updateConnectionStatus("verbunden");
+    };
     ws.onmessage = (event) => {
         console.log("WS Message:", event.data);
     };
+    ws.onclose = (event) => {
+        console.log(`WebSocket closed: Code ${event.code}, reason: ${event.reason}`);
+        updateConnectionStatus("geschlossen");
+        scheduleReconnect();
+    };
+    ws.onerror = (error) => {
+        console.error("WebSocket error:", error);
+        updateConnectionStatus("fehler");
+        try {
+            ws.close();
+        } catch (_) {}
+    };
+}
+
+function scheduleReconnect() {
+    if (reconnectTimer) return;
+    reconnectTimer = setTimeout(() => {
+        reconnectTimer = null;
+        connectWebSocket();
+        reconnectDelayMs = Math.min(reconnectDelayMs * 2, maxReconnectDelayMs);
+    }, reconnectDelayMs);
+}
+
+function updateConnectionStatus(status) {
+    const statusElement = document.getElementById('connectionStatus');
+    if (!statusElement) return;
+    const statusText = statusElement.querySelector('span');
+    if (!statusText) return;
+    statusText.innerText = status;
+    if (status === 'verbunden') statusText.style.color = 'green';
+    else if (status === 'geschlossen') statusText.style.color = 'red';
+    else statusText.style.color = '#b45309';
+}
+
+function sendWS(payload) {
+    if (!ws || ws.readyState !== WebSocket.OPEN) return false;
+    ws.send(JSON.stringify(payload));
+    return true;
 }
 
 function loadConfig() {
@@ -55,16 +100,16 @@ function applyDeviceName(cfg) {
 
 function testMotor(letter) {
     // Motor starten (vorwärts) für max. 1s
-    ws.send(JSON.stringify({["motor"+letter]:"forward"}));
+    sendWS({["motor"+letter]:"forward"});
     setTimeout(()=>{
-        ws.send(JSON.stringify({["motor"+letter]:"stop"}));
+        sendWS({["motor"+letter]:"stop"});
         document.getElementById('motor'+letter+'Question').style.display='block';
     },1000);
 }
 
 function motorMoved(letter, side) {
     // Motor stoppen
-    ws.send(JSON.stringify({["motor"+letter]:"stop"}));
+    sendWS({["motor"+letter]:"stop"});
     motorSettings[letter].side = side;
     // Weiter
     if (letter==='A') goToStep(4);
@@ -85,9 +130,9 @@ function directionChosen(letter, dir) {
 
 function testDirection(letter, dir) {
     // Richtung 1s testen (vorwärts/rückwärts)
-    ws.send(JSON.stringify({["motor"+letter]: dir}));
+    sendWS({["motor"+letter]: dir});
     setTimeout(()=>{
-        ws.send(JSON.stringify({["motor"+letter]:"stop"}));
+        sendWS({["motor"+letter]:"stop"});
     },1000);
 }
 
@@ -96,9 +141,9 @@ function testDeadband(letter) {
     let val = slider ? slider.value : 0;
     let idx = letterToIndex(letter);
     // Raw PWM senden (Deadband soll nicht dazwischenfunken)
-    ws.send(JSON.stringify({"motor_raw":{"motor":idx,"pwm":parseInt(val)}}));
+    sendWS({"motor_raw":{"motor":idx,"pwm":parseInt(val, 10)}});
     setTimeout(()=>{
-        ws.send(JSON.stringify({"motor_raw":{"motor":idx,"pwm":0}}));
+        sendWS({"motor_raw":{"motor":idx,"pwm":0}});
     },1000);
 }
 
@@ -107,7 +152,7 @@ function confirmDeadband(letter) {
     motorSettings[letter].deadband = parseInt(val);
     // Motor stoppen
     let idx = letterToIndex(letter);
-    ws.send(JSON.stringify({"motor":idx,"pwm":0}));
+    sendWS({"motor":idx,"pwm":0});
 
     // Nächster Schritt
     if (letter==='A') goToStep(6); // Motor B Start
@@ -121,20 +166,48 @@ function letterToIndex(letter) {
     return letter.charCodeAt(0) - 65; 
 }
 
+function resolveDrivePair() {
+    const letters = ['A', 'B', 'C', 'D'];
+    let leftIdx = -1;
+    let rightIdx = -1;
+    for (const letter of letters) {
+        const idx = letterToIndex(letter);
+        const side = motorSettings[letter].side;
+        if (side === 'left' && leftIdx < 0) leftIdx = idx;
+        if (side === 'right' && rightIdx < 0) rightIdx = idx;
+    }
+
+    if (leftIdx < 0 && Number.isInteger(configData.motor_left_gui)) {
+        leftIdx = configData.motor_left_gui;
+    }
+    if (rightIdx < 0 && Number.isInteger(configData.motor_right_gui)) {
+        rightIdx = configData.motor_right_gui;
+    }
+
+    if (leftIdx < 0) leftIdx = 2;
+    if (rightIdx < 0 || rightIdx === leftIdx) {
+        rightIdx = [0, 1, 2, 3].find(i => i !== leftIdx);
+    }
+    return { leftIdx, rightIdx };
+}
+
 function finalizeSetup() {
     // POST /config mit allen Werten
     let formData = new FormData();
-    // Übernehmen wir aus configData vorhandene Werte:
-    formData.append("wifi_mode", configData.wifi_mode);
-    formData.append("wifi_ssid", configData.wifi_ssid);
-    formData.append("wifi_password", configData.wifi_password);
+    // Bestehenden WiFi-Modus behalten (AP/STA), Radio-Mode wird in Firmware beim Boot gesetzt.
+    formData.append("wifi_mode", configData.wifi_mode || "AP");
+    formData.append("wifi_ssid", configData.wifi_ssid || "");
+    formData.append("wifi_password", configData.wifi_password || "");
     const wifiNameInput = document.getElementById('wifi_name');
     const newHotspotName = wifiNameInput ? wifiNameInput.value.trim() : "";
-    formData.append("hotspot_ssid", newHotspotName || configData.hotspot_ssid);
-    formData.append("hotspot_password", configData.hotspot_password);
+    formData.append("hotspot_ssid", newHotspotName || configData.hotspot_ssid || "TinkerThinkerAP");
+    formData.append("hotspot_password", configData.hotspot_password || "");
 
-    // Motoren: invert, side egal hier, side wurde genutzt um interne Logik zu entscheiden.
-    // Wir nehmen invert und deadband. Frequency lassen wir auf default aus config
+    const drivePair = resolveDrivePair();
+    formData.append("motor_left_gui", String(drivePair.leftIdx));
+    formData.append("motor_right_gui", String(drivePair.rightIdx));
+
+    // Motoren: invert + deadband; Frequenz beibehalten
     let letters = ['A','B','C','D'];
     for (let i=0; i<4; i++){
         let lettr = letters[i];
@@ -144,16 +217,20 @@ function finalizeSetup() {
         formData.append(`motor_deadband_${i}`, motorSettings[lettr].deadband.toString());
 
         // frequency beibehalten
-        let freq = configData.motor_frequency[i] || 5000;
+        let freq = (configData.motor_frequency && configData.motor_frequency[i] !== undefined)
+            ? configData.motor_frequency[i]
+            : 5000;
         formData.append(`motor_frequency_${i}`, freq.toString());
     }
 
-    formData.append("led_count", configData.led_count.toString());
+    formData.append("led_count", String(configData.led_count || 30));
     if (configData.ota_enabled) formData.append("ota_enabled","on");
 
     for (let i=0; i<3; i++){
-        formData.append(`servo${i}_min`, configData.servo_settings[i].min_pulsewidth.toString());
-        formData.append(`servo${i}_max`, configData.servo_settings[i].max_pulsewidth.toString());
+        const minPw = configData.servo_settings?.[i]?.min_pulsewidth ?? 500;
+        const maxPw = configData.servo_settings?.[i]?.max_pulsewidth ?? 2500;
+        formData.append(`servo${i}_min`, String(minPw));
+        formData.append(`servo${i}_max`, String(maxPw));
     }
 
     fetch('/config',{
@@ -164,6 +241,9 @@ function finalizeSetup() {
         setTimeout(() => {
             fetch('/reboot').catch(()=>{});
         }, 400);
+    }).catch((err) => {
+        console.error('Setup speichern fehlgeschlagen:', err);
+        alert('Speichern fehlgeschlagen. Bitte erneut versuchen.');
     });
 }
 

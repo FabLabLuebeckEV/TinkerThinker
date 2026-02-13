@@ -69,7 +69,9 @@ Recent Changes (Important)
 
 5) MODE button + radio modes (Jan 2026) **BREAKING**
    - The former H‑bridge fault pin is now a MODE button on GPIO39 (active‑low, pulled to GND on press).
+   - GPIO39 is input-only and has no internal pull-up; use external pull-up in hardware.
    - Fault monitoring was removed; any code relying on motorFaults/checkFaults must be updated.
+   - Startup default mode is `Normal`.
    - Mode cycle: Normal → Wi‑Fi only → BT scan only → Wi‑Fi only → Normal.
    - Status LED (LED0): Normal = dim white, Wi‑Fi = orange, BT scan = blue.
    - On controller connect, Wi‑Fi is paused for 3000 ms to boost BT pairing.
@@ -77,6 +79,13 @@ Recent Changes (Important)
 6) Battery percentage curve (Jan 2026)
    - Voltage measurement reverted to the original analogRead method.
    - Percentage now uses a Li‑ion discharge curve (non‑linear) for more realistic %.
+
+7) Setup page reliability + mobile UX (Feb 2026)
+   - `data/setup.html` now includes viewport meta and connection state indicator.
+   - `data/setup.js` now has WebSocket auto-reconnect with backoff and safe send helper.
+   - Setup now persists motor drive pair selection by posting `motor_left_gui` / `motor_right_gui`.
+   - `main/WebServerManager.cpp` exposes/parses `motor_left_gui` and `motor_right_gui` in `/getConfig` and `/config`.
+   - `data/styles.css` adds mobile-responsive nav and full-width setup buttons for phone usability.
 
 Editing Guidelines
 - Keep changes focused; do not introduce a second Arduino core.
