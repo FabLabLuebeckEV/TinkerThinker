@@ -39,6 +39,11 @@ jobs:
       - name: Install PlatformIO
         run: pip install --upgrade platformio
 
+      - name: Pin click for esptool compatibility
+        run: |
+          # esptool bundled by PlatformIO is currently incompatible with click>=8.2
+          pip install --upgrade "click==8.1.7"
+
       - name: Show PlatformIO version
         run: pio --version
 
