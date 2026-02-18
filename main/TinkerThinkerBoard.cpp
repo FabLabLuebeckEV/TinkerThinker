@@ -76,7 +76,11 @@ void TinkerThinkerBoard::begin() {
     pinMode(POWER_ON_PIN, OUTPUT);
     digitalWrite(POWER_ON_PIN, HIGH);
 
-    reApplyConfig() ;   
+    reApplyConfig();
+}
+
+void TinkerThinkerBoard::startServices() {
+    if (webServerManager) return;
 
     webServerManager = new WebServerManager(this, config);
     webServerManager->init();
@@ -171,7 +175,9 @@ float TinkerThinkerBoard::getSpeedMultiplier() {
 }
 
 void TinkerThinkerBoard::updateWebClients() {
-    webServerManager->sendStatusUpdate();
+    if (webServerManager) {
+        webServerManager->sendStatusUpdate();
+    }
 }
 
 void TinkerThinkerBoard::requestWifiDisable(bool untilRestart) {

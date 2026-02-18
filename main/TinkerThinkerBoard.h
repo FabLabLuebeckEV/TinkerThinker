@@ -13,6 +13,7 @@ class TinkerThinkerBoard {
 public:
     TinkerThinkerBoard(ConfigManager* configManager);
     void begin();
+    void startServices();
     void reApplyConfig();
 
     // Motorsteuerung (legacy direct)
