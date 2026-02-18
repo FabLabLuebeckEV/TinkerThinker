@@ -46,6 +46,8 @@ static const uint32_t wifiPauseOnConnectMs = 3000;
 static void setStatusLed(uint8_t r, uint8_t g, uint8_t b);
 static void applyRadioMode(RadioMode mode);
 static bool handleStartupReset();
+static bool isModePressedStable();
+static bool boardReady = false;
 
 static int findControllerIndex(ControllerPtr ctl) {
     for (int i = 0; i < BP32_MAX_GAMEPADS; ++i) {
@@ -158,13 +160,14 @@ void setup() {
     if (!configManager.init()) {
         Serial.println("Failed to init ConfigManager!");
     }
-    board.begin();
     // GPIO39 is input-only on ESP32 and has no internal pull-up.
     // The board uses external pull-up with active-low button wiring.
     pinMode(MODE_BUTTON_PIN, INPUT);
     if (handleStartupReset()) {
         return;
     }
+    board.begin();
+    boardReady = true;
 
     // Load input bindings from config
     inputBindings.reload();
@@ -200,6 +203,7 @@ static uint32_t curOffMs = SCAN_OFF_MS_NORMAL;
 static enum { PHASE_ON, PHASE_OFF } phase = PHASE_OFF;
 
 static void setStatusLed(uint8_t r, uint8_t g, uint8_t b) {
+    if (!boardReady) return;
     board.setLED(0, r, g, b);
     board.showLEDs();
 }
@@ -207,14 +211,23 @@ static void setStatusLed(uint8_t r, uint8_t g, uint8_t b) {
 static bool handleStartupReset() {
     const uint32_t holdMs = 10000;
     const uint32_t stepMs = 250;
-    if (digitalRead(MODE_BUTTON_PIN) != LOW) {
+    const uint32_t armWindowMs = 2500;
+
+    // Robust arming: allow a short window after boot where press can start.
+    // This avoids missing reset when boot/init timing shifts.
+    uint32_t armStart = millis();
+    while ((millis() - armStart) < armWindowMs) {
+        if (isModePressedStable()) break;
+        delay(10);
+    }
+    if (!isModePressedStable()) {
         return false;
     }
 
     uint32_t start = millis();
     int phaseIndex = 0;
     while ((millis() - start) < holdMs) {
-        if (digitalRead(MODE_BUTTON_PIN) != LOW) {
+        if (!isModePressedStable()) {
             setStatusLed(60, 60, 60);
             return false;
         }
@@ -232,6 +245,16 @@ static bool handleStartupReset() {
     delay(200);
     ESP.restart();
     return true;
+}
+
+static bool isModePressedStable() {
+    // Majority vote over a few samples to filter bounce/noise on input-only GPIO39.
+    int lowCount = 0;
+    for (int i = 0; i < 7; ++i) {
+        if (digitalRead(MODE_BUTTON_PIN) == LOW) lowCount++;
+        delay(2);
+    }
+    return lowCount >= 5;
 }
 
 static void applyRadioMode(RadioMode mode) {

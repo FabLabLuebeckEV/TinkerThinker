@@ -71,6 +71,7 @@ Recent Changes (Important)
    - The former H‑bridge fault pin is now a MODE button on GPIO39 (active‑low, pulled to GND on press).
    - GPIO39 is input-only and has no internal pull-up; use external pull-up in hardware.
    - Fault monitoring was removed; any code relying on motorFaults/checkFaults must be updated.
+   - Startup factory reset (hold MODE for 10s) is checked before Wi‑Fi initialization, so reset still works even if STA cannot connect.
    - Startup default mode is `Normal`.
    - Mode cycle: Normal → Wi‑Fi only → BT scan only → Wi‑Fi only → Normal.
    - Status LED (LED0): Normal = dim white, Wi‑Fi = orange, BT scan = blue.
