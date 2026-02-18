@@ -2,6 +2,43 @@
 #include "TinkerThinkerBoard.h"
 #include "ConfigManager.h"
 
+static const char* wifiReasonToString(uint8_t reason) {
+    switch (reason) {
+        case WIFI_REASON_UNSPECIFIED: return "UNSPECIFIED";
+        case WIFI_REASON_AUTH_EXPIRE: return "AUTH_EXPIRE";
+        case WIFI_REASON_AUTH_LEAVE: return "AUTH_LEAVE";
+        case WIFI_REASON_ASSOC_EXPIRE: return "ASSOC_EXPIRE";
+        case WIFI_REASON_ASSOC_TOOMANY: return "ASSOC_TOOMANY";
+        case WIFI_REASON_NOT_AUTHED: return "NOT_AUTHED";
+        case WIFI_REASON_NOT_ASSOCED: return "NOT_ASSOCED";
+        case WIFI_REASON_ASSOC_LEAVE: return "ASSOC_LEAVE";
+        case WIFI_REASON_ASSOC_NOT_AUTHED: return "ASSOC_NOT_AUTHED";
+        case WIFI_REASON_DISASSOC_PWRCAP_BAD: return "DISASSOC_PWRCAP_BAD";
+        case WIFI_REASON_DISASSOC_SUPCHAN_BAD: return "DISASSOC_SUPCHAN_BAD";
+        case WIFI_REASON_IE_INVALID: return "IE_INVALID";
+        case WIFI_REASON_MIC_FAILURE: return "MIC_FAILURE";
+        case WIFI_REASON_4WAY_HANDSHAKE_TIMEOUT: return "4WAY_HANDSHAKE_TIMEOUT";
+        case WIFI_REASON_GROUP_KEY_UPDATE_TIMEOUT: return "GROUP_KEY_UPDATE_TIMEOUT";
+        case WIFI_REASON_IE_IN_4WAY_DIFFERS: return "IE_IN_4WAY_DIFFERS";
+        case WIFI_REASON_GROUP_CIPHER_INVALID: return "GROUP_CIPHER_INVALID";
+        case WIFI_REASON_PAIRWISE_CIPHER_INVALID: return "PAIRWISE_CIPHER_INVALID";
+        case WIFI_REASON_AKMP_INVALID: return "AKMP_INVALID";
+        case WIFI_REASON_UNSUPP_RSN_IE_VERSION: return "UNSUPP_RSN_IE_VERSION";
+        case WIFI_REASON_INVALID_RSN_IE_CAP: return "INVALID_RSN_IE_CAP";
+        case WIFI_REASON_802_1X_AUTH_FAILED: return "8021X_AUTH_FAILED";
+        case WIFI_REASON_CIPHER_SUITE_REJECTED: return "CIPHER_SUITE_REJECTED";
+        case WIFI_REASON_BEACON_TIMEOUT: return "BEACON_TIMEOUT";
+        case WIFI_REASON_NO_AP_FOUND: return "NO_AP_FOUND";
+        case WIFI_REASON_AUTH_FAIL: return "AUTH_FAIL";
+        case WIFI_REASON_ASSOC_FAIL: return "ASSOC_FAIL";
+        case WIFI_REASON_HANDSHAKE_TIMEOUT: return "HANDSHAKE_TIMEOUT";
+        case WIFI_REASON_CONNECTION_FAIL: return "CONNECTION_FAIL";
+        case WIFI_REASON_AP_TSF_RESET: return "AP_TSF_RESET";
+        case WIFI_REASON_ROAMING: return "ROAMING";
+        default: return "UNKNOWN";
+    }
+}
+
 WebServerManager::WebServerManager(TinkerThinkerBoard* board, ConfigManager* config)
 : board(board), config(config), server(80), ws("/ws") {}
 
@@ -11,6 +48,7 @@ void WebServerManager::init() {
         return;
     }
 
+    setupWifiEventLogging();
     startWifi();
     setupWebSocket();
     setupRoutes();
@@ -18,6 +56,28 @@ void WebServerManager::init() {
     registerBindingsRoutes(server, config);
     server.begin();
     Serial.println("Web Server started");
+}
+
+void WebServerManager::setupWifiEventLogging() {
+    if (wifiEventsRegistered) return;
+    wifiEventsRegistered = true;
+
+    WiFi.onEvent([](arduino_event_id_t event, arduino_event_info_t info) {
+        if (event == ARDUINO_EVENT_WIFI_STA_CONNECTED) {
+            Serial.println("[WiFi] STA connected to AP");
+            return;
+        }
+        if (event == ARDUINO_EVENT_WIFI_STA_GOT_IP) {
+            Serial.printf("[WiFi] STA got IP: %s\n", WiFi.localIP().toString().c_str());
+            return;
+        }
+        if (event == ARDUINO_EVENT_WIFI_STA_DISCONNECTED) {
+            uint8_t reason = info.wifi_sta_disconnected.reason;
+            Serial.printf("[WiFi] STA disconnected, reason=%u (%s)\n",
+                          reason, wifiReasonToString(reason));
+            return;
+        }
+    });
 }
 
 void WebServerManager::startWifi() {
