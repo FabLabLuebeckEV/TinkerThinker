@@ -21,7 +21,16 @@ void WebServerManager::init() {
 }
 
 void WebServerManager::startWifi() {
+    auto startApFallback = [this]() {
+        WiFi.mode(WIFI_AP);
+        WiFi.softAP(config->getHotspotSSID().c_str(), config->getHotspotPassword().c_str());
+        IPAddress ip = WiFi.softAPIP();
+        Serial.print("AP fallback IP address: ");
+        Serial.println(ip);
+    };
+
     if (config->getWifiMode() == "AP") {
+        WiFi.mode(WIFI_AP);
         WiFi.softAP(config->getHotspotSSID().c_str(), config->getHotspotPassword().c_str());
         IPAddress IP = WiFi.softAPIP();
         Serial.print("AP IP address: ");
@@ -31,13 +40,21 @@ void WebServerManager::startWifi() {
         WiFi.mode(WIFI_STA);
         WiFi.begin(config->getWifiSSID().c_str(), config->getWifiPassword().c_str());
         Serial.print("Connecting to WiFi ");
-        while (WiFi.status() != WL_CONNECTED) {
+        const uint32_t connectTimeoutMs = 15000;
+        uint32_t start = millis();
+        while (WiFi.status() != WL_CONNECTED && (millis() - start) < connectTimeoutMs) {
             Serial.print(".");
             delay(500);
         }
-        Serial.println();
-        Serial.print("Connected IP: ");
-        Serial.println(WiFi.localIP());
+        if (WiFi.status() == WL_CONNECTED) {
+            Serial.println();
+            Serial.print("Connected IP: ");
+            Serial.println(WiFi.localIP());
+        } else {
+            Serial.println();
+            Serial.println("WiFi STA connect timeout. Falling back to AP mode.");
+            startApFallback();
+        }
     }
 }
 
