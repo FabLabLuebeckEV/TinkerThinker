@@ -11,6 +11,7 @@
 #include "soc/rtc_cntl_reg.h"
 #include "esp_bt.h"
 #include <uni.h>
+#include <FastLED.h>
 
 // Removed DFPlayer and HardwareSerial includes
 #define MODE_BUTTON_PIN 39
@@ -48,6 +49,16 @@ static void applyRadioMode(RadioMode mode);
 static bool handleStartupReset();
 static bool isModePressedStable();
 static bool boardReady = false;
+static bool bootLedReady = false;
+static CRGB bootLed[1];
+
+static void initBootLed() {
+    if (bootLedReady) return;
+    FastLED.addLeds<WS2812, 2, GRB>(bootLed, 1).setCorrection(TypicalLEDStrip);
+    bootLed[0] = CRGB::Black;
+    FastLED.show();
+    bootLedReady = true;
+}
 
 static int findControllerIndex(ControllerPtr ctl) {
     for (int i = 0; i < BP32_MAX_GAMEPADS; ++i) {
@@ -203,9 +214,14 @@ static uint32_t curOffMs = SCAN_OFF_MS_NORMAL;
 static enum { PHASE_ON, PHASE_OFF } phase = PHASE_OFF;
 
 static void setStatusLed(uint8_t r, uint8_t g, uint8_t b) {
-    if (!boardReady) return;
-    board.setLED(0, r, g, b);
-    board.showLEDs();
+    if (boardReady) {
+        board.setLED(0, r, g, b);
+        board.showLEDs();
+        return;
+    }
+    initBootLed();
+    bootLed[0] = CRGB(r, g, b);
+    FastLED.show();
 }
 
 static bool handleStartupReset() {
