@@ -1,20 +1,41 @@
-# esp-idf
+# ESP-IDF / PlatformIO
 sdkconfig.old
+.pio/
+.pioenvs/
+managed_components/
 
-# misc
-.pioenvs
+# Build artifacts
+build/
+dist/
+cmake-build-*/
+*.o
+/*.map
+
+# Python virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Python cache/artifacts
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+
+# Editor / IDE
+.vscode/
+.idea/
 .clang_complete
 .gcc-flags.json
 
-# Ignore vim swaps
+# OS / temp files
+.DS_Store
+._.*
 *.swp
 *.swo
-
-# Distribution files, used internally and build files
-dist/
-build/
-cmake-build-*/
-build/
 
 # Xcode
 *.mode*v*
@@ -24,19 +45,13 @@ build/
 *.xcuserstate
 *.xccheckout
 xcschememanagement.plist
-.DS_Store
-._.*
 xcuserdata/
 DerivedData/
 
-# VSCode
-.vscode/
-
 # Android Studio
 .gradle/
-.idea/
 
-# Qt-es
+# Qt
 /.qmake.cache
 /.qmake.stash
 *.pro.user
@@ -48,21 +63,12 @@ moc_*.cpp
 qrc_*.cpp
 *.autosave
 
-# Object files
-*.o
-/*.map
+# Vagrant
+.vagrant/
 
-# Vagrant stuff
-.vagrant
-/.pio/
-.venv/
-
-# Local generated vendor components (keep out of commits)
-/managed_components/
-
-#Auto flasher downloads                                                                                                                    
-tools/blacklist.txt                                                                                                                         
-tools/bootloader.bin                                                                                                                        
-tools/firmware.bin                                                                                                                          
-tools/littlefs.bin                                                                                                                          
+# Local auto flasher downloads
+tools/blacklist.txt
+tools/bootloader.bin
+tools/firmware.bin
+tools/littlefs.bin
 tools/partitions.bin
