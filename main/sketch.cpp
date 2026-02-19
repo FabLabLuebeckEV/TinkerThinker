@@ -357,9 +357,7 @@ void loop() {
     }
 
     wifi_mode_t mode = WiFi.getMode();
-    bool staHasIp = (WiFi.localIP()[0] != 0);
-    // Treat DHCP wait as "still connecting": WL_CONNECTED alone is not enough for usable STA.
-    bool staConnecting = (mode == WIFI_STA || mode == WIFI_AP_STA) && !staHasIp;
+    bool staConnecting = (mode == WIFI_STA || mode == WIFI_AP_STA) && (WiFi.status() != WL_CONNECTED);
     bool apActive = (mode == WIFI_AP || mode == WIFI_AP_STA) && (WiFi.softAPgetStationNum() > 0);
     bool wifiDisabledUntilRestart = (mode == WIFI_OFF);
 
@@ -411,8 +409,7 @@ void loop() {
     } else if (apActive) {
         targetOn = SCAN_ON_MS_AP_ACTIVE; targetOff = SCAN_OFF_MS_AP_ACTIVE;
     } else if (staConnecting) {
-        // While STA has no IP yet (assoc + DHCP), prioritize Wi-Fi fully.
-        targetOn = 0; targetOff = 1200;
+        targetOn = SCAN_ON_MS_STA_CONNECT; targetOff = SCAN_OFF_MS_STA_CONNECT;
     }
 
     if (targetOn != curOnMs || targetOff != curOffMs) {

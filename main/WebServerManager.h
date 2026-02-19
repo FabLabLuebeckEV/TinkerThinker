@@ -6,7 +6,6 @@
 #include <LittleFS.h>
 #include <WiFi.h>
 #include <ArduinoJson.h>
-#include <esp_wifi_types.h>
 
 class TinkerThinkerBoard; 
 class ConfigManager;
@@ -31,13 +30,11 @@ private:
     bool wifiTemporarilyDisabled = false;
     bool wifiShutdownInProgress = false;
     bool wifiStartupInProgress = false;
-    bool wifiEventsRegistered = false;
 
     void onWebSocketEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, 
                           AwsEventType type, void *arg, uint8_t *data, size_t len);
     void setupRoutes();
     void setupWebSocket();
-    void setupWifiEventLogging();
     void startWifi();
     void handleConfig(AsyncWebServerRequest* request);
     void disableWifiUntilRestart();

@@ -2,47 +2,6 @@
 #include "TinkerThinkerBoard.h"
 #include "ConfigManager.h"
 
-static volatile bool s_staConnectedSeen = false;
-static volatile bool s_staGotIpSeen = false;
-static volatile uint8_t s_lastStaDisconnectReason = 0;
-
-static const char* wifiReasonToString(uint8_t reason) {
-    switch (reason) {
-        case WIFI_REASON_UNSPECIFIED: return "UNSPECIFIED";
-        case WIFI_REASON_AUTH_EXPIRE: return "AUTH_EXPIRE";
-        case WIFI_REASON_AUTH_LEAVE: return "AUTH_LEAVE";
-        case WIFI_REASON_ASSOC_EXPIRE: return "ASSOC_EXPIRE";
-        case WIFI_REASON_ASSOC_TOOMANY: return "ASSOC_TOOMANY";
-        case WIFI_REASON_NOT_AUTHED: return "NOT_AUTHED";
-        case WIFI_REASON_NOT_ASSOCED: return "NOT_ASSOCED";
-        case WIFI_REASON_ASSOC_LEAVE: return "ASSOC_LEAVE";
-        case WIFI_REASON_ASSOC_NOT_AUTHED: return "ASSOC_NOT_AUTHED";
-        case WIFI_REASON_DISASSOC_PWRCAP_BAD: return "DISASSOC_PWRCAP_BAD";
-        case WIFI_REASON_DISASSOC_SUPCHAN_BAD: return "DISASSOC_SUPCHAN_BAD";
-        case WIFI_REASON_IE_INVALID: return "IE_INVALID";
-        case WIFI_REASON_MIC_FAILURE: return "MIC_FAILURE";
-        case WIFI_REASON_4WAY_HANDSHAKE_TIMEOUT: return "4WAY_HANDSHAKE_TIMEOUT";
-        case WIFI_REASON_GROUP_KEY_UPDATE_TIMEOUT: return "GROUP_KEY_UPDATE_TIMEOUT";
-        case WIFI_REASON_IE_IN_4WAY_DIFFERS: return "IE_IN_4WAY_DIFFERS";
-        case WIFI_REASON_GROUP_CIPHER_INVALID: return "GROUP_CIPHER_INVALID";
-        case WIFI_REASON_PAIRWISE_CIPHER_INVALID: return "PAIRWISE_CIPHER_INVALID";
-        case WIFI_REASON_AKMP_INVALID: return "AKMP_INVALID";
-        case WIFI_REASON_UNSUPP_RSN_IE_VERSION: return "UNSUPP_RSN_IE_VERSION";
-        case WIFI_REASON_INVALID_RSN_IE_CAP: return "INVALID_RSN_IE_CAP";
-        case WIFI_REASON_802_1X_AUTH_FAILED: return "8021X_AUTH_FAILED";
-        case WIFI_REASON_CIPHER_SUITE_REJECTED: return "CIPHER_SUITE_REJECTED";
-        case WIFI_REASON_BEACON_TIMEOUT: return "BEACON_TIMEOUT";
-        case WIFI_REASON_NO_AP_FOUND: return "NO_AP_FOUND";
-        case WIFI_REASON_AUTH_FAIL: return "AUTH_FAIL";
-        case WIFI_REASON_ASSOC_FAIL: return "ASSOC_FAIL";
-        case WIFI_REASON_HANDSHAKE_TIMEOUT: return "HANDSHAKE_TIMEOUT";
-        case WIFI_REASON_CONNECTION_FAIL: return "CONNECTION_FAIL";
-        case WIFI_REASON_AP_TSF_RESET: return "AP_TSF_RESET";
-        case WIFI_REASON_ROAMING: return "ROAMING";
-        default: return "UNKNOWN";
-    }
-}
-
 WebServerManager::WebServerManager(TinkerThinkerBoard* board, ConfigManager* config)
 : board(board), config(config), server(80), ws("/ws") {}
 
@@ -52,7 +11,6 @@ void WebServerManager::init() {
         return;
     }
 
-    setupWifiEventLogging();
     startWifi();
     setupWebSocket();
     setupRoutes();
@@ -62,47 +20,7 @@ void WebServerManager::init() {
     Serial.println("Web Server started");
 }
 
-void WebServerManager::setupWifiEventLogging() {
-    if (wifiEventsRegistered) return;
-    wifiEventsRegistered = true;
-
-    WiFi.onEvent([](arduino_event_id_t event, arduino_event_info_t info) {
-        if (event == ARDUINO_EVENT_WIFI_STA_CONNECTED) {
-            s_staConnectedSeen = true;
-            s_staGotIpSeen = false;
-            Serial.println("[WiFi] STA connected to AP");
-            return;
-        }
-        if (event == ARDUINO_EVENT_WIFI_STA_GOT_IP) {
-            s_staGotIpSeen = true;
-            Serial.printf("[WiFi] STA got IP: %s\n", WiFi.localIP().toString().c_str());
-            return;
-        }
-        if (event == ARDUINO_EVENT_WIFI_STA_DISCONNECTED) {
-            uint8_t reason = info.wifi_sta_disconnected.reason;
-            s_staConnectedSeen = false;
-            s_staGotIpSeen = false;
-            s_lastStaDisconnectReason = reason;
-            Serial.printf("[WiFi] STA disconnected, reason=%u (%s)\n",
-                          reason, wifiReasonToString(reason));
-            return;
-        }
-    });
-}
-
 void WebServerManager::startWifi() {
-    auto hasStaIp = []() {
-        return s_staGotIpSeen || (WiFi.localIP()[0] != 0);
-    };
-
-    auto startApStaFallback = [this]() {
-        WiFi.mode(WIFI_AP_STA);
-        WiFi.softAP(config->getHotspotSSID().c_str(), config->getHotspotPassword().c_str());
-        IPAddress ip = WiFi.softAPIP();
-        Serial.print("AP+STA fallback IP address: ");
-        Serial.println(ip);
-    };
-
     if (config->getWifiMode() == "AP") {
         WiFi.mode(WIFI_AP);
         WiFi.softAP(config->getHotspotSSID().c_str(), config->getHotspotPassword().c_str());
@@ -111,9 +29,6 @@ void WebServerManager::startWifi() {
         Serial.println(IP);
     } else {
         // Client mode
-        s_staConnectedSeen = false;
-        s_staGotIpSeen = false;
-        s_lastStaDisconnectReason = 0;
         WiFi.mode(WIFI_STA);
         WiFi.persistent(false);
         WiFi.setAutoReconnect(true);
@@ -125,53 +40,13 @@ void WebServerManager::startWifi() {
         Serial.printf("STA target SSID='%s' (passLen=%u)\n", staSsid.c_str(), (unsigned)staPass.length());
         WiFi.begin(staSsid.c_str(), staPass.c_str());
         Serial.print("Connecting to WiFi ");
-        const uint32_t connectTimeoutMs = 15000;
-        const uint32_t dhcpExtraTimeoutMs = 45000;
-        const uint32_t dhcpRetryTimeoutMs = 10000;
-        uint32_t start = millis();
-        while (!hasStaIp() && (millis() - start) < connectTimeoutMs) {
+        while (WiFi.status() != WL_CONNECTED) {
             Serial.print(".");
             delay(500);
         }
-        if (!hasStaIp() && s_staConnectedSeen) {
-            Serial.println();
-            Serial.print("STA verbunden, warte auf DHCP ");
-            uint32_t dhcpStart = millis();
-            while (!hasStaIp() && s_staConnectedSeen && (millis() - dhcpStart) < dhcpExtraTimeoutMs) {
-                Serial.print(".");
-                delay(500);
-            }
-        }
-
-        if (hasStaIp()) {
-            Serial.println();
-            Serial.print("Connected IP: ");
-            Serial.println(WiFi.localIP());
-        } else if (s_staConnectedSeen) {
-            Serial.println();
-            Serial.println("STA verbunden, aber noch keine IP. Keep STA alive + AP+STA fallback.");
-            startApStaFallback();
-
-            uint32_t retryStart = millis();
-            while (!hasStaIp() && s_staConnectedSeen && (millis() - retryStart) < dhcpRetryTimeoutMs) {
-                Serial.print(".");
-                delay(500);
-            }
-
-            if (hasStaIp()) {
-                Serial.println();
-                Serial.print("Connected IP (late DHCP): ");
-                Serial.println(WiFi.localIP());
-            } else {
-                Serial.println();
-                Serial.println("No DHCP lease yet. Staying in AP+STA; STA auto-reconnect remains active.");
-            }
-        } else {
-            Serial.println();
-            Serial.printf("WiFi STA connect timeout. reason=%u (%s). Starting AP+STA fallback.\n",
-                          s_lastStaDisconnectReason, wifiReasonToString(s_lastStaDisconnectReason));
-            startApStaFallback();
-        }
+        Serial.println();
+        Serial.print("Connected IP: ");
+        Serial.println(WiFi.localIP());
     }
 }
 
