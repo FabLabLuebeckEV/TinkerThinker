@@ -2,6 +2,10 @@
 #include "TinkerThinkerBoard.h"
 #include "ConfigManager.h"
 
+static volatile bool s_staConnectedSeen = false;
+static volatile bool s_staGotIpSeen = false;
+static volatile uint8_t s_lastStaDisconnectReason = 0;
+
 static const char* wifiReasonToString(uint8_t reason) {
     switch (reason) {
         case WIFI_REASON_UNSPECIFIED: return "UNSPECIFIED";
@@ -64,15 +68,21 @@ void WebServerManager::setupWifiEventLogging() {
 
     WiFi.onEvent([](arduino_event_id_t event, arduino_event_info_t info) {
         if (event == ARDUINO_EVENT_WIFI_STA_CONNECTED) {
+            s_staConnectedSeen = true;
+            s_staGotIpSeen = false;
             Serial.println("[WiFi] STA connected to AP");
             return;
         }
         if (event == ARDUINO_EVENT_WIFI_STA_GOT_IP) {
+            s_staGotIpSeen = true;
             Serial.printf("[WiFi] STA got IP: %s\n", WiFi.localIP().toString().c_str());
             return;
         }
         if (event == ARDUINO_EVENT_WIFI_STA_DISCONNECTED) {
             uint8_t reason = info.wifi_sta_disconnected.reason;
+            s_staConnectedSeen = false;
+            s_staGotIpSeen = false;
+            s_lastStaDisconnectReason = reason;
             Serial.printf("[WiFi] STA disconnected, reason=%u (%s)\n",
                           reason, wifiReasonToString(reason));
             return;
@@ -81,11 +91,15 @@ void WebServerManager::setupWifiEventLogging() {
 }
 
 void WebServerManager::startWifi() {
-    auto startApFallback = [this]() {
-        WiFi.mode(WIFI_AP);
+    auto hasStaIp = []() {
+        return s_staGotIpSeen || (WiFi.localIP()[0] != 0);
+    };
+
+    auto startApStaFallback = [this]() {
+        WiFi.mode(WIFI_AP_STA);
         WiFi.softAP(config->getHotspotSSID().c_str(), config->getHotspotPassword().c_str());
         IPAddress ip = WiFi.softAPIP();
-        Serial.print("AP fallback IP address: ");
+        Serial.print("AP+STA fallback IP address: ");
         Serial.println(ip);
     };
 
@@ -97,23 +111,66 @@ void WebServerManager::startWifi() {
         Serial.println(IP);
     } else {
         // Client mode
+        s_staConnectedSeen = false;
+        s_staGotIpSeen = false;
+        s_lastStaDisconnectReason = 0;
         WiFi.mode(WIFI_STA);
-        WiFi.begin(config->getWifiSSID().c_str(), config->getWifiPassword().c_str());
+        WiFi.persistent(false);
+        WiFi.setAutoReconnect(true);
+        WiFi.setSleep(false);
+        String staSsid = config->getWifiSSID();
+        String staPass = config->getWifiPassword();
+        staSsid.trim();
+        staPass.trim();
+        Serial.printf("STA target SSID='%s' (passLen=%u)\n", staSsid.c_str(), (unsigned)staPass.length());
+        WiFi.begin(staSsid.c_str(), staPass.c_str());
         Serial.print("Connecting to WiFi ");
         const uint32_t connectTimeoutMs = 15000;
+        const uint32_t dhcpExtraTimeoutMs = 45000;
+        const uint32_t dhcpRetryTimeoutMs = 10000;
         uint32_t start = millis();
-        while (WiFi.status() != WL_CONNECTED && (millis() - start) < connectTimeoutMs) {
+        while (!hasStaIp() && (millis() - start) < connectTimeoutMs) {
             Serial.print(".");
             delay(500);
         }
-        if (WiFi.status() == WL_CONNECTED) {
+        if (!hasStaIp() && s_staConnectedSeen) {
+            Serial.println();
+            Serial.print("STA verbunden, warte auf DHCP ");
+            uint32_t dhcpStart = millis();
+            while (!hasStaIp() && s_staConnectedSeen && (millis() - dhcpStart) < dhcpExtraTimeoutMs) {
+                Serial.print(".");
+                delay(500);
+            }
+        }
+
+        if (hasStaIp()) {
             Serial.println();
             Serial.print("Connected IP: ");
             Serial.println(WiFi.localIP());
+        } else if (s_staConnectedSeen) {
+            Serial.println();
+            Serial.println("STA verbunden, aber noch keine IP. Keep STA alive + AP+STA fallback.");
+            startApStaFallback();
+
+            uint32_t retryStart = millis();
+            while (!hasStaIp() && s_staConnectedSeen && (millis() - retryStart) < dhcpRetryTimeoutMs) {
+                Serial.print(".");
+                delay(500);
+            }
+
+            if (hasStaIp()) {
+                Serial.println();
+                Serial.print("Connected IP (late DHCP): ");
+                Serial.println(WiFi.localIP());
+            } else {
+                Serial.println();
+                Serial.println("No DHCP lease yet. Staying in AP+STA; STA auto-reconnect remains active.");
+            }
         } else {
             Serial.println();
-            Serial.println("WiFi STA connect timeout. Falling back to AP mode.");
-            startApFallback();
+            Serial.printf("WiFi STA connect timeout. reason=%u (%s). Starting AP+STA fallback.\n",
+                          s_lastStaDisconnectReason, wifiReasonToString(s_lastStaDisconnectReason));
+            startApStaFallback();
         }
     }
 }
@@ -320,10 +377,14 @@ void WebServerManager::handleConfig(AsyncWebServerRequest* request) {
         config->setWifiMode(newMode);
     }
     if (request->hasParam("wifi_ssid", true)) {
-        config->setWifiSSID(request->getParam("wifi_ssid", true)->value());
+        String ssid = request->getParam("wifi_ssid", true)->value();
+        ssid.trim();
+        config->setWifiSSID(ssid);
     }
     if (request->hasParam("wifi_password", true)) {
-        config->setWifiPassword(request->getParam("wifi_password", true)->value());
+        String pass = request->getParam("wifi_password", true)->value();
+        pass.trim();
+        config->setWifiPassword(pass);
     }
     if (request->hasParam("hotspot_ssid", true)) {
         config->setHotspotSSID(request->getParam("hotspot_ssid", true)->value());

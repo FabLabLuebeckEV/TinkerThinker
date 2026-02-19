@@ -35,6 +35,7 @@ long timestampServo = 0;
 enum class RadioMode { Normal, BluetoothOnly, WifiOnly };
 static RadioMode radioMode = RadioMode::Normal;
 static RadioMode lastAppliedMode = RadioMode::Normal;
+static bool radioModeAppliedOnce = false;
 static int modeStep = 0;
 static uint32_t modeButtonPressStartMs = 0;
 static bool modeButtonLongPressHandled = false;
@@ -168,22 +169,24 @@ void setup() {
     if (handleStartupReset()) {
         return;
     }
+
     board.startServices();
 
-    // Load input bindings from config
-    inputBindings.reload();
-
-    Console.printf("Firmware: %s\n", BP32.firmwareVersion());
-    const uint8_t* addr = BP32.localBdAddress();
-    Console.printf("BD Addr: %2X:%2X:%2X:%2X:%2X:%2X\n", addr[0], addr[1], addr[2], addr[3], addr[4], addr[5]);
-
     BP32.setup(&onConnectedController, &onDisconnectedController, true);
-    BP32.forgetBluetoothKeys();
     BP32.enableVirtualDevice(false);
     BP32.enableBLEService(false);
     BP32.enableNewBluetoothConnections(false);
     sm_set_secure_connections_only_mode(false);                        // SC ausschalten
     uni_bt_allowlist_set_enabled(false);                             // Allowlist ausschalten
+
+    Console.printf("Firmware: %s\n", BP32.firmwareVersion());
+    const uint8_t* addr = BP32.localBdAddress();
+    Console.printf("BD Addr: %2X:%2X:%2X:%2X:%2X:%2X\n", addr[0], addr[1], addr[2], addr[3], addr[4], addr[5]);
+
+    BP32.forgetBluetoothKeys();
+
+    // Load input bindings from config
+    inputBindings.reload();
 
     applyRadioMode(radioMode);
 }
@@ -259,7 +262,8 @@ static bool isModePressedStable() {
 }
 
 static void applyRadioMode(RadioMode mode) {
-    if (mode == lastAppliedMode) return;
+    if (radioModeAppliedOnce && mode == lastAppliedMode) return;
+    radioModeAppliedOnce = true;
     lastAppliedMode = mode;
 
     if (mode == RadioMode::Normal) {
@@ -353,7 +357,9 @@ void loop() {
     }
 
     wifi_mode_t mode = WiFi.getMode();
-    bool staConnecting = (mode == WIFI_STA || mode == WIFI_AP_STA) && (WiFi.status() != WL_CONNECTED);
+    bool staHasIp = (WiFi.localIP()[0] != 0);
+    // Treat DHCP wait as "still connecting": WL_CONNECTED alone is not enough for usable STA.
+    bool staConnecting = (mode == WIFI_STA || mode == WIFI_AP_STA) && !staHasIp;
     bool apActive = (mode == WIFI_AP || mode == WIFI_AP_STA) && (WiFi.softAPgetStationNum() > 0);
     bool wifiDisabledUntilRestart = (mode == WIFI_OFF);
 
@@ -405,7 +411,8 @@ void loop() {
     } else if (apActive) {
         targetOn = SCAN_ON_MS_AP_ACTIVE; targetOff = SCAN_OFF_MS_AP_ACTIVE;
     } else if (staConnecting) {
-        targetOn = SCAN_ON_MS_STA_CONNECT; targetOff = SCAN_OFF_MS_STA_CONNECT;
+        // While STA has no IP yet (assoc + DHCP), prioritize Wi-Fi fully.
+        targetOn = 0; targetOff = 1200;
     }
 
     if (targetOn != curOnMs || targetOff != curOffMs) {
