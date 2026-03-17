@@ -44,14 +44,6 @@ Vor dem Zusammenbau solltest du alle Teile bereitlegen und grob sortieren.
 - `RescueBotPictures/`: Schrittfotos für den Aufbau
 - `ota/`: Dateien für Firmware/Flash-Prozesse
 
-## Elektrische Anschlüsse
-
-Für die spätere Verkabelung gelten diese Anschlüsse:
-
-- Anschluss `D` und `C`: Fahrmotoren
-- Anschluss `A`: Greifermotor
-- Anschluss `1`: Servo
-
 ## Vor dem Start
 
 Bevor du verschraubst:
@@ -191,6 +183,14 @@ Nach dem mechanischen Aufbau solltest du kurz testen:
 ## Software
 
 Die Firmware für den RescueBot befindet sich in diesem Repository. Zum Bauen und Flashen solltest du die Hinweise im Projekt-Hauptverzeichnis beachten. Wenn die Weboberfläche verwendet wird, muss zusätzlich das LittleFS-Dateisystem hochgeladen werden.
+
+## Elektrische Anschlüsse
+
+Für die spätere Verkabelung gelten diese Anschlüsse:
+
+- Anschluss `D` und `C`: Fahrmotoren
+- Anschluss `A`: Greifermotor
+- Anschluss `1`: Servo
 
 ## Lizenz
 
