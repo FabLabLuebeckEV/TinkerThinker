@@ -24,6 +24,7 @@ private:
     ConfigManager* config;
     AsyncWebServer server;
     AsyncWebSocket ws;
+    SemaphoreHandle_t wsMutex = xSemaphoreCreateMutex();
     //Timeout als millisekunden seit dem letzten paket
     unsigned long lastPacketTime = 0;
     bool wifiDisabledUntilRestart = false;
@@ -38,7 +39,7 @@ private:
     void startWifi();
     void handleConfig(AsyncWebServerRequest* request);
     void disableWifiUntilRestart();
-    void disableWifiInternal();
+    void disableWifiInternal(bool permanent);
     void enableWifiInternal();
 };
 

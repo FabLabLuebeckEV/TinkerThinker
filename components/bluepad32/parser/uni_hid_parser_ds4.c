@@ -15,6 +15,7 @@
 
 #include "bt/uni_bt_defines.h"
 #include "hid_usage.h"
+#include "parser/uni_hid_parser_ds3.h"
 #include "uni_config.h"
 #include "uni_hid_device.h"
 #include "uni_log.h"
@@ -246,7 +247,7 @@ void uni_hid_parser_ds4_setup(struct uni_hid_device_s* d) {
     // Only after the connection was accepted, we should create the virtual device.
     uni_hid_device_t* child = uni_hid_device_create_virtual(d);
     if (!child) {
-        loge("DS4: Failed to create virtual device\n");
+        logi("DS4: Virtual device not created (disabled or no slot)\n");
         return;
     }
 
@@ -506,6 +507,35 @@ void uni_hid_parser_ds4_parse_input_report(uni_hid_device_t* d, const uint8_t* r
     } else if (report[0] == 0x01 && len == 10) {
         const ds4_input_report_01_t* r = (ds4_input_report_01_t*)&report[1];
         ds4_parse_input_report_01(d, r);
+    } else if (report[0] == 0x01 && len == 49) {
+        // DS3 clone that fakes DS4 VID/PID but sends DS3-format reports.
+        // Switch parser to DS3 permanently for this device.
+        logi("DS4: Detected DS3 clone (report 0x01, len=49). Switching to DS3 parser.\n");
+
+        // Destroy virtual child device (DS4 touchpad-as-mouse) if it was created
+        if (d->child) {
+            uni_hid_device_disconnect(d->child);
+            uni_hid_device_delete(d->child);
+            d->child = NULL;
+        }
+
+        // Switch parser functions to DS3
+        d->report_parser.setup = uni_hid_parser_ds3_setup;
+        d->report_parser.init_report = uni_hid_parser_ds3_init_report;
+        d->report_parser.parse_input_report = uni_hid_parser_ds3_parse_input_report;
+        d->report_parser.set_player_leds = uni_hid_parser_ds3_set_player_leds;
+        d->report_parser.play_dual_rumble = uni_hid_parser_ds3_play_dual_rumble;
+        d->report_parser.parse_feature_report = NULL;
+        d->report_parser.set_lightbar_color = NULL;
+        d->report_parser.device_dump = NULL;
+
+        // Initialize DS3 instance data (clears DS4 data, marks as clone,
+        // sends sixaxis enable packet). Skips set_ready_complete since
+        // device is already in ready state from DS4 setup.
+        uni_hid_parser_ds3_setup_clone(d);
+
+        // Forward this report to DS3 parser
+        uni_hid_parser_ds3_parse_input_report(d, report, len);
     } else {
         loge("DS4: Unexpected report type and len: report id=0x%02x, len=%d\n", report[0], len);
     }

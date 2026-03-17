@@ -500,8 +500,10 @@ void uni_bt_bredr_on_l2cap_data_packet(uint16_t channel, const uint8_t* packet, 
 
     // Sanity check. It must have at least a transaction type and a report id.
     if (size < 2) {
-        // Might happen with certain gamepads like DS3 that sends a "0" after enabling rumble.
-        loge("on_l2cap_data_packet: invalid packet size, ignoring packet\n");
+        // DS3 clones send 1-byte keepalive/ACK packets on the control channel.
+        // This is expected behavior, not an error.
+        logd("on_l2cap_data_packet: short packet size=%d, channel=0x%04x, data=0x%02x\n",
+             size, channel, (size > 0) ? packet[0] : 0);
         return;
     }
 

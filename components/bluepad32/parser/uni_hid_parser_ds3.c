@@ -305,7 +305,7 @@ void uni_hid_parser_ds3_play_dual_rumble(struct uni_hid_device_s* d,
     }
 }
 
-void uni_hid_parser_ds3_setup(struct uni_hid_device_s* d) {
+static void ds3_send_sixaxis_enable(struct uni_hid_device_s* d) {
     // Dual Shock 3 Sixasis requires a magic packet to be sent in order to enable reports. Taken from:
     // https://github.com/torvalds/linux/blob/1d1df41c5a33359a00e919d54eaebfb789711fdc/drivers/hid/hid-sony.c#L1684
     static uint8_t sixaxisEnableReports[] = {(HID_MESSAGE_TYPE_SET_REPORT << 4) | HID_REPORT_TYPE_FEATURE,
@@ -315,9 +315,25 @@ void uni_hid_parser_ds3_setup(struct uni_hid_device_s* d) {
                                              0x00,
                                              0x00};
     uni_hid_device_send_ctrl_report(d, (uint8_t*)&sixaxisEnableReports, sizeof(sixaxisEnableReports));
+}
+
+void uni_hid_parser_ds3_setup(struct uni_hid_device_s* d) {
+    ds3_send_sixaxis_enable(d);
 
     // TODO: should set "ready_complete" once we receive an ack from DS3 regarding report id 0xf4 (???)
     uni_hid_device_set_ready_complete(d);
+}
+
+void uni_hid_parser_ds3_setup_clone(struct uni_hid_device_s* d) {
+    // Called when switching from DS4 parser to DS3 for clones that fake DS4 VID/PID.
+    // Device is already in ready-complete state, so skip set_ready_complete.
+    // Do NOT send sixaxis_enable: clone is already streaming reports (that's how
+    // we detected it). Sending sixaxis_enable confuses some clones, causing them
+    // to respond with 1-byte ACK packets instead of proper input reports.
+    ds3_instance_t* ins = get_ds3_instance(d);
+    memset(ins, 0, sizeof(*ins));
+    ins->clone_controller = true;
+    ins->state = DS3_FSM_REQUIRES_LED_UPDATE;
 }
 
 bool uni_hid_parser_ds3_does_name_match(struct uni_hid_device_s* d, const char* name) {

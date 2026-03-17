@@ -1,6 +1,7 @@
 #include "WebServerManager.h"
 #include "TinkerThinkerBoard.h"
 #include "ConfigManager.h"
+#include <utility>
 
 WebServerManager::WebServerManager(TinkerThinkerBoard* board, ConfigManager* config)
 : board(board), config(config), server(80), ws("/ws") {}
@@ -32,7 +33,6 @@ void WebServerManager::startWifi() {
         WiFi.mode(WIFI_STA);
         WiFi.persistent(false);
         WiFi.setAutoReconnect(true);
-        WiFi.setSleep(false);
         String staSsid = config->getWifiSSID();
         String staPass = config->getWifiPassword();
         staSsid.trim();
@@ -40,7 +40,18 @@ void WebServerManager::startWifi() {
         Serial.printf("STA target SSID='%s' (passLen=%u)\n", staSsid.c_str(), (unsigned)staPass.length());
         WiFi.begin(staSsid.c_str(), staPass.c_str());
         Serial.print("Connecting to WiFi ");
+        uint32_t staStart = millis();
+        const uint32_t STA_TIMEOUT_MS = 10000;
         while (WiFi.status() != WL_CONNECTED) {
+            if (millis() - staStart > STA_TIMEOUT_MS) {
+                Serial.println("\nSTA connect timeout – falling back to AP mode");
+                WiFi.disconnect(true);
+                WiFi.mode(WIFI_AP);
+                WiFi.softAP(config->getHotspotSSID().c_str(), config->getHotspotPassword().c_str());
+                Serial.print("Fallback AP IP: ");
+                Serial.println(WiFi.softAPIP());
+                return;
+            }
             Serial.print(".");
             delay(500);
         }
@@ -65,12 +76,17 @@ void WebServerManager::requestWifiDisable(bool untilRestart) {
     }
     wifiShutdownInProgress = true;
 
-    xTaskCreate([](void* arg) {
-        WebServerManager* self = static_cast<WebServerManager*>(arg);
-        self->disableWifiInternal();
+    bool permanent = untilRestart;
+    auto* ctx = new std::pair<WebServerManager*, bool>(this, permanent);
+    xTaskCreatePinnedToCore([](void* arg) {
+        auto* p = static_cast<std::pair<WebServerManager*, bool>*>(arg);
+        WebServerManager* self = p->first;
+        bool perm = p->second;
+        delete p;
+        self->disableWifiInternal(perm);
         self->wifiShutdownInProgress = false;
         vTaskDelete(NULL);
-    }, "WifiShutdown", 4096, this, 1, NULL);
+    }, "WifiShutdown", 4096, ctx, 1, NULL, 1);
 }
 
 void WebServerManager::requestWifiEnable() {
@@ -83,19 +99,22 @@ void WebServerManager::requestWifiEnable() {
     wifiTemporarilyDisabled = false;
     wifiStartupInProgress = true;
 
-    xTaskCreate([](void* arg) {
+    xTaskCreatePinnedToCore([](void* arg) {
         WebServerManager* self = static_cast<WebServerManager*>(arg);
         self->enableWifiInternal();
         self->wifiStartupInProgress = false;
         vTaskDelete(NULL);
-    }, "WifiStartup", 6144, this, 1, NULL);
+    }, "WifiStartup", 6144, this, 1, NULL, 1);
 }
 
-void WebServerManager::disableWifiInternal() {
-    Serial.println("Disabling WiFi per user request...");
+void WebServerManager::disableWifiInternal(bool permanent) {
+    Serial.println("Disabling WiFi...");
     delay(150);
-    ws.closeAll();
-    server.end();
+    if (xSemaphoreTake(wsMutex, pdMS_TO_TICKS(200)) == pdTRUE) {
+        ws.closeAll();
+        server.end();
+        xSemaphoreGive(wsMutex);
+    }
 
     wifi_mode_t mode = WiFi.getMode();
     if (mode == WIFI_STA || mode == WIFI_AP_STA) {
@@ -104,9 +123,15 @@ void WebServerManager::disableWifiInternal() {
     if (mode == WIFI_AP || mode == WIFI_AP_STA) {
         WiFi.softAPdisconnect(true);
     }
-    WiFi.mode(WIFI_OFF);
+
+    if (permanent) {
+        // Full de-init — no re-enable expected
+        WiFi.mode(WIFI_OFF);
+    }
+    // Temporary: skip WIFI_OFF to keep the netif/stack alive for re-enable
+
     delay(50);
-    Serial.println("WiFi disabled. Web UI unavailable until restart; Bluetooth scanning forced on.");
+    Serial.println(permanent ? "WiFi disabled permanently." : "WiFi paused temporarily.");
 }
 
 void WebServerManager::enableWifiInternal() {
@@ -402,7 +427,10 @@ void WebServerManager::handleConfig(AsyncWebServerRequest* request) {
         doc["restart"] = true;
         String json;
         serializeJson(doc, json);
-        ws.textAll(json);
+        if (xSemaphoreTake(wsMutex, pdMS_TO_TICKS(50)) == pdTRUE) {
+            ws.textAll(json);
+            xSemaphoreGive(wsMutex);
+        }
     }
 
     // Redirect
@@ -553,34 +581,37 @@ void WebServerManager::sendStatusUpdate() {
             //board->controlMotorStop(i);
         }
     }
-    if (ws.count() > 0) {
-        StaticJsonDocument<512> doc;
-        doc["batteryVoltage"] = board->getBatteryVoltage();
-        doc["batteryPercentage"] = board->getBatteryPercentage();
+    if (xSemaphoreTake(wsMutex, pdMS_TO_TICKS(50)) == pdTRUE) {
+        if (ws.count() > 0) {
+            StaticJsonDocument<512> doc;
+            doc["batteryVoltage"] = board->getBatteryVoltage();
+            doc["batteryPercentage"] = board->getBatteryPercentage();
 
-        JsonArray servos = doc.createNestedArray("servos");
-        for (int i = 0; i < 3; i++) {
-            servos.add(board->getServoAngle(i));
+            JsonArray servos = doc.createNestedArray("servos");
+            for (int i = 0; i < 3; i++) {
+                servos.add(board->getServoAngle(i));
+            }
+
+            JsonArray motorPWMs = doc.createNestedArray("motorPWMs");
+            for (int i = 0; i < 4; i++) {
+                motorPWMs.add(board->getMotorPWM(i));
+            }
+
+            JsonArray motorCurrents = doc.createNestedArray("motorCurrents");
+            for (int i = 0; i < 2; i++) {
+                motorCurrents.add(board->getHBridgeAmps(i));
+            }
+
+            CRGB ledColor = board->getLEDColor(0);
+            JsonObject firstLED = doc.createNestedObject("firstLED");
+            firstLED["r"] = ledColor.r;
+            firstLED["g"] = ledColor.g;
+            firstLED["b"] = ledColor.b;
+
+            String jsonString;
+            serializeJson(doc, jsonString);
+            ws.textAll(jsonString);
         }
-
-        JsonArray motorPWMs = doc.createNestedArray("motorPWMs");
-        for (int i = 0; i < 4; i++) {
-            motorPWMs.add(board->getMotorPWM(i));
-        }
-
-        JsonArray motorCurrents = doc.createNestedArray("motorCurrents");
-        for (int i = 0; i < 2; i++) {
-            motorCurrents.add(board->getHBridgeAmps(i));
-        }
-
-        CRGB ledColor = board->getLEDColor(0);
-        JsonObject firstLED = doc.createNestedObject("firstLED");
-        firstLED["r"] = ledColor.r;
-        firstLED["g"] = ledColor.g;
-        firstLED["b"] = ledColor.b;
-
-        String jsonString;
-        serializeJson(doc, jsonString);
-        ws.textAll(jsonString);
+        xSemaphoreGive(wsMutex);
     }
 }
