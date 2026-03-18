@@ -1,341 +1,315 @@
 # TinkerThinkerBL
 
-ESP32-based robotics controller integrating Bluepad32 gamepad input, DC motor control, servos, WS2812 LEDs, Wi‑Fi web UI (AP/STA), and basic battery/system monitoring — built on ESP-IDF with Arduino component.
+ESP32-based robotics controller firmware with Bluetooth gamepad support, Wi-Fi web control, motor and servo control, WS2812 LEDs, and a LittleFS-hosted setup/configuration UI.
 
-This repository contains a ready-to-flash firmware and a small web app served from the ESP32 (LittleFS) for configuring and driving your board.
+This README starts with the finished product from the end user's perspective. Developer and build notes are further down.
 
-Key components used: Arduino-ESP32, Bluepad32, BTStack, ESPAsyncWebServer, ArduinoJson, FastLED, ESP32Servo.
+## Contents
 
-Note: This project is set up for PlatformIO (recommended). ESP-IDF CLI/IDE can work, but is not the primary path here.
-
-## Inhaltsverzeichnis
-- [Features](#features)
+- [Using a Flashed Board](#using-a-flashed-board)
+- [Default Controls](#default-controls)
+- [Factory Reset](#factory-reset)
+- [Web Pages](#web-pages)
+- [What This Project Includes](#what-this-project-includes)
 - [Hardware Overview (default pins)](#hardware-overview-default-pins)
 - [Project Layout](#project-layout)
 - [Quick Start (PlatformIO)](#quick-start-platformio)
-- [First Run and Web UI](#first-run-and-web-ui)
-- [API-Dokumentation](#api-dokumentation)
-- [Seitenübersicht & Bedienung](#seitenübersicht--bedienung)
-  - [Steuerung (`/`)](#steuerung-)
-  - [Konfiguration (`/config`)](#konfiguration-config)
-  - [Steuerungs-Editor (`/controls`)](#steuerungs-editor-controls)
-  - [Setup-Assistent (`/setup`)](#setup-assistent-setup)
-- [Controls-Editor Legende](#controls-editor-legende)
-- [BT/Wi‑Fi Coexistence (Scan Timing)](#btwi-fi-coexistence-scan-timing)
-- [Control Arbitration (Last‑Writer‑Wins)](#control-arbitration-lastwriterwins)
-- [Windows CLI Build Notes](#windows-cli-build-notes)
-- [Releases & CI](#releases--ci)
-- [Flash From Release Assets](#flash-from-release-assets)
-- [Arduino Core Note](#arduino-core-note)
-- [Gamepad Controls (Bluepad32)](#gamepad-controls-bluepad32)
+- [Bluetooth and Wi-Fi Coexistence](#bluetooth-and-wi-fi-coexistence)
+- [Control Arbitration](#control-arbitration)
+- [Releases and Flashing](#releases-and-flashing)
 - [Configuration Reference](#configuration-reference)
 - [Troubleshooting](#troubleshooting)
-- [Development Notes](#development-notes)
-- [License](#license)
-- [Acknowledgements](#acknowledgements)
-- [Further info](#further-info)
-- [Support](#support)
+- [Credits and Support](#credits-and-support)
+- [Further Reading](#further-reading)
 
-## Features
+## Using a Flashed Board
 
-- Gamepad control: Bluepad32 with automatic pairing and multiple controller types supported.
-- 4 DC motors: Differential drive via joysticks; direct per-motor control APIs; invert, deadband, and swap options.
-- 3 servos: Adjustable pulse width range per servo; angle control from gamepad and web UI.
-- WS2812 LEDs: Configurable LED count; simple color feedback and status.
-- Web UI (LittleFS): Live dashboard, motor/servo testing, and configuration at `/` and `/config`.
-- Controls mapping UI: Konfigurierbarer Steuerungs‑Editor unter `/controls` (formularbasiert).
-- Wi‑Fi AP/STA: Runs as hotspot or joins existing Wi‑Fi; live WebSocket updates.
-- Monitoring: Battery voltage/percentage estimation and current sampling.
-- Fahrprofile: Arcade/Tank-Mix mit Lenkfaktor und optionaler Expo-Motorkurve für feinfühlige Steuerung.
+### Power on
 
-- BT/Wi‑Fi coexistence: Configurable Bluetooth scanning duty‑cycle to avoid starving Wi‑Fi.
-- MODE button (GPIO39, active‑low): hold to cycle radio modes (Normal → Wi‑Fi only → BT scan only → Wi‑Fi only).
-- Startup factory reset: Hold MODE during boot for 10s to reset config and reboot. The reset check runs before Wi‑Fi init, so it also works if STA Wi‑Fi is unreachable. Release early to cancel.
-- Control arbiter: Last active source (WebSocket vs. Bluetooth) owns motion; neutral inputs don't override the owner.
-- Flexible driving: Right stick controls the configured GUI motor pair; left stick controls the other pair. Motor pair selection is configurable in `/config`.
-- Quick servo control: D‑Pad LEFT/RIGHT nudges Servo 0 by ±10°. R2 toggles Servo 0 between 0°↔90°, L2 zwischen 90°↔180°.
-- Speed scaling: R1/L1 adjust a global speed multiplier (0.2–1.5) that scales motor PWM for finer control.
+1. Turn on the board using the physical power switch on the board edge next to the antenna housing.
+2. The status LED should light dim white.
+3. Dim white means the board is on and in `Normal` radio mode.
+
+From here you have two main control options:
+
+- connect a Bluetooth controller
+- connect with a phone or laptop over Wi-Fi and use the web interface
+
+### Option 1: Bluetooth controller
+
+1. Put your controller into pairing mode.
+2. Wait for the board to accept a new Bluetooth connection.
+3. Once a controller is connected, the status LED turns green.
+
+Notes:
+
+- In normal mode, Bluetooth scanning is duty-cycled to leave airtime for Wi-Fi.
+- If pairing is unreliable, switch the board to Bluetooth scan mode with the MODE button. In that mode the LED is blue and Bluetooth scanning stays on continuously.
+- Pairing keys are cleared on every boot, so re-pairing is usually straightforward.
+
+### Option 2: Control over Wi-Fi
+
+1. Search for the board's hotspot on your phone or laptop.
+2. Depending on the saved configuration, the hotspot is typically named `TinkerThinker` or `TinkerThinkerAP`.
+3. After a factory reset, the hotspot name returns to `TinkerThinkerAP`.
+4. Connect to that Wi-Fi network.
+5. If your device warns that the network has no internet access, stay connected anyway.
+6. Open `http://192.168.4.1` in your browser.
+7. The control interface should appear and you can drive and configure the robot there.
+
+Important mobile/network notes:
+
+- Disable VPNs before connecting.
+- Some phones automatically switch back to another Wi-Fi or to mobile data when they detect no internet. If that happens, reconnect to the robot and stay on that network.
+- If the page does not load, make sure your browser did not silently rewrite `http://192.168.4.1` to `https://192.168.4.1`.
+- Trying another browser often helps.
+- Depending on the phone, turning mobile data off can help. On some devices the opposite helps, so it is worth trying both.
+
+### Changing controller mappings
+
+The web interface is not only for driving the board. It also lets you change the Bluetooth controller bindings and other runtime settings without reflashing the firmware.
+
+## Default Controls
+
+The default Bluetooth mapping is configured in [`main/ConfigManager.cpp`](/mnt/c/Users/mgabr/Desktop/GitProjekte/TinkerThinkerBL/main/ConfigManager.cpp) and mirrored in [`data/config.json`](/mnt/c/Users/mgabr/Desktop/GitProjekte/TinkerThinkerBL/data/config.json).
+
+By default:
+
+- Right stick (`RX` / `RY`) drives the configured GUI motor pair.
+- Left stick (`X` / `Y`) drives the other motor pair.
+- D-pad right nudges Servo 0 by `+10`.
+- D-pad left nudges Servo 0 by `-10`.
+- `R2` toggles Servo 0 between `0°` and `90°`.
+- `L2` toggles Servo 0 between `90°` and `180°`.
+- `R1` increases the global speed multiplier.
+- `L1` decreases the global speed multiplier.
+
+Motor assignment details:
+
+- The configurable "GUI motor pair" is stored as `motor_left_gui` and `motor_right_gui`.
+- In the shipped default config, that pair is motor `2` and motor `3`.
+- That means the right stick drives motor channels `C/D` by default, while the left stick drives the remaining pair `A/B`.
+- This can be changed later in `/config` or by using the setup wizard at `/setup`.
+
+## Factory Reset
+
+If you changed the configuration, forgot a password, or want to return to a known default state, reset the board like this:
+
+1. Press and hold the MODE button on the side of the board.
+2. While holding MODE, briefly press the reset button to reboot the board.
+3. Keep holding MODE during startup for about 10 seconds.
+4. During the reset hold time, the status LED cycles through red, white, and orange.
+5. When the reset completes, the configuration is cleared and the board restarts.
+
+After a factory reset:
+
+- the hotspot name goes back to `TinkerThinkerAP`
+- saved Wi-Fi and controller configuration is reset to defaults
+
+## Web Pages
+
+### `/`
+
+Main control dashboard with:
+
+- live battery and motor status
+- touch joystick
+- servo slider
+- motor test buttons
+- LED color control
+
+### `/config`
+
+Main configuration page for:
+
+- Wi-Fi AP/STA settings
+- hotspot name and password
+- motor inversion, deadband, and PWM frequency
+- LED count
+- servo pulse widths
+- Bluetooth scan timings
+- drive profile parameters
+
+### `/controls`
+
+Binding editor for controller inputs and actions:
+
+- buttons
+- D-pad directions
+- stick axes
+- actions for motors, servos, LEDs, GPIO, and speed scaling
+
+### `/setup`
+
+Guided first-time setup page for:
+
+- motor assignment
+- direction correction
+- deadband tuning
+- GUI drive pair selection
+
+## What This Project Includes
+
+- Bluepad32 gamepad support over Bluetooth Classic
+- 4 DC motor outputs
+- 3 servo outputs
+- WS2812 LED control
+- Wi-Fi AP/STA support
+- Async web UI served from LittleFS
+- battery voltage and current monitoring
+- configurable control bindings
+- last-writer-wins arbitration between web control and Bluetooth control
 
 ## Hardware Overview (default pins)
 
-- Motors (H-bridge channels):
-  - M0: `pin1=16`, `pin2=25` (channels 0,1)
-  - M1: `pin1=32`, `pin2=27` (channels 2,3)
-  - M2: `pin1=4`, `pin2=12` (channels 4,5)
-  - M3: `pin1=15`, `pin2=14` (channels 6,7)
-- Servos:
-  - S0: `pin=13`, channel 8
-  - S1: `pin=33`, channel 9
-  - S2: `pin=17`, channel 10
-- LEDs: WS2812 data `pin=2` (count configurable)
+- Motors
+  - `M0`: `pin1=16`, `pin2=25`
+  - `M1`: `pin1=32`, `pin2=27`
+  - `M2`: `pin1=4`, `pin2=12`
+  - `M3`: `pin1=15`, `pin2=14`
+- Servos
+  - `S0`: `pin=13`
+  - `S1`: `pin=33`
+  - `S2`: `pin=17`
+- WS2812 LED data: `pin=2`
 - Battery ADC: `pin=35`
-- MODE button: `pin=39` (active‑low, GND on press) **BREAKING change**
-  - Note: GPIO39 is input-only and has no internal pull-up. Use external pull-up on hardware.
-- H-bridge current sense: `pin=34`, `pin=36`
+- Current sense: `pin=34`, `pin=36`
+- MODE button: `pin=39`, active low
 
-Adjust these in `main/TinkerThinkerBoard.cpp` or via runtime settings where available.
+Important:
+
+- GPIO39 is input-only and has no internal pull-up.
+- The hardware must provide an external pull-up for the MODE button.
 
 ## Project Layout
 
-- `main/`
-  - `sketch.cpp`: Arduino loop with Bluepad32 input handling and high-level behavior.
-  - `main.c`: Bluepad32/BTstack platform glue (IDF entrypoint when not autostarting Arduino).
-  - `TinkerThinkerBoard.*`: Facade composing controllers and exposing simple control APIs.
-  - `MotorController.*`, `ServoController.*`, `LEDController.*`: Device control modules.
-  - `BatteryMonitor.*`, `SystemMonitor.*`: Voltage, fault, and current sampling utilities.
-  - `WebServerManager.*`: Async web server, static files, WebSocket control, config routes.
-- `data/`: Web UI (served from LittleFS) — `index.html`, `config.html`, JS/CSS, and `config.json`.
-- `platformio.ini`: Build environments (ESP32 family) and partitioning.
- - `PCB/`: Schaltplan/Ansichten (PDF) und 3D‑Objekt der Platine (siehe PCB/README.md).
- - `CAD/`: Fusion‑360‑Modelle (Baugruppe/Teile) für Gehäuse/Mechanik (siehe CAD/README.md).
+- [`main/`](/mnt/c/Users/mgabr/Desktop/GitProjekte/TinkerThinkerBL/main)
+  - [`sketch.cpp`](/mnt/c/Users/mgabr/Desktop/GitProjekte/TinkerThinkerBL/main/sketch.cpp): Arduino setup/loop, radio-mode handling, Bluepad32 processing
+  - [`main.c`](/mnt/c/Users/mgabr/Desktop/GitProjekte/TinkerThinkerBL/main/main.c): ESP-IDF entry point and Bluepad32 glue
+  - [`TinkerThinkerBoard.*`](/mnt/c/Users/mgabr/Desktop/GitProjekte/TinkerThinkerBL/main/TinkerThinkerBoard.cpp): board facade and control arbitration
+  - [`InputBindingManager.*`](/mnt/c/Users/mgabr/Desktop/GitProjekte/TinkerThinkerBL/main/InputBindingManager.cpp): controller input mapping
+  - [`WebServerManager.*`](/mnt/c/Users/mgabr/Desktop/GitProjekte/TinkerThinkerBL/main/WebServerManager.cpp): web UI, WebSocket, config routes
+  - [`ConfigManager.*`](/mnt/c/Users/mgabr/Desktop/GitProjekte/TinkerThinkerBL/main/ConfigManager.cpp): persistent configuration in LittleFS
+- [`data/`](/mnt/c/Users/mgabr/Desktop/GitProjekte/TinkerThinkerBL/data): web app files stored in LittleFS
+- [`PCB/`](/mnt/c/Users/mgabr/Desktop/GitProjekte/TinkerThinkerBL/PCB): board files and exports
+- [`CAD/`](/mnt/c/Users/mgabr/Desktop/GitProjekte/TinkerThinkerBL/CAD): mechanical models
 
 ## Quick Start (PlatformIO)
 
-1) Open in VS Code with the PlatformIO extension.
+This repository is primarily built with PlatformIO.
 
-2) Select an environment:
-   - Default example: `env:esp32dev` (8MB flash; custom sdkconfig)
-   - Others available: `esp32-s3-devkitc-1`, `esp32-c3-devkitc-02`, `esp32-c6-devkitc-1`, `esp32-h2-devkitm-1`
+1. Open the project in VS Code with the PlatformIO extension.
+2. Select `env:esp32dev`.
+3. Build the firmware.
+4. Upload the firmware.
+5. Upload the LittleFS image so the web UI is available.
+6. Open the serial monitor at `115200` baud if you want logs.
 
-3) Ensure LittleFS is used for the web assets image:
-
-   Add the following to `platformio.ini` (if not already present):
-
-   ```ini
-   board_build.filesystem = littlefs
-   ```
-
-4) Build and flash the firmware:
-   - PlatformIO: Build, then Upload (or “Upload and Monitor”).
-
-5) Upload the web UI (LittleFS) image:
-   - PlatformIO: “Upload Filesystem Image”.
-   - This places the contents of `data/` onto the device. Without this step, the web pages will 404.
-
-6) Open the serial monitor at `115200` baud to watch logs.
-
-Notes
-- The project pins an Espressif32 platform release in `platformio.ini` for stability.
-- Partition scheme: `partitions_dual3mb_1m5spiffs.csv` (1.5MB FS, dual app slots).
-
-## First Run and Web UI
-
-Wi‑Fi defaults (change later in the config UI):
-
-- Mode: AP
-- SSID: `TinkerThinkerAP`
-- Password: empty (set your own in `/config`)
-
-Connect to the AP, then browse to `http://192.168.4.1/`:
-
-- `/` Dashboard: Live‑Status (Batterie, Motoren, LEDs) und Grundfunktionen.
-- `/config`: Vollständige Konfiguration (Motor invert/deadband/frequency, LED‑Anzahl, Wi‑Fi, OTA, Servo‑Pulse). Änderungen persistieren in LittleFS (`/config.json`).
-- `/controls`: Steuerungs‑Editor für „control_bindings“ (Buttons/D‑Pad/Sticks → Aktionen wie Antriebspaare, Servo‑Winkel, LED‑Farben, GPIO, Speed‑Skalierung).
-- `/setup`: Setup‑Assistent für die Motor‑Zuordnung und Deadband‑Ermittlung.
-
-The UI communicates via WebSocket for low-latency updates and test actions.
-
-## API-Dokumentation
-
-- Vollständige API-Beschreibung (HTTP + WebSocket): [`API.md`](API.md)
-
-## BT/Wi‑Fi Coexistence (Scan Timing)
-
-The ESP32 shares a single 2.4 GHz radio between Wi‑Fi and Bluetooth. Continuous BT inquiry/page can hinder Wi‑Fi connect/AP traffic. This firmware time‑slices BT scanning so Wi‑Fi always gets airtime.
-
-Tune these in `/config` (Advanced section):
-
-- `bt_scan_on_normal_ms` / `bt_scan_off_normal_ms`: Balanced scanning when Wi‑Fi is idle.
-- `bt_scan_on_sta_ms` / `bt_scan_off_sta_ms`: Used while STA is connecting (no IP yet) — favors Wi‑Fi association/DHCP.
-- `bt_scan_on_ap_ms` / `bt_scan_off_ap_ms`: Used when AP has clients — keeps scanning minimal.
-
-If a controller is already connected, scanning is suspended.
-
-## Control Arbitration (Last‑Writer‑Wins)
-
-Both a Bluetooth controller and the Web UI can drive the motors. To avoid conflicts:
-
-- The last non‑neutral command takes ownership (Bluetooth or WebSocket) and drives the board.
-- Neutral commands (sticks centered or PWM 0) only apply if they come from the current owner.
-- Prevents a neutral message from one source cancelling motion commanded by the other.
-
-Implementation lives in `TinkerThinkerBoard` via source‑aware methods like `requestDriveFromBT/WS()`.
-
-## Seitenübersicht & Bedienung
-
-### Steuerung (`/`)
-- Live‑Status der Hardware und einfache Tests (z. B. Servo‑Slider, Motor‑Buttons).
-- Nützlich für schnelle Funktionsprüfungen nach dem Flashen.
-
-### Konfiguration (`/config`)
-- Motoren: Invertierung, Deadband (mit Slider + Zahl und direktem Deadband‑Test), PWM‑Frequenz.
-- Servos: Min/Max‑Pulse (Slider + Zahl) mit Test‑Buttons 0°/90°/180°.
-- LEDs: Anzahl (Slider + Zahl).
-- Wi‑Fi: AP/STA‑Modus, SSID/Passwörter; Neustart‑Hinweis bei Änderung.
-- Erweiterte BT‑Scan‑Timings.
-- Tipp: Nach UI‑Änderungen „Speichern“, die Werte werden in `/config.json` abgelegt.
-- Querverweis: Für die Tasten‑ und Stick‑Belegung siehe [Steuerungs‑Editor](/controls).
-
-### Steuerungs-Editor (`/controls`)
-- Visueller Editor, um beliebige Eingaben (Buttons, D‑Pad, Sticks) auf Aktionen zu mappen.
-- Bindings laden/speichern; Änderungen greifen ohne Neustart (Bindings werden zyklisch neu geladen).
-- Querverweis: Die Actions nutzen die bestehenden `TinkerThinkerBoard`‑APIs und respektieren die [Control Arbitration](#control-arbitration-lastwriterwins).
-
-### Setup-Assistent (`/setup`)
-- Geführte Ersteinrichtung für Motor‑Zuordnung, Drehrichtung und Deadband‑Ermittlung.
-- Die im Setup gewählte Fahrpaar-Zuordnung wird in `motor_left_gui` / `motor_right_gui` gespeichert.
-- Setup-WebSocket verbindet sich bei Verbindungsabbruch automatisch neu (Backoff).
-- Setup-Seite wurde für Mobilgeräte responsiver gemacht (Viewport + mobile Button/Nav-Verhalten).
-- Querverweis: Feinabstimmung später jederzeit unter [/config](/config).
-
-## Controls-Editor Legende
-
-Eingaben (Input):
-- Typ „button“:
-  - Codes: `BTN_A`, `BTN_B`, `BTN_X`, `BTN_Y`, `BUTTON_L1`, `BUTTON_R1`, `BUTTON_L2`, `BUTTON_R2`, `BUTTON_STICK_L`, `BUTTON_STICK_R`.
-  - Edge: `press` (Kante), `release`, `hold`.
-- Typ „dpad“:
-  - Richtung: `UP`, `DOWN`, `LEFT`, `RIGHT`.
-  - Edge: `press`, `release`, `hold`.
-- Typ „axis_pair“:
-  - Achsen: `X`, `Y`, `RX`, `RY` (Left/Right Stick, X/Y‑Achsen).
-  - Parameter: `deadband` (z. B. 16).
-
-Aktionen (Action):
-- `drive_pair`:
-  - Parameter: `target` = `gui` (konfiguriertes Paar) oder `other` (übriges Paar).
-- `servo_set`:
-  - Parameter: `servo` (0..2), `angle` (0..180).
-- `servo_toggle_band`:
-  - Parameter: `servo` (0..2), `bands` (z. B. `[0,90]` oder `[90,180]`).
-- `servo_nudge`:
-  - Parameter: `servo` (0..2), `delta` (z. B. `+10`/`-10`).
-- `servo_axes`:
-  - Parameter: `servo` (0..2), `scale` (z. B. 1.0). Interpretiert Achsenwert als Winkel um 90° (neutral).
-- `led_set`:
-  - Parameter: `start`, `count`, `color` (Hex `#RRGGBB`).
-- `gpio_set`:
-  - Parameter: `pin`, `level` (`0/1`).
-- `speed_adjust`:
-  - Parameter: `delta` (z. B. `+0.1`/`-0.1`). Skaliert PWM‑Ausgabe global.
-
-Hinweise:
-- Achsen‑Aktionen (`axis_pair`) senden kontinuierlich; Button/D‑Pad sind ereignisgesteuert (edge/hold).
-- Fahrbefehle laufen über die `requestDrive*`‑Methoden und unterliegen der [Last‑Writer‑Wins‑Arbitration](#control-arbitration-lastwriterwins).
-- Bindings liegen in `/config.json` unter `control_bindings` (werden per UI geladen/gespeichert).
-
-## Windows CLI Build Notes
-
-If you prefer CLI over the VS Code tasks, use PowerShell and the PlatformIO penv path:
+Windows PowerShell examples:
 
 - Build: `& "C:\\Users\\mgabr\\.platformio\\penv\\Scripts\\pio.exe" run -e esp32dev`
 - Upload: `& "C:\\Users\\mgabr\\.platformio\\penv\\Scripts\\pio.exe" run -e esp32dev -t upload`
 - Upload FS: `& "C:\\Users\\mgabr\\.platformio\\penv\\Scripts\\pio.exe" run -e esp32dev -t uploadfs`
 
-If PlatformIO fails with `TypeError: ParamType.get_metavar() missing 1 required positional argument: 'ctx'`, fix the penv Click version:
+Important:
 
-- `& "C:\\Users\\mgabr\\.platformio\\penv\\Scripts\\python.exe" -m pip install --upgrade "click==8.1.7"`
+- The web UI will not work until the LittleFS image from `data/` has been uploaded.
+- This project uses Arduino as a managed ESP-IDF component. Do not add a second `components/arduino`.
 
-## Releases & CI
+## Bluetooth and Wi-Fi Coexistence
 
-- On every successful push to `main`, GitHub Actions builds the firmware and LittleFS image and creates a Release with a tag like `main-YYYYMMDD-HHMM-<shortsha>`.
-- Attached artifacts:
-  - `bootloader.bin` (offset 0x1000)
-  - `partitions.bin` (offset 0x8000)
-  - `firmware.bin` (app at 0x20000 for the default OTA layout)
-  - `littlefs.bin` (filesystem image for the `spiffs` partition)
-- The Release body summarizes board, platform, flash size, partition CSV, computed offsets, and artifact sizes.
+The ESP32 uses one shared 2.4 GHz radio for Wi-Fi and Bluetooth. This firmware therefore duty-cycles Bluetooth scanning so Wi-Fi still has airtime.
 
-Partition reference (default `partitions_dual3mb_1m5spiffs.csv` on 8MB flash):
-- `ota_0`: 0x20000 size 0x300000
-- `ota_1`: 0x320000 size 0x300000
-- `spiffs` (used with LittleFS): 0x620000 size 0x180000
+Current radio modes:
 
-## Flash From Release Assets
+- `Normal`: dim white LED
+- `Wi-Fi only`: orange LED
+- `Bluetooth scan only`: blue LED
+- controller connected: green LED
 
-Use the auto‑flasher to download the latest Release and flash with the correct offsets computed from `platformio.ini` + partition CSV.
+The MODE button cycles through the radio modes. In normal mode, Wi-Fi is also paused briefly after a controller connection to improve Bluetooth pairing stability.
 
-Prerequisites:
-- Python 3
-- `pip install esptool requests tqdm pyserial`
+## Control Arbitration
 
-Steps:
-1) `python tools/auto_flasher.py`
-2) The script downloads the latest artifacts, detects CH340/CP210x serial adapters, erases flash, then writes:
-   - 0x1000 → bootloader.bin
-   - 0x8000 → partitions.bin
-   - app offset from CSV (default 0x20000) → firmware.bin
-   - fs offset from CSV (default 0x620000) → littlefs.bin
-3) The script refuses to flash if `littlefs.bin` exceeds the FS partition size and keeps a `blacklist.txt` of flashed MACs.
+Both the Bluetooth controller and the web UI can issue drive commands.
 
-## Arduino Core Note
+The firmware uses a last-writer-wins model:
 
-This project uses Arduino as an ESP‑IDF component (managed via `managed_components/espressif__arduino-esp32`).
+- the last non-neutral control source becomes the owner
+- neutral input from another source does not cancel the active owner
 
-- `main/CMakeLists.txt` lists `espressif__arduino-esp32` in `REQUIRES`.
-- Do not add a second `components/arduino` — it will cause duplicate symbols and link failures.
+This behavior is implemented in [`main/TinkerThinkerBoard.cpp`](/mnt/c/Users/mgabr/Desktop/GitProjekte/TinkerThinkerBL/main/TinkerThinkerBoard.cpp).
 
-## Gamepad Controls (Bluepad32)
+## Releases and Flashing
 
-- Pairing: Put your controller in pairing mode; device toggles new connections on when no controller is connected. Keys are cleared on each boot (`BP32.forgetBluetoothKeys()`), so pairing is straightforward.
-- Driving: Right stick → GUI motor pair; Left stick → the other motor pair. Change the GUI pair in `/config` via `motor_left_gui` and `motor_right_gui`.
-- Servo: D‑Pad LEFT/RIGHT nudges Servo 0 by −/+10°. R2 toggles 0°↔90°, L2 toggles 90°↔180° for Servo 0.
-- Speed: R1 increases and L1 decreases the global speed multiplier used to scale PWM output.
-- Buttons: A/B/X/Y set LED feedback colors in the default demo.
-- Battery indication: Player LEDs reflect voltage bands.
+The main CI workflow builds:
 
-Tip: Consult Bluepad32 docs for controller-specific pairing steps and supported models.
+- `bootloader.bin`
+- `partitions.bin`
+- `firmware.bin`
+- `littlefs.bin`
+
+On successful pushes to `main`, GitHub Actions creates a release tagged like `main-YYYYMMDD-HHMM-<shortsha>`.
+
+You can flash release assets automatically with:
+
+```bash
+python tools/auto_flasher.py
+```
+
+The script downloads the latest release, computes offsets from [`platformio.ini`](/mnt/c/Users/mgabr/Desktop/GitProjekte/TinkerThinkerBL/platformio.ini) and the partition CSV, and flashes the correct images.
 
 ## Configuration Reference
 
-- Motors
-  - Invert per motor, global side swap (left/right), per‑motor deadband and PWM frequency.
-  - Drive profile: `drive_mixer` (`arcade`/`tank`), `drive_turn_gain` (0.0–2.5) und `drive_axis_deadband` (0–256) regeln den Mix.
-  - Motor curve: `motor_curve_type` (`linear` oder `expo`) samt `motor_curve_strength` (−0.8…3.0) formt die PWM-Kennlinie.
-- Servos
-  - Min/max pulse width per servo; angles clamped 0–180°.
-- LEDs
-  - Count for WS2812 strip; color rendering via FastLED.
-- Wi‑Fi
-  - AP or STA; SSID/password for each mode; reboot prompt on Wi‑Fi changes.
-- OTA
-  - Flag present in UI/config (integration point for future OTA flow).
+Persistent configuration is stored in `/config.json` on LittleFS.
 
-All settings persist in `/config.json` on LittleFS. Use “Reset to defaults” in the UI to regenerate.
-You can also reset on boot by holding the MODE button for 10 seconds; this is checked before Wi‑Fi startup and then reboots after reset.
+Main config groups:
+
+- Wi-Fi mode, SSIDs, passwords
+- motor inversion and deadband
+- GUI motor pair selection
+- motor frequency
+- servo pulse width limits
+- LED count
+- Bluetooth scan timing
+- drive profile and motor curve
+- `control_bindings`
+
+The HTTP and WebSocket API is documented in [`API.md`](/mnt/c/Users/mgabr/Desktop/GitProjekte/TinkerThinkerBL/API.md).
 
 ## Troubleshooting
 
-- Web UI 404 or blank: Upload the filesystem image (LittleFS) after flashing firmware.
-- No controller connects: Re‑enter pairing on the controller; watch serial logs; ensure Bluetooth is enabled and not blocked.
-- Web UI flaky right after controller connect: Wi‑Fi is paused for ~3s to boost BT pairing.
-- Motors run backward: Use per‑motor invert or side swap in `/config`.
-- Jerky/slow movement: Adjust per‑motor deadband and frequency; verify power and H‑bridge wiring.
+- The web page does not open:
+  - make sure you are connected to the robot hotspot, not another Wi-Fi
+  - disable VPNs
+  - use `http://192.168.4.1`, not `https://192.168.4.1`
+  - try another browser
+  - on phones, try toggling mobile data
+- The board shows a white LED but the controller does not connect:
+  - put the controller back into pairing mode
+  - switch to Bluetooth scan mode if needed so the LED turns blue
+- The controller connects but the website becomes unreachable briefly:
+  - this can happen for about 3 seconds because Wi-Fi is intentionally paused to improve Bluetooth pairing
+- Motors move in the wrong direction:
+  - correct them in `/setup` or `/config`
+- The UI returns 404 or stays blank after flashing:
+  - upload the LittleFS image
 
-## Development Notes
+## Credits and Support
 
-- Code style: Arduino APIs inside an ESP‑IDF component; main loop in `sketch.cpp`.
-- PWM: 8‑bit resolution used for motor channels; servo channels run at ~50 Hz.
-- Current/fault sampling: Averaging over PWM cycles; see `SystemMonitor`.
-  - Note: Fault pin removed; only current sampling remains.
+The board and software were created at FabLab Lubeck:
 
-## License
+- Andre: hardware
+- Marco: software
 
-This project includes third‑party components with their respective licenses. See `LICENSE` for details (Apache‑2.0 for most core pieces; BTStack under its own license).
+If you run into hardware or software problems, they are the right people to contact through the project or FabLab channels.
 
-## Acknowledgements
+Project/community support:
 
-- Built on top of Bluepad32, Arduino‑ESP32, BTStack, FastLED, ArduinoJson, ESPAsyncWebServer, and related IDF components.
+- Discord: [TinkerTink support server](https://discord.gg/r5aMn6Cw5q)
 
+## Further Reading
 
-## Further info
-
-* [Bluepad32 for Arduino](https://bluepad32.readthedocs.io/en/latest/plat_arduino/)
-* [Arduino as ESP-IDF component](https://docs.espressif.com/projects/arduino-esp32/en/latest/esp-idf_component.html)
-* [ESP-IDF VSCode plugin](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/get-started/vscode-setup.html)
-
-## Support
-
-* [Discord][discord]: any question? Ask them on our Discord server.
-
-[discord]: https://discord.gg/r5aMn6Cw5q
+- [Bluepad32 for Arduino](https://bluepad32.readthedocs.io/en/latest/plat_arduino/)
+- [Arduino as ESP-IDF component](https://docs.espressif.com/projects/arduino-esp32/en/latest/esp-idf_component.html)
+- [ESP-IDF VS Code extension](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/get-started/vscode-setup.html)
