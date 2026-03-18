@@ -28,6 +28,7 @@ __pycache__/
 # Editor / IDE
 .vscode/
 .idea/
+.claude/
 .clang_complete
 .gcc-flags.json
 

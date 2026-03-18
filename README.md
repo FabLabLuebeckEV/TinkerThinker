@@ -1,5 +1,7 @@
 # TinkerThinkerBL
 
+English | [Deutsch](README.de.md)
+
 ESP32-based robotics controller firmware with Bluetooth gamepad support, Wi-Fi web control, motor and servo control, WS2812 LEDs, and a LittleFS-hosted setup/configuration UI.
 
 This README starts with the finished product from the end user's perspective. Developer and build notes are further down.
@@ -306,7 +308,8 @@ If you run into hardware or software problems, they are the right people to cont
 
 Project/community support:
 
-- Discord: [TinkerTink support server](https://discord.gg/r5aMn6Cw5q)
+- Board and main firmware: [TinkerThinker / board support Discord](https://discord.gg/kxpnWjJjyF)
+- Bluepad32 / Bluetooth-related topics only: [Bluepad32 Discord](https://discord.gg/r5aMn6Cw5q)
 
 ## Further Reading
 
