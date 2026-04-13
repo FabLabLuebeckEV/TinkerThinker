@@ -6,6 +6,7 @@
 #include <LittleFS.h>
 #include <WiFi.h>
 #include <ArduinoJson.h>
+#include <Update.h>
 
 class TinkerThinkerBoard; 
 class ConfigManager;
@@ -31,6 +32,7 @@ private:
     bool wifiTemporarilyDisabled = false;
     bool wifiShutdownInProgress = false;
     bool wifiStartupInProgress = false;
+    bool _otaError = false;
 
     void onWebSocketEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, 
                           AwsEventType type, void *arg, uint8_t *data, size_t len);

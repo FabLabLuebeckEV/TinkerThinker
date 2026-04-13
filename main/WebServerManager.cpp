@@ -110,15 +110,20 @@ void WebServerManager::requestWifiEnable() {
 void WebServerManager::disableWifiInternal(bool permanent) {
     Serial.println("Disabling WiFi...");
     delay(150);
+
+    // Close WebSocket connections but do NOT call server.end() —
+    // ESPAsyncWebServer does not support stop/restart; calling begin() a second
+    // time after end() leaves the TCP listener in an undefined state and causes
+    // the main loop to hang until the next BT disconnect.
     if (xSemaphoreTake(wsMutex, pdMS_TO_TICKS(200)) == pdTRUE) {
         ws.closeAll();
-        server.end();
         xSemaphoreGive(wsMutex);
     }
 
     wifi_mode_t mode = WiFi.getMode();
     if (mode == WIFI_STA || mode == WIFI_AP_STA) {
-        WiFi.disconnect(true, true);
+        // eraseap=false — keep credentials so STA can reconnect later
+        WiFi.disconnect(true, false);
     }
     if (mode == WIFI_AP || mode == WIFI_AP_STA) {
         WiFi.softAPdisconnect(true);
@@ -137,8 +142,10 @@ void WebServerManager::disableWifiInternal(bool permanent) {
 void WebServerManager::enableWifiInternal() {
     Serial.println("Enabling WiFi per user request...");
     startWifi();
-    server.begin();
-    Serial.println("Web Server started");
+    // Do NOT call server.begin() here — the server was never stopped,
+    // only WiFi was disconnected. Calling begin() again would create a
+    // second TCP listener and cause hangs.
+    Serial.println("WiFi re-enabled, server still running.");
 }
 
 void WebServerManager::setupWebSocket() {
@@ -171,6 +178,112 @@ void WebServerManager::setupRoutes() {
     server.on("/setup", HTTP_GET, [this](AsyncWebServerRequest *request){
         request->send(LittleFS, "/setup.html", "text/html");
     });
+
+    // ── OTA Update ────────────────────────────────────────────────────────────
+    server.on("/ota", HTTP_GET, [this](AsyncWebServerRequest *request){
+        if (!config->getOTAEnabled()) {
+            request->send(403, "text/plain", "OTA ist in der Konfiguration deaktiviert.");
+            return;
+        }
+        String html = R"HTML(<!DOCTYPE html><html lang="de"><head>
+<meta charset="UTF-8"><title>Firmware Update</title>
+<style>
+  body{font-family:'Segoe UI',sans-serif;background:#0f1b2d;color:#e0e0e0;display:flex;
+       justify-content:center;align-items:center;min-height:100vh;margin:0;}
+  .card{background:#16213e;border-radius:12px;padding:40px;width:380px;text-align:center;
+        box-shadow:0 4px 24px #0005;}
+  h2{color:#5292c4;margin-bottom:24px;}
+  input[type=file]{background:#0f2a4a;border:1px dashed #5292c4;border-radius:8px;
+                   padding:20px;width:100%;cursor:pointer;color:#bdcee8;margin-bottom:20px;}
+  button{background:#0169b3;color:#fff;border:none;border-radius:8px;
+         padding:12px 36px;font-size:1rem;cursor:pointer;width:100%;}
+  button:disabled{background:#2a4a6a;cursor:not-allowed;}
+  #bar{width:100%;margin-top:16px;height:14px;border-radius:7px;display:none;
+       accent-color:#5292c4;}
+  #msg{margin-top:16px;font-size:0.9rem;min-height:1.2em;}
+  .ok{color:#2ecc71;} .err{color:#e74c3c;}
+</style></head><body><div class="card">
+<h2>Firmware Update</h2>
+<form id="f">
+  <input type="file" id="fw" accept=".bin" required>
+  <button id="btn" type="submit">Hochladen & Flashen</button>
+</form>
+<progress id="bar" value="0" max="100"></progress>
+<div id="msg"></div>
+</div>
+<script>
+document.getElementById('f').onsubmit=function(e){
+  e.preventDefault();
+  var file=document.getElementById('fw').files[0];
+  if(!file)return;
+  var btn=document.getElementById('btn'),bar=document.getElementById('bar'),msg=document.getElementById('msg');
+  btn.disabled=true; bar.style.display='block'; msg.textContent='Upload läuft…';
+  var fd=new FormData(); fd.append('firmware',file);
+  var xhr=new XMLHttpRequest();
+  xhr.open('POST','/update');
+  xhr.upload.onprogress=function(e){if(e.lengthComputable)bar.value=Math.round(e.loaded/e.total*100);};
+  xhr.onload=function(){
+    if(xhr.status===200){
+      msg.innerHTML='<span class="ok">✅ Flash erfolgreich! ESP startet neu…</span>';
+      setTimeout(function(){window.location='/';},8000);
+    } else {
+      msg.innerHTML='<span class="err">❌ Fehler: '+xhr.responseText+'</span>';
+      btn.disabled=false;
+    }
+  };
+  xhr.onerror=function(){msg.innerHTML='<span class="err">❌ Verbindung unterbrochen.</span>';btn.disabled=false;};
+  xhr.send(fd);
+};
+</script></body></html>)HTML";
+        request->send(200, "text/html", html);
+    });
+
+    server.on("/update", HTTP_POST,
+        [this](AsyncWebServerRequest *request){
+            _otaError = Update.hasError();
+            AsyncWebServerResponse* res = request->beginResponse(
+                _otaError ? 500 : 200,
+                "text/plain",
+                _otaError ? Update.errorString() : "OK"
+            );
+            res->addHeader("Connection", "close");
+            request->send(res);
+            if (!_otaError) {
+                request->onDisconnect([](){
+                    Serial.println("OTA: Neustart…");
+                    esp_restart();
+                });
+            }
+        },
+        [this](AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final){
+            if (!config->getOTAEnabled()) {
+                request->send(403, "text/plain", "OTA deaktiviert");
+                return;
+            }
+            if (index == 0) {
+                Serial.printf("OTA Start: %s (%u bytes)\n", filename.c_str(), request->contentLength());
+                _otaError = false;
+                if (!Update.begin(UPDATE_SIZE_UNKNOWN)) {
+                    Serial.print("OTA begin error: "); Update.printError(Serial);
+                    _otaError = true;
+                }
+            }
+            if (!_otaError && len) {
+                if (Update.write(data, len) != len) {
+                    Serial.print("OTA write error: "); Update.printError(Serial);
+                    _otaError = true;
+                }
+                Serial.printf("OTA: %u / %u bytes\n", index + len, request->contentLength());
+            }
+            if (final) {
+                if (!_otaError && !Update.end(true)) {
+                    Serial.print("OTA end error: "); Update.printError(Serial);
+                    _otaError = true;
+                }
+                Serial.printf("OTA %s: %u bytes total\n", _otaError ? "FEHLER" : "OK", index + len);
+            }
+        }
+    );
 
     server.on("/wifi/disable", HTTP_POST, [this](AsyncWebServerRequest *request){
         if (wifiDisabledUntilRestart || WiFi.getMode() == WIFI_OFF) {

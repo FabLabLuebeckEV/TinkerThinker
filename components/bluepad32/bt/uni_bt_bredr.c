@@ -523,8 +523,19 @@ void uni_bt_bredr_on_l2cap_data_packet(uint16_t channel, const uint8_t* packet, 
     // It must be an input report
     // DATA | INPUT_REPORT: 0xa1
     if (packet[0] != ((HID_MESSAGE_TYPE_DATA << 4) | HID_REPORT_TYPE_INPUT)) {
-        loge("on_l2cap_data_packet: unexpected transaction type: got 0x%02x, want: 0x0a1\n", packet[0]);
-        printf_hexdump(packet, size);
+        // DualShock 3 quirk: some DS3 clones send input reports on the interrupt
+        // channel with 0x00 as the first byte instead of 0xa1.
+        // Rejecting these packets prevents keep-alive output reports from being sent
+        // (processGamepad / setPlayerLEDs never runs), causing a ~5-minute timeout disconnect.
+        // Accept them as regular input reports by skipping the non-standard first byte.
+        if (packet[0] == 0x00) {
+            logd("on_l2cap_data_packet: DS3 quirk – accepting 0x00 packet as input report\n");
+            uni_hid_parse_input_report(d, &packet[1], size - 1);
+            uni_hid_device_process_controller(d);
+        } else {
+            loge("on_l2cap_data_packet: unexpected transaction type: got 0x%02x, want: 0x0a1\n", packet[0]);
+            printf_hexdump(packet, size);
+        }
         return;
     }
 

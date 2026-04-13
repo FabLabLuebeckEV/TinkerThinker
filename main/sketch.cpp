@@ -31,6 +31,7 @@ ControllerPtr myControllers[BP32_MAX_GAMEPADS];
 static InputBindingManager inputBindings(&board, &configManager);
 
 long timestampServo = 0;
+static uint32_t lastHeartbeatMs = 0;
 
 enum class RadioMode { Normal, BluetoothOnly, WifiOnly };
 static RadioMode radioMode = RadioMode::Normal;
@@ -43,6 +44,7 @@ static const uint32_t modeButtonHoldToSwitchMs = 700;
 static uint32_t wifiPauseUntilMs = 0;
 static bool wifiPausedForBt = false;
 static const uint32_t wifiPauseOnConnectMs = 3000;
+static uint32_t scanRestartAfterMs = 0;   // Pause nach Disconnect bevor Scan neu startet
 
 static void setStatusLed(uint8_t r, uint8_t g, uint8_t b);
 static void applyRadioMode(RadioMode mode);
@@ -103,6 +105,9 @@ void onDisconnectedController(ControllerPtr ctl) {
             for (int j = 0; j < 4; j++) {
                 board.controlMotorStop(j);
             }
+            // BTstack braucht ~500ms um Disconnect vollständig abzuschliessen.
+            // Danach erst Scan neu starten, sonst kommt error=0x0c (Command Disallowed).
+            scanRestartAfterMs = millis() + 600;
             break;
         }
     }
@@ -183,7 +188,8 @@ void setup() {
     const uint8_t* addr = BP32.localBdAddress();
     Console.printf("BD Addr: %2X:%2X:%2X:%2X:%2X:%2X\n", addr[0], addr[1], addr[2], addr[3], addr[4], addr[5]);
 
-    BP32.forgetBluetoothKeys();
+    // forgetBluetoothKeys() wird nur beim Factory-Reset (handleStartupReset) aufgerufen,
+    // nicht bei jedem normalen Boot – sonst schlägt die Re-Auth aller gepairten Controller fehl.
 
     // Load input bindings from config
     inputBindings.reload();
@@ -246,6 +252,7 @@ static bool handleStartupReset() {
     if (!ok) {
         Serial.println("Config reset failed!");
     }
+    BP32.forgetBluetoothKeys();
     delay(200);
     ESP.restart();
     return true;
@@ -330,12 +337,19 @@ void loop() {
     applyRadioMode(radioMode);
 
     // Temporary WiFi pause to boost BT during connect (only in Normal mode)
+    // Kein enableNewBluetoothConnections(true) wenn Controller bereits verbunden –
+    // das Toggling stört BTstack und kann den PS3/DS3 zum Disconnect bringen.
+    bool anyControllerNow = false;
+    for (int i = 0; i < BP32_MAX_GAMEPADS; i++) {
+        if (myControllers[i] && myControllers[i]->isConnected()) { anyControllerNow = true; break; }
+    }
     if (radioMode == RadioMode::Normal) {
         uint32_t now = millis();
         if (wifiPauseUntilMs > now) {
             if (!wifiPausedForBt) {
                 board.requestWifiDisable(false);
-                BP32.enableNewBluetoothConnections(true);
+                if (!anyControllerNow)
+                    BP32.enableNewBluetoothConnections(true);
                 wifiPausedForBt = true;
             }
         } else if (wifiPausedForBt) {
@@ -348,13 +362,7 @@ void loop() {
     }
 
     // Determine current scenario and duty cycle settings
-    bool anyController = false;
-    for (int i = 0; i < BP32_MAX_GAMEPADS; i++) {
-        if (myControllers[i] && myControllers[i]->isConnected()) {
-            anyController = true;
-            break;
-        }
-    }
+    bool anyController = anyControllerNow;
 
     wifi_mode_t mode = WiFi.getMode();
     bool staConnecting = (mode == WIFI_STA || mode == WIFI_AP_STA) && (WiFi.status() != WL_CONNECTED);
@@ -423,6 +431,11 @@ void loop() {
 
     // Toggle scanning according to duty cycle (unless anyController)
     uint32_t now = millis();
+    if (!anyController && now < scanRestartAfterMs) {
+        // Kurz nach Disconnect warten bevor Scan startet (verhindert 0x0c error)
+        vTaskDelay(10);
+        return;
+    }
     if (!anyController) {
         if (now >= nextToggleAt) {
             if (phase == PHASE_OFF) {
@@ -447,6 +460,20 @@ void loop() {
         nextToggleAt = now + 1000;
     }
     //board.updateWebClients();
+
+    // Heartbeat alle 5s – zeigt dass der ESP läuft
+    uint32_t nowHb = millis();
+    if (nowHb - lastHeartbeatMs >= 5000) {
+        lastHeartbeatMs = nowHb;
+        bool ctrlConnected = false;
+        for (int i = 0; i < BP32_MAX_GAMEPADS; i++) {
+            if (myControllers[i] && myControllers[i]->isConnected()) { ctrlConnected = true; break; }
+        }
+        Console.printf("[HB] uptime=%lus  controller=%s  bat=%.2fV\n",
+            nowHb / 1000,
+            ctrlConnected ? "verbunden" : "getrennt",
+            board.getBatteryVoltage());
+    }
 
     // A delay is required to prevent the watchdog timer from triggering.
     vTaskDelay(10);

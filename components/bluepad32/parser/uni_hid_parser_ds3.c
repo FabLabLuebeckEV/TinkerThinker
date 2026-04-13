@@ -318,6 +318,16 @@ static void ds3_send_sixaxis_enable(struct uni_hid_device_s* d) {
 }
 
 void uni_hid_parser_ds3_setup(struct uni_hid_device_s* d) {
+    ds3_instance_t* ins = get_ds3_instance(d);
+
+    // Clones typically report VID=0x0000 / PID=0x0000 instead of Sony 0x054c:0x0268.
+    // They expect output (keep-alive) reports on the HID Interrupt channel, not just
+    // the Control channel. Without this, the clone receives no keep-alive and silently
+    // disconnects after a few seconds.
+    if (d->vendor_id != DUALSHOCK3_VID) {
+        ins->clone_controller = true;
+    }
+
     ds3_send_sixaxis_enable(d);
 
     // TODO: should set "ready_complete" once we receive an ack from DS3 regarding report id 0xf4 (???)
