@@ -37,6 +37,10 @@ static const uint16_t DUALSHOCK3_VID = 0x054c;  // Sony
 static const uint16_t DUALSHOCK3_PID = 0x0268;  // DualShock 3
 // static const uint16_t PS3NAV_PID = 0x042f;      // PS3 Navigation Controller
 
+// Clone controllers disconnect if the host sends no output reports for ~15 s.
+// Send a keep-alive every 150 input reports (≈3 s at 50 Hz, safely below the 15-s limit).
+#define DS3_CLONE_KEEPALIVE_INTERVAL 150
+
 // Required steps to determine what kind of extensions are supported.
 typedef enum ds3_fsm {
     DS3_FSM_0,                    // Uninitialized
@@ -55,6 +59,11 @@ typedef struct ds3_instance_s {
     ds3_fsm_t state;
     uint8_t player_leds;  // bitmap of LEDs
     bool clone_controller;
+
+    // Keep-alive counter for clone controllers.
+    // DS3 clones disconnect after ~15 s if the host sends no output reports.
+    // We send one every DS3_CLONE_KEEPALIVE_INTERVAL input reports (~3 s at 50 Hz).
+    uint8_t keepalive_counter;
 
     btstack_timer_source_t rumble_timer_duration;
     btstack_timer_source_t rumble_timer_delayed_start;
@@ -249,6 +258,18 @@ void uni_hid_parser_ds3_parse_input_report(uni_hid_device_t* d, const uint8_t* r
         ctl->gamepad.buttons |= BUTTON_X;  // North
     if (r->buttons[2] & 0x01)
         ctl->gamepad.misc_buttons |= MISC_BUTTON_SYSTEM;  // PS
+
+    // Clone controllers require periodic output reports to stay connected.
+    // Send a keep-alive every DS3_CLONE_KEEPALIVE_INTERVAL input reports so
+    // the clone doesn't hit its ~15 s idle-disconnect timeout.
+    if (ins->clone_controller && ins->state == DS3_FSM_LED_UPDATED) {
+        if (++ins->keepalive_counter >= DS3_CLONE_KEEPALIVE_INTERVAL) {
+            ins->keepalive_counter = 0;
+            ds3_output_report_t out = {0};
+            out.player_leds = ins->player_leds << 1;
+            ds3_send_output_report(d, &out);
+        }
+    }
 }
 
 void uni_hid_parser_ds3_set_player_leds(uni_hid_device_t* d, uint8_t leds) {
