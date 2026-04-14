@@ -222,6 +222,18 @@ void uni_bt_bredr_process_fsm(uni_hid_device_t* d) {
     // Or at the very end, when it is an incoming connection.
     if (!uni_hid_device_has_name(d) &&
         ((state == UNI_BT_CONN_STATE_DEVICE_DISCOVERED) || state == UNI_BT_CONN_STATE_L2CAP_INTERRUPT_CONNECTED)) {
+        
+        // HACK for PS3 clones: skip name inquiry if MAC matches common clone prefix (e.g. A0:5A:5F)
+        if (d->conn.btaddr[0] == 0xA0 && d->conn.btaddr[1] == 0x5A && d->conn.btaddr[2] == 0x5F) {
+            logi("PS3 Clone detected via MAC prefix (%02X:%02X:%02X), skipping name inquiry to avoid timeout\n",
+                 d->conn.btaddr[0], d->conn.btaddr[1], d->conn.btaddr[2]);
+            uni_hid_device_set_name(d, "DualShock 3");
+            uni_bt_conn_set_state(&d->conn, UNI_BT_CONN_STATE_REMOTE_NAME_FETCHED);
+            // Re-call FSM to proceed to next state immediately
+            uni_bt_bredr_process_fsm(d);
+            return;
+        }
+
         logi("uni_bt_process_fsm: requesting name\n");
 
         if (d->conn.clock_offset & UNI_BT_CLOCK_OFFSET_VALID)
@@ -671,7 +683,11 @@ void uni_bt_bredr_on_hci_connection_complete(uint16_t channel, const uint8_t* pa
     // For exmaple, Dualshock 3 and Nintendo Switch works when the l2cap security level is 0,
     // and then I request it here to be 2.
     // But this is not perfect solution, since other gamepads requires that L2CAP be at Level 2.
-    gap_request_security_level(handle, LEVEL_2);
+    if (!(d && d->conn.btaddr[0] == 0xA0 && d->conn.btaddr[1] == 0x5A && d->conn.btaddr[2] == 0x5F)) {
+        gap_request_security_level(handle, LEVEL_2);
+    } else {
+        logi("PS3 Clone detected: skipping security level 2 request\n");
+    }
 #endif
 }
 
@@ -708,9 +724,8 @@ void uni_bt_bredr_on_hci_pin_code_request(uint16_t channel, const uint8_t* packe
             (d->cod & UNI_BT_COD_MINOR_KEYBOARD_AND_MICE);                        // and is it a mouse or keyboard ?
     }
 
-    if (is_mouse_or_keyboard) {
-        // For mouse/keyboard, use "0000" as pins, which seems to be the expected one.
-        // "1234" could also be a valid pin.
+    if (is_mouse_or_keyboard || (d && d->conn.btaddr[0] == 0xA0 && d->conn.btaddr[1] == 0x5A && d->conn.btaddr[2] == 0x5F)) {
+        // For mouse/keyboard and PS3 Clones, use "0000" as pins.
         logi("Using PIN code: '0000'\n");
         gap_pin_code_response_binary(event_addr, (uint8_t*)"0000", 4);
     } else {

@@ -190,6 +190,7 @@ void setup() {
 
     // forgetBluetoothKeys() wird nur beim Factory-Reset (handleStartupReset) aufgerufen,
     // nicht bei jedem normalen Boot – sonst schlägt die Re-Auth aller gepairten Controller fehl.
+    // BP32.forgetBluetoothKeys(); // Removed: Causes pairing issues with clones
 
     // Load input bindings from config
     inputBindings.reload();
