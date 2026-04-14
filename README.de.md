@@ -290,6 +290,10 @@ Die HTTP- und WebSocket-API ist in [`API.md`](/mnt/c/Users/mgabr/Desktop/GitProj
 - Die Platine zeigt weisses Licht, aber der Controller verbindet sich nicht:
   - versetze den Controller erneut in den Pairing-Modus
   - schalte falls noetig in den Bluetooth-Scan-Modus, damit die LED blau wird
+- **PS3 / DualShock 3 Clone-Controller** (guenstige No-Name-Clones mit MAC-Prefix `A0:5A:5F`) werden mit spezieller Behandlung unterstuetzt:
+  - die Firmware ueberspringt den Bluetooth-Name-Request (Clones antworten nicht darauf und verursachen einen 15-Sekunden-Timeout)
+  - GAP Security Level 2 und Wii-PIN-Logik werden fuer diese Geraete deaktiviert
+  - falls dein Clone einen anderen MAC-OUI hat und sich trotzdem nicht verbindet, erstelle ein Issue mit den ersten 3 Bytes der MAC-Adresse
 - Der Controller verbindet sich, aber die Webseite ist kurz nicht erreichbar:
   - das kann fuer etwa 3 Sekunden passieren, weil WLAN absichtlich kurz pausiert wird, um das Bluetooth-Pairing zu verbessern
 - Die Motoren drehen falsch herum:

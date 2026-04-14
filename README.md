@@ -290,6 +290,10 @@ The HTTP and WebSocket API is documented in [`API.md`](/mnt/c/Users/mgabr/Deskto
 - The board shows a white LED but the controller does not connect:
   - put the controller back into pairing mode
   - switch to Bluetooth scan mode if needed so the LED turns blue
+- **PS3 / DualShock 3 clone controllers** (common no-name clones with MAC prefix `A0:5A:5F`) are supported with special handling:
+  - the firmware skips the Bluetooth name request (clones don't answer it and cause a 15-second timeout)
+  - GAP Security Level 2 and Wii-style PIN logic are bypassed for these devices
+  - if your clone has a different MAC OUI and still doesn't connect, open an issue with the first 3 bytes of its MAC address
 - The controller connects but the website becomes unreachable briefly:
   - this can happen for about 3 seconds because Wi-Fi is intentionally paused to improve Bluetooth pairing
 - Motors move in the wrong direction:

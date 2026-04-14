@@ -28,6 +28,21 @@
 #define INQUIRY_REMOTE_NAME_TIMEOUT_MS 4500
 _Static_assert(INQUIRY_REMOTE_NAME_TIMEOUT_MS < HID_DEVICE_CONNECTION_TIMEOUT_MS, "Timeout too big");
 
+// Some PS3-clone controllers (MAC OUI A0:5A:5F) have quirks at the BT pairing
+// layer that prevent a normal connection:
+//   1. They do not respond to LMP Remote Name Requests → BTstack times out
+//      after ~15 s with status 0x22 (LMP Response Timeout) and drops the link.
+//   2. They reject GAP Security Level 2 negotiation, causing an immediate
+//      disconnect after HCI connection complete.
+//   3. During PIN-code pairing they expect "0000" rather than the Wii-style
+//      link-key handshake that Bluepad32 uses as a fallback.
+// All three quirks are gated on this single MAC-prefix check so the workaround
+// stays in one place and is easy to remove when upstream Bluepad32 adds proper
+// support for this class of clones.
+static inline bool is_ps3_clone(const uni_hid_device_t* d) {
+    return d && d->conn.btaddr[0] == 0xA0 && d->conn.btaddr[1] == 0x5A && d->conn.btaddr[2] == 0x5F;
+}
+
 static bool bt_bredr_enabled = true;
 
 static void l2cap_create_control_connection(uni_hid_device_t* d) {
@@ -223,13 +238,12 @@ void uni_bt_bredr_process_fsm(uni_hid_device_t* d) {
     if (!uni_hid_device_has_name(d) &&
         ((state == UNI_BT_CONN_STATE_DEVICE_DISCOVERED) || state == UNI_BT_CONN_STATE_L2CAP_INTERRUPT_CONNECTED)) {
         
-        // HACK for PS3 clones: skip name inquiry if MAC matches common clone prefix (e.g. A0:5A:5F)
-        if (d->conn.btaddr[0] == 0xA0 && d->conn.btaddr[1] == 0x5A && d->conn.btaddr[2] == 0x5F) {
-            logi("PS3 Clone detected via MAC prefix (%02X:%02X:%02X), skipping name inquiry to avoid timeout\n",
+        // PS3-clone quirk 1: skip LMP name request to avoid 15-s timeout (see is_ps3_clone).
+        if (is_ps3_clone(d)) {
+            logi("PS3 clone (MAC %02X:%02X:%02X): skipping name request, forcing 'DualShock 3'\n",
                  d->conn.btaddr[0], d->conn.btaddr[1], d->conn.btaddr[2]);
             uni_hid_device_set_name(d, "DualShock 3");
             uni_bt_conn_set_state(&d->conn, UNI_BT_CONN_STATE_REMOTE_NAME_FETCHED);
-            // Re-call FSM to proceed to next state immediately
             uni_bt_bredr_process_fsm(d);
             return;
         }
@@ -683,10 +697,10 @@ void uni_bt_bredr_on_hci_connection_complete(uint16_t channel, const uint8_t* pa
     // For exmaple, Dualshock 3 and Nintendo Switch works when the l2cap security level is 0,
     // and then I request it here to be 2.
     // But this is not perfect solution, since other gamepads requires that L2CAP be at Level 2.
-    if (!(d && d->conn.btaddr[0] == 0xA0 && d->conn.btaddr[1] == 0x5A && d->conn.btaddr[2] == 0x5F)) {
+    // PS3-clone quirk 2: skip LEVEL_2 security — clone rejects the negotiation
+    // and disconnects immediately (see is_ps3_clone).
+    if (!is_ps3_clone(d)) {
         gap_request_security_level(handle, LEVEL_2);
-    } else {
-        logi("PS3 Clone detected: skipping security level 2 request\n");
     }
 #endif
 }
@@ -724,8 +738,9 @@ void uni_bt_bredr_on_hci_pin_code_request(uint16_t channel, const uint8_t* packe
             (d->cod & UNI_BT_COD_MINOR_KEYBOARD_AND_MICE);                        // and is it a mouse or keyboard ?
     }
 
-    if (is_mouse_or_keyboard || (d && d->conn.btaddr[0] == 0xA0 && d->conn.btaddr[1] == 0x5A && d->conn.btaddr[2] == 0x5F)) {
-        // For mouse/keyboard and PS3 Clones, use "0000" as pins.
+    // PS3-clone quirk 3: clone expects PIN "0000" instead of Wii-style link-key
+    // handshake (see is_ps3_clone).
+    if (is_mouse_or_keyboard || is_ps3_clone(d)) {
         logi("Using PIN code: '0000'\n");
         gap_pin_code_response_binary(event_addr, (uint8_t*)"0000", 4);
     } else {
