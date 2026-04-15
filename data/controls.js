@@ -47,8 +47,10 @@
         const xSel = el('select'); optionList(xSel, AXES, input.x||'RX');
         const ySel = el('select'); optionList(ySel, AXES, input.y||'RY');
         const dead = el('input', {type:'number', value: input.deadband??16, min:0, max:512, style:'width:100px;'});
-        holder.append('X:', xSel, 'Y:', ySel, 'Deadband:', dead);
-        input.xSel=xSel; input.ySel=ySel; input.deadEl=dead;
+        const invX = el('input', {type:'checkbox', checked: input.invertX||false});
+        const invY = el('input', {type:'checkbox', checked: input.invertY||false});
+        holder.append('X:', xSel, 'Y:', ySel, 'Deadband:', dead, 'Inv X:', invX, 'Inv Y:', invY);
+        input.xSel=xSel; input.ySel=ySel; input.deadEl=dead; input.invXEl=invX; input.invYEl=invY;
       }
     }
     typeSel.addEventListener('change', renderFields);
@@ -120,7 +122,13 @@
       const input = { type: IE.typeSel.value };
       if (input.type==='button') { input.code = IE.input.codeSel.value; input.edge = IE.input.edgeSel.value; }
       if (input.type==='dpad')   { input.dir  = IE.input.dirSel.value;  input.edge = IE.input.edgeSel.value; }
-      if (input.type==='axis_pair') { input.x = IE.input.xSel.value; input.y = IE.input.ySel.value; input.deadband = parseInt(IE.input.deadEl.value||'16'); }
+      if (input.type==='axis_pair') { 
+        input.x = IE.input.xSel.value; 
+        input.y = IE.input.ySel.value; 
+        input.deadband = parseInt(IE.input.deadEl.value||'16');
+        input.invertX = IE.input.invXEl.checked;
+        input.invertY = IE.input.invYEl.checked;
+      }
 
       const action = { type: AE.typeSel.value };
       switch (action.type) {

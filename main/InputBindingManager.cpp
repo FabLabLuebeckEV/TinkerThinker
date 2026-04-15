@@ -127,6 +127,8 @@ void InputBindingManager::process(ControllerPtr ctl, int idx) {
             int dead = input["deadband"] | 16;
             int x = (!strcmp(xname,"X"))?axX:(!strcmp(xname,"Y"))?axY:(!strcmp(xname,"RX"))?axRX:axRY;
             int y = (!strcmp(yname,"X"))?axX:(!strcmp(yname,"Y"))?axY:(!strcmp(yname,"RX"))?axRX:axRY;
+            if (input["invertX"] | false) x = -x;
+            if (input["invertY"] | false) y = -y;
             if (abs(x) <= dead && abs(y) <= dead) {
                 // neutral: let arbiter decide via request methods
             }
