@@ -108,9 +108,21 @@ void InputBindingManager::applyMotorHold(JsonObject action, uint32_t tickMs) {
     int pwm      = action["pwm"]   | 0;
     if (motorIdx < 0 || motorIdx >= 4) return;
     pwm = constrain(pwm, -255, 255);
-    motorHoldPWM[motorIdx]             = pwm;
-    motorHoldUntil[motorIdx]           = tickMs + MOTOR_HOLD_COAST_MS;
-    motorHoldActiveThisCycle[motorIdx] = true;
+    motorHoldPWM[motorIdx]   = pwm;
+    motorHoldUntil[motorIdx] = tickMs + MOTOR_HOLD_COAST_MS;
+}
+
+void InputBindingManager::tick() {
+    uint32_t now = millis();
+    for (int m = 0; m < 4; m++) {
+        if (motorHoldUntil[m] == 0) continue;
+        if (now < motorHoldUntil[m]) {
+            board->controlMotorDirect(m, motorHoldPWM[m]);
+        } else {
+            board->controlMotorDirect(m, 0);
+            motorHoldUntil[m] = 0;
+        }
+    }
 }
 
 void InputBindingManager::process(ControllerPtr ctl, int idx) {
@@ -119,9 +131,6 @@ void InputBindingManager::process(ControllerPtr ctl, int idx) {
     if (tickMs - lastReload > 2000) { reload(); lastReload = tickMs; }
     if (!bindings.is<JsonArray>()) return;
     JsonArray arr = bindings.as<JsonArray>();
-
-    // Clear per-cycle hold flags
-    for (int m = 0; m < 4; m++) motorHoldActiveThisCycle[m] = false;
 
     // Precompute axes
     int axX = ctl->axisX();
@@ -193,18 +202,6 @@ void InputBindingManager::process(ControllerPtr ctl, int idx) {
                 }
             }
         }
-    }
-
-    // Apply motor_direct hold AFTER all other bindings so it always wins.
-    // Coast timer keeps motor running for MOTOR_HOLD_COAST_MS after last packet.
-    for (int m = 0; m < 4; m++) {
-        if (motorHoldActiveThisCycle[m]) {
-            board->controlMotorDirect(m, motorHoldPWM[m]);
-        } else if (tickMs < motorHoldUntil[m]) {
-            // Still within coast window but button not in this packet — keep running
-            board->controlMotorDirect(m, motorHoldPWM[m]);
-        }
-        // If both false: motor was released and coast expired → drive_pair / stop owns it
     }
 
     prevButtons[idx] = btns;

@@ -13,6 +13,7 @@ public:
     InputBindingManager(TinkerThinkerBoard* board, ConfigManager* config);
     void reload();
     void process(ControllerPtr ctl, int controllerIndex);
+    void tick();
 
 private:
     TinkerThinkerBoard* board;
@@ -23,9 +24,8 @@ private:
     int servoBand[3] = {0,0,0};
 
     // motor_direct hold-coast state
-    int      motorHoldPWM[4]             = {0,0,0,0};
-    uint32_t motorHoldUntil[4]           = {0,0,0,0};
-    bool     motorHoldActiveThisCycle[4] = {false,false,false,false};
+    int      motorHoldPWM[4]   = {0,0,0,0};
+    uint32_t motorHoldUntil[4] = {0,0,0,0};
     static const uint32_t MOTOR_HOLD_COAST_MS = 500;
 
     // Helpers

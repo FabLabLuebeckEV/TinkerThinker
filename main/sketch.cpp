@@ -308,6 +308,7 @@ void loop() {
     bool dataUpdated = BP32.update();
     if (dataUpdated)
         processControllers();
+    inputBindings.tick();
     // Refresh scan timings from config (lightweight)
     SCAN_ON_MS_NORMAL       = configManager.getBtScanOnNormal();
     SCAN_OFF_MS_NORMAL      = configManager.getBtScanOffNormal();
