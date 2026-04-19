@@ -31,9 +31,12 @@
       else if (k === 'style') e.setAttribute('style', v);
       else e[k] = v;
     });
-    if (children) children.forEach(c =>
-      e.appendChild(typeof c === 'string' ? document.createTextNode(c) : c)
-    );
+    if (children) {
+      const arr = Array.isArray(children) ? children : [children];
+      arr.forEach(c =>
+        e.appendChild(typeof c === 'string' ? document.createTextNode(c) : c)
+      );
+    }
     return e;
   }
 
