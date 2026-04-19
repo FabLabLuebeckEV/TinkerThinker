@@ -103,12 +103,26 @@ void InputBindingManager::applyAction(JsonObject action, ControllerPtr ctl) {
     }
 }
 
+void InputBindingManager::applyMotorHold(JsonObject action, uint32_t tickMs) {
+    int motorIdx = action["motor"] | 0;
+    int pwm      = action["pwm"]   | 0;
+    if (motorIdx < 0 || motorIdx >= 4) return;
+    pwm = constrain(pwm, -255, 255);
+    motorHoldPWM[motorIdx]             = pwm;
+    motorHoldUntil[motorIdx]           = tickMs + MOTOR_HOLD_COAST_MS;
+    motorHoldActiveThisCycle[motorIdx] = true;
+}
+
 void InputBindingManager::process(ControllerPtr ctl, int idx) {
     static uint32_t lastReload = 0;
-    uint32_t now = millis();
-    if (now - lastReload > 2000) { reload(); lastReload = now; }
+    uint32_t tickMs = millis();
+    if (tickMs - lastReload > 2000) { reload(); lastReload = tickMs; }
     if (!bindings.is<JsonArray>()) return;
     JsonArray arr = bindings.as<JsonArray>();
+
+    // Clear per-cycle hold flags
+    for (int m = 0; m < 4; m++) motorHoldActiveThisCycle[m] = false;
+
     // Precompute axes
     int axX = ctl->axisX();
     int axY = ctl->axisY();
@@ -118,9 +132,10 @@ void InputBindingManager::process(ControllerPtr ctl, int idx) {
     uint32_t dpad = ctl->dpad();
 
     for (JsonObject b : arr) {
-        JsonObject input = b["input"].as<JsonObject>();
+        JsonObject input  = b["input"].as<JsonObject>();
         JsonObject action = b["action"].as<JsonObject>();
         const char* inType = input["type"] | "";
+
         if (!strcmp(inType, "axis_pair")) {
             const char* xname = input["x"] | "X";
             const char* yname = input["y"] | "Y";
@@ -129,19 +144,15 @@ void InputBindingManager::process(ControllerPtr ctl, int idx) {
             int y = (!strcmp(yname,"X"))?axX:(!strcmp(yname,"Y"))?axY:(!strcmp(yname,"RX"))?axRX:axRY;
             if (input["invertX"] | false) x = -x;
             if (input["invertY"] | false) y = -y;
-            if (abs(x) <= dead && abs(y) <= dead) {
-                // neutral: let arbiter decide via request methods
-            }
             const char* actType = action["type"] | "";
             if (!strcmp(actType, "drive_pair")) {
                 const char* target = action["target"] | "gui";
-                if (!strcmp(target, "gui")) board->requestDriveFromBT(x, y);
+                if (!strcmp(target, "gui"))   board->requestDriveFromBT(x, y);
                 else if (!strcmp(target, "other")) board->requestDriveOtherFromBT(x, y);
             } else if (!strcmp(actType, "servo_axes")) {
-                // Optional: map axes to a servo angle (0..180)
                 int servo = action["servo"] | 0;
                 float scale = action["scale"] | 1.0f;
-                int val = (int)( (y / 512.0f) * 90.0f * scale + 90.0f );
+                int val = (int)((y / 512.0f) * 90.0f * scale + 90.0f);
                 val = constrain(val, 0, 180);
                 board->setServoAngle(servo, val);
             }
@@ -149,29 +160,51 @@ void InputBindingManager::process(ControllerPtr ctl, int idx) {
             String code = input["code"].as<String>();
             String edge = input["edge"].as<String>();
             uint32_t mask = buttonMaskFromString(code);
-            bool now = (btns & mask);
-            bool was = (prevButtons[idx] & mask);
+            bool pressed = (btns & mask);
+            bool was     = (prevButtons[idx] & mask);
             if (edge == "press") {
-                if (now && !was) applyAction(action, ctl);
+                if (pressed && !was) applyAction(action, ctl);
             } else if (edge == "release") {
-                if (!now && was) applyAction(action, ctl);
+                if (!pressed && was) applyAction(action, ctl);
             } else if (edge == "hold") {
-                if (now) applyAction(action, ctl);
+                if (pressed) {
+                    if (!strcmp(action["type"] | "", "motor_direct"))
+                        applyMotorHold(action, tickMs);
+                    else
+                        applyAction(action, ctl);
+                }
             }
         } else if (!strcmp(inType, "dpad")) {
-            String dir = input["dir"].as<String>();
+            String dir  = input["dir"].as<String>();
             String edge = input["edge"].as<String>();
             uint32_t mask = dpadMaskFromString(dir);
-            bool now = (dpad & mask);
-            bool was = (prevDpad[idx] & mask);
+            bool pressed = (dpad & mask);
+            bool was     = (prevDpad[idx] & mask);
             if (edge == "press") {
-                if (now && !was) applyAction(action, ctl);
+                if (pressed && !was) applyAction(action, ctl);
             } else if (edge == "release") {
-                if (!now && was) applyAction(action, ctl);
+                if (!pressed && was) applyAction(action, ctl);
             } else if (edge == "hold") {
-                if (now) applyAction(action, ctl);
+                if (pressed) {
+                    if (!strcmp(action["type"] | "", "motor_direct"))
+                        applyMotorHold(action, tickMs);
+                    else
+                        applyAction(action, ctl);
+                }
             }
         }
+    }
+
+    // Apply motor_direct hold AFTER all other bindings so it always wins.
+    // Coast timer keeps motor running for MOTOR_HOLD_COAST_MS after last packet.
+    for (int m = 0; m < 4; m++) {
+        if (motorHoldActiveThisCycle[m]) {
+            board->controlMotorDirect(m, motorHoldPWM[m]);
+        } else if (tickMs < motorHoldUntil[m]) {
+            // Still within coast window but button not in this packet — keep running
+            board->controlMotorDirect(m, motorHoldPWM[m]);
+        }
+        // If both false: motor was released and coast expired → drive_pair / stop owns it
     }
 
     prevButtons[idx] = btns;
