@@ -5,6 +5,86 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Steuerungs-Editor</title>
   <link rel="stylesheet" href="/styles.css" />
+  <style>
+    /* Override global label/input widths inside editor */
+    .editor-wrap label,
+    .binding-panel label { display:inline; width:auto; margin-bottom:0; }
+    .editor-wrap input[type="number"],
+    .editor-wrap input[type="text"],
+    .editor-wrap select,
+    .binding-panel input[type="number"],
+    .binding-panel input[type="text"],
+    .binding-panel select { width:auto; padding:3px 5px; margin-bottom:0; }
+
+    /* ── Layout ─────────────────────────────────────────── */
+    .editor-wrap { width:90%; max-width:920px; }
+    .editor-main { display:flex; gap:16px; flex-wrap:wrap; margin-top:16px; align-items:flex-start; }
+
+    /* ── Info-Banner ────────────────────────────────────── */
+    .info-banner { border:1px solid #bee3f8; background:#ebf8ff; border-radius:8px; padding:12px 16px; margin-bottom:16px; width:90%; max-width:920px; }
+    .info-banner summary { cursor:pointer; font-weight:bold; font-size:15px; padding:2px 0; }
+    .info-banner table { border-collapse:collapse; margin:8px 0; width:100%; }
+    .info-banner td { padding:5px 8px; vertical-align:top; border-bottom:1px solid #d0e8f8; font-size:13px; }
+    .info-banner td:first-child { font-weight:bold; white-space:nowrap; width:130px; }
+    .info-banner code { background:#d0e8f8; border-radius:3px; padding:1px 4px; font-size:12px; }
+    .example-card { border:1px solid #c8e0f4; border-radius:6px; padding:8px 12px; margin:6px 0; background:#fff; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; }
+    .example-card .etag { font-size:12px; background:#e8f0fe; border-radius:4px; padding:2px 7px; font-family:monospace; }
+    .example-card > button { padding:6px 14px; font-size:13px; }
+
+    /* ── Controller ─────────────────────────────────────── */
+    .controller-wrap { flex:0 0 auto; }
+    .ctrl-shoulders { display:flex; justify-content:space-between; width:230px; margin-bottom:4px; gap:8px; }
+    .ctrl-left-sh, .ctrl-right-sh { display:flex; flex-direction:column; gap:3px; }
+    .ctrl-body { display:flex; align-items:flex-start; gap:6px; width:230px; }
+    .ctrl-left, .ctrl-right { display:flex; flex-direction:column; align-items:center; gap:8px; }
+    .ctrl-center { display:flex; flex-direction:column; align-items:center; justify-content:flex-start; gap:6px; padding-top:14px; font-size:10px; color:#999; flex:1; }
+
+    /* DPAD grid */
+    .ctrl-dpad { display:grid; grid-template-areas:". up ." "left mid right" ". dn ."; grid-template-columns:34px 34px 34px; grid-template-rows:34px 34px 34px; gap:2px; }
+    .dpad-up  { grid-area:up; }
+    .dpad-dn  { grid-area:dn; }
+    .dpad-lft { grid-area:left; }
+    .dpad-rgt { grid-area:right; }
+    .dpad-mid { grid-area:mid; background:#ccc; border-radius:3px; }
+
+    /* Face-button grid */
+    .ctrl-face { display:grid; grid-template-areas:". tri ." "sq . ci" ". cr ."; grid-template-columns:34px 34px 34px; grid-template-rows:34px 34px 34px; gap:2px; }
+    .face-tri { grid-area:tri; }
+    .face-sq  { grid-area:sq; }
+    .face-ci  { grid-area:ci; }
+    .face-cr  { grid-area:cr; }
+
+    /* Controller buttons */
+    .ctrl-btn { width:34px; height:34px; border:2px solid #aaa; border-radius:6px; background:#ddd; color:#333; cursor:pointer; font-size:13px; font-weight:bold; padding:0; line-height:1; transition:background 0.15s, border-color 0.15s; }
+    .ctrl-btn:hover { border-color:#555; background:#ccc; }
+    .ctrl-btn.s-none  { background:#ddd; border-color:#aaa; color:#333; }
+    .ctrl-btn.s-one   { background:#4a90e2; border-color:#2c6fad; color:#fff; }
+    .ctrl-btn.s-multi { background:#e2944a; border-color:#ad6c2c; color:#fff; }
+    .ctrl-btn.s-sel   { outline:3px solid #2ecc71; outline-offset:2px; }
+    .ctrl-btn.shoulder { width:52px; font-size:12px; }
+    .ctrl-btn.stick    { width:44px; height:44px; border-radius:50%; font-size:11px; }
+
+    /* ── Binding Panel ──────────────────────────────────── */
+    .binding-panel { flex:1 1 300px; min-width:280px; max-width:520px; background:#f8f8f8; border:1px solid #ddd; border-radius:8px; padding:14px; }
+    .panel-hint { color:#999; font-style:italic; }
+    .panel-entry { border:1px solid #ddd; border-radius:6px; padding:10px 10px 8px 10px; margin-bottom:10px; background:#fff; position:relative; }
+    .panel-entry .rm-btn { position:absolute; top:7px; right:8px; padding:2px 9px; font-size:12px; }
+    .frow { display:flex; gap:6px; align-items:center; flex-wrap:wrap; margin-bottom:4px; }
+    .hint { font-size:11px; color:#888; margin:1px 0 6px 0; line-height:1.4; }
+    .sep { border:none; border-top:1px solid #eee; margin:8px 0; }
+    .panel-actions { display:flex; gap:8px; margin-top:10px; flex-wrap:wrap; }
+    .panel-actions button { padding:7px 14px; font-size:13px; }
+
+    /* ── Bottom list ────────────────────────────────────── */
+    .list-row { display:flex; align-items:center; gap:6px; flex-wrap:wrap; padding:6px 8px; border:1px solid #ddd; border-radius:6px; margin-bottom:6px; background:#fff; }
+    .list-row .tag { font-size:11px; background:#eee; border-radius:4px; padding:2px 7px; font-family:monospace; }
+    .list-row > button { padding:3px 10px; font-size:12px; }
+
+    /* Legend */
+    .ctrl-legend { display:flex; gap:12px; flex-wrap:wrap; margin-top:8px; font-size:11px; color:#555; }
+    .ctrl-legend span { display:flex; align-items:center; gap:4px; }
+    .leg-dot { width:12px; height:12px; border-radius:3px; display:inline-block; }
+  </style>
 </head>
 <body>
   <nav>
@@ -18,16 +98,125 @@
 
   <h1><span id="deviceName">TinkerThinker</span> Steuerungs-Editor</h1>
 
-  <div class="controls">
-    <div class="row" style="display:flex; gap:8px; align-items:center;">
-      <button id="addBinding" class="control-button" style="padding:8px 12px;">+ Binding</button>
-      <button id="load" class="control-button" style="padding:8px 12px;">Laden</button>
-      <button id="save" class="control-button" style="padding:8px 12px;">Speichern</button>
-      <button id="defaults" class="control-button" style="padding:8px 12px;">Standard</button>
-      <span id="status" style="margin-left:8px;"></span>
+  <!-- ── Info-Banner ─────────────────────────────────────── -->
+  <details class="info-banner" id="infoBanner">
+    <summary>ℹ️ Hilfe &amp; Beispiele (aufklappen)</summary>
+    <div>
+      <h3 style="text-align:left; margin-top:10px; margin-bottom:4px;">Konzepte</h3>
+      <table>
+        <tr><td>Input</td><td>Was du drückst: <strong>button</strong> (Taste) · <strong>dpad</strong> (Steuerkreuz) · <strong>axis_pair</strong> (Joystick-Achsen analog)</td></tr>
+        <tr><td>Auslöser</td><td><code>press</code> einmalig beim Drücken &nbsp;·&nbsp; <code>release</code> beim Loslassen &nbsp;·&nbsp; <code>hold</code> dauerhaft solange gehalten</td></tr>
+        <tr><td>PWM</td><td>Motorstärke <strong>−255 bis 255</strong> &nbsp;·&nbsp; positiv = vorwärts &nbsp;·&nbsp; negativ = rückwärts &nbsp;·&nbsp; 0 = stop</td></tr>
+        <tr><td>motor_direct</td><td>Setzt Motor auf festen PWM-Wert. Mit <code>hold</code>: läuft solange Taste gehalten, danach automatisch stop.</td></tr>
+        <tr><td>drive_pair</td><td>Joystick (axis_pair) steuert Fahrwerk über zwei Motoren. Ziel <code>gui</code> = Haupt-Fahrwerk (Motor A+B).</td></tr>
+        <tr><td>servo_nudge</td><td>Verschiebt Servo um Delta-Grad pro Druck. Negatives Delta = andere Richtung. Mit <code>hold</code>: kontinuierlich.</td></tr>
+        <tr><td>servo_toggle_band</td><td>Wechselt beim Drücken zwischen vordefinierten Winkeln, z.B. 0°→90°→180°→0°.</td></tr>
+        <tr><td>speed_adjust</td><td>Ändert den globalen Geschwindigkeitsmultiplikator. Delta +0.1 = 10% mehr Speed.</td></tr>
+        <tr><td>led_set</td><td>Setzt LEDs auf eine Farbe. Start = erster LED-Index, Anzahl = wie viele LEDs.</td></tr>
+      </table>
+      <h3 style="text-align:left; margin-top:12px; margin-bottom:4px;">Beispiele</h3>
+      <div class="example-card">
+        <div>
+          <strong>Motor 0 vorwärts halten (DPAD ↑)</strong><br>
+          <span class="etag">DPAD UP · hold</span> → <span class="etag">motor_direct · Motor 0 · PWM 200</span>
+        </div>
+        <button class="control-button" onclick="applyExample(0)">Übernehmen</button>
+      </div>
+      <div class="example-card">
+        <div>
+          <strong>LEDs auf Rot bei Knopfdruck (×-Taste)</strong><br>
+          <span class="etag">BTN_A · press</span> → <span class="etag">led_set · Start 0 · Anzahl 5 · #ff0000</span>
+        </div>
+        <button class="control-button" onclick="applyExample(1)">Übernehmen</button>
+      </div>
+      <div class="example-card">
+        <div>
+          <strong>Linker Joystick steuert Fahrwerk</strong><br>
+          <span class="etag">Linker Stick (X/Y) · axis_pair</span> → <span class="etag">drive_pair · gui</span>
+        </div>
+        <button class="control-button" onclick="applyExample(2)">Übernehmen</button>
+      </div>
+    </div>
+  </details>
+
+  <!-- ── Controller + Panel ─────────────────────────────── -->
+  <div class="editor-wrap">
+    <div class="editor-main">
+
+      <!-- Controller View -->
+      <div class="controller-wrap">
+        <!-- Schultertasten -->
+        <div class="ctrl-shoulders">
+          <div class="ctrl-left-sh">
+            <button class="ctrl-btn shoulder s-none" data-key="button_BUTTON_L1" title="L1">L1</button>
+            <button class="ctrl-btn shoulder s-none" data-key="button_BUTTON_L2" title="L2">L2</button>
+          </div>
+          <div class="ctrl-right-sh">
+            <button class="ctrl-btn shoulder s-none" data-key="button_BUTTON_R1" title="R1">R1</button>
+            <button class="ctrl-btn shoulder s-none" data-key="button_BUTTON_R2" title="R2">R2</button>
+          </div>
+        </div>
+
+        <!-- Body -->
+        <div class="ctrl-body">
+          <!-- Links: DPAD + L-Stick -->
+          <div class="ctrl-left">
+            <div class="ctrl-dpad">
+              <button class="ctrl-btn dpad-up  s-none" data-key="dpad_UP"    title="DPAD Oben">↑</button>
+              <button class="ctrl-btn dpad-lft s-none" data-key="dpad_LEFT"  title="DPAD Links">←</button>
+              <div class="dpad-mid"></div>
+              <button class="ctrl-btn dpad-rgt s-none" data-key="dpad_RIGHT" title="DPAD Rechts">→</button>
+              <button class="ctrl-btn dpad-dn  s-none" data-key="dpad_DOWN"  title="DPAD Unten">↓</button>
+            </div>
+            <button class="ctrl-btn stick s-none" data-key="axis_LStick" title="Linker Stick · Achsen X / Y">L3</button>
+          </div>
+
+          <!-- Mitte (SEL / PS / STA) -->
+          <div class="ctrl-center">
+            <span>SEL</span>
+            <span>PS</span>
+            <span>STA</span>
+          </div>
+
+          <!-- Rechts: Face-Buttons + R-Stick -->
+          <div class="ctrl-right">
+            <div class="ctrl-face">
+              <button class="ctrl-btn face-tri s-none" data-key="button_BTN_Y" title="Dreieck △">△</button>
+              <button class="ctrl-btn face-sq  s-none" data-key="button_BTN_X" title="Viereck □">□</button>
+              <button class="ctrl-btn face-ci  s-none" data-key="button_BTN_B" title="Kreis ○">○</button>
+              <button class="ctrl-btn face-cr  s-none" data-key="button_BTN_A" title="Kreuz ×">×</button>
+            </div>
+            <button class="ctrl-btn stick s-none" data-key="axis_RStick" title="Rechter Stick · Achsen RX / RY">R3</button>
+          </div>
+        </div>
+
+        <!-- Legende -->
+        <div class="ctrl-legend">
+          <span><span class="leg-dot" style="background:#ddd; border:2px solid #aaa;"></span> kein Binding</span>
+          <span><span class="leg-dot" style="background:#4a90e2;"></span> 1 Binding</span>
+          <span><span class="leg-dot" style="background:#e2944a;"></span> 2+ Bindings</span>
+          <span><span class="leg-dot" style="background:#ddd; outline:3px solid #2ecc71; outline-offset:1px;"></span> ausgewählt</span>
+        </div>
+      </div>
+
+      <!-- Binding Panel -->
+      <div id="bindingPanel" class="binding-panel">
+        <p class="panel-hint">← Controller-Element auswählen um Bindings zu bearbeiten</p>
+      </div>
     </div>
 
-    <div id="bindingsList" style="margin-top:12px; display:flex; flex-direction:column; gap:12px;"></div>
+    <!-- ── Binding-Liste ─────────────────────────────────── -->
+    <div class="controls" style="margin-top:16px;">
+      <h2>Alle Bindings</h2>
+      <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:12px;">
+        <button id="addBinding" class="control-button" style="padding:8px 14px;">+ Neu</button>
+        <button id="load"       class="control-button" style="padding:8px 14px;">Laden</button>
+        <button id="save"       class="control-button" style="padding:8px 14px;">Speichern</button>
+        <button id="defaults"   class="control-button" style="padding:8px 14px;">Standard</button>
+        <span id="status" style="margin-left:8px; font-weight:bold;"></span>
+      </div>
+      <div id="bindingsList"></div>
+    </div>
   </div>
 
   <script src="/controls.js"></script>
