@@ -4,6 +4,7 @@
 
 #include "sdkconfig.h"
 #include <Arduino.h>
+#include <ArduinoJson.h>
 #include <Bluepad32.h>
 #include <WiFi.h>
 #include "TinkerThinkerBoard.h"
@@ -51,6 +52,304 @@ static void applyRadioMode(RadioMode mode);
 static bool handleStartupReset();
 static bool isModePressedStable();
 static bool boardReady = false;
+static void pollSerialCommands();
+static void emitSerialReady();
+
+static char serialCmdBuffer[1024];
+static size_t serialCmdLen = 0;
+
+static String formatBtMac() {
+    const uint8_t* addr = BP32.localBdAddress();
+    char buf[18];
+    snprintf(buf, sizeof(buf), "%02X:%02X:%02X:%02X:%02X:%02X",
+             addr[0], addr[1], addr[2], addr[3], addr[4], addr[5]);
+    return String(buf);
+}
+
+static String sanitizeDeviceName(String name) {
+    name.trim();
+    name.replace("\r", "");
+    name.replace("\n", "");
+    if (name.length() > 32) {
+        name.remove(32);
+    }
+    return name;
+}
+
+template <typename TDoc>
+static void sendSerialJson(TDoc& doc) {
+    String out;
+    serializeJson(doc, out);
+    Serial.print("TTJSON:");
+    Serial.println(out);
+}
+
+template <typename TDoc>
+static void fillSerialInfo(TDoc& doc) {
+    doc["wifi_mode"] = configManager.getWifiMode();
+    doc["wifi_ssid"] = configManager.getWifiSSID();
+    doc["hotspot_ssid"] = configManager.getHotspotSSID();
+    doc["ota_enabled"] = configManager.getOTAEnabled();
+    doc["speed_multiplier"] = board.getSpeedMultiplier();
+    doc["wifi_mac"] = WiFi.macAddress();
+    doc["bt_mac"] = formatBtMac();
+    doc["firmware"] = BP32.firmwareVersion();
+    doc["uptime_ms"] = millis();
+}
+
+template <typename TDoc>
+static void fillSerialConfig(TDoc& doc) {
+    fillSerialInfo(doc);
+    doc["wifi_password"] = configManager.getWifiPassword();
+    doc["hotspot_password"] = configManager.getHotspotPassword();
+    doc["led_count"] = configManager.getLedCount();
+    doc["motor_left_gui"] = configManager.getMotorLeftGUI();
+    doc["motor_right_gui"] = configManager.getMotorRightGUI();
+    doc["drive_mixer"] = configManager.getDriveMixer();
+    doc["drive_turn_gain"] = configManager.getDriveTurnGain();
+    doc["drive_axis_deadband"] = configManager.getDriveAxisDeadband();
+    doc["motor_curve_type"] = configManager.getMotorCurveType();
+    doc["motor_curve_strength"] = configManager.getMotorCurveStrength();
+    doc["bt_scan_on_normal_ms"] = configManager.getBtScanOnNormal();
+    doc["bt_scan_off_normal_ms"] = configManager.getBtScanOffNormal();
+    doc["bt_scan_on_sta_ms"] = configManager.getBtScanOnSta();
+    doc["bt_scan_off_sta_ms"] = configManager.getBtScanOffSta();
+    doc["bt_scan_on_ap_ms"] = configManager.getBtScanOnAp();
+    doc["bt_scan_off_ap_ms"] = configManager.getBtScanOffAp();
+}
+
+static void emitSerialReady() {
+    StaticJsonDocument<384> doc;
+    doc["event"] = "ready";
+    fillSerialInfo(doc);
+    sendSerialJson(doc);
+}
+
+static void handleSerialCommandLine(const char* rawLine) {
+    String line = rawLine ? String(rawLine) : String();
+    line.trim();
+    if (!line.length()) return;
+    if (line.startsWith("TTCMD:")) {
+        line.remove(0, 6);
+        line.trim();
+    }
+
+    StaticJsonDocument<1024> cmd;
+    DeserializationError err = deserializeJson(cmd, line);
+    if (err) {
+        StaticJsonDocument<256> resp;
+        resp["event"] = "error";
+        resp["message"] = "invalid_json";
+        sendSerialJson(resp);
+        return;
+    }
+
+    const char* command = cmd["cmd"] | "";
+    StaticJsonDocument<1024> resp;
+    resp["cmd"] = command;
+
+    if (!strcmp(command, "ping")) {
+        resp["event"] = "pong";
+        resp["uptime_ms"] = millis();
+        sendSerialJson(resp);
+        return;
+    }
+
+    if (!strcmp(command, "get_info")) {
+        resp["event"] = "info";
+        fillSerialInfo(resp);
+        sendSerialJson(resp);
+        return;
+    }
+
+    if (!strcmp(command, "get_config")) {
+        resp["event"] = "config";
+        fillSerialConfig(resp);
+        sendSerialJson(resp);
+        return;
+    }
+
+    if (!strcmp(command, "set_name")) {
+        const char* requestedName = cmd["name"] | "";
+        String newName = sanitizeDeviceName(String(requestedName));
+        if (!newName.length()) {
+            resp["event"] = "error";
+            resp["message"] = "empty_name";
+            sendSerialJson(resp);
+            return;
+        }
+        configManager.setHotspotSSID(newName);
+        bool saved = configManager.saveConfig();
+        resp["event"] = saved ? "config_saved" : "error";
+        resp["saved"] = saved;
+        resp["reboot_required"] = true;
+        resp["hotspot_ssid"] = configManager.getHotspotSSID();
+        if (!saved) resp["message"] = "save_failed";
+        sendSerialJson(resp);
+        return;
+    }
+
+    if (!strcmp(command, "set_config")) {
+        JsonObject cfg = cmd["config"].as<JsonObject>();
+        if (cfg.isNull()) {
+            cfg = cmd.as<JsonObject>();
+        }
+
+        bool touched = false;
+        bool reapplyHardware = false;
+        bool rebootRequired = false;
+
+        if (cfg.containsKey("wifi_mode")) {
+            const char* mode = cfg["wifi_mode"] | "AP";
+            configManager.setWifiMode(String(mode));
+            touched = true;
+            rebootRequired = true;
+        }
+        if (cfg.containsKey("wifi_ssid")) {
+            const char* rawSsid = cfg["wifi_ssid"] | "";
+            String ssid = String(rawSsid);
+            ssid.trim();
+            configManager.setWifiSSID(ssid);
+            touched = true;
+            rebootRequired = true;
+        }
+        if (cfg.containsKey("wifi_password")) {
+            const char* rawPass = cfg["wifi_password"] | "";
+            String pass = String(rawPass);
+            pass.trim();
+            configManager.setWifiPassword(pass);
+            touched = true;
+            rebootRequired = true;
+        }
+        if (cfg.containsKey("hotspot_ssid")) {
+            const char* rawHotspot = cfg["hotspot_ssid"] | "";
+            String ssid = sanitizeDeviceName(String(rawHotspot));
+            if (ssid.length()) {
+                configManager.setHotspotSSID(ssid);
+                touched = true;
+                rebootRequired = true;
+            }
+        }
+        if (cfg.containsKey("hotspot_password")) {
+            const char* rawPass = cfg["hotspot_password"] | "";
+            configManager.setHotspotPassword(String(rawPass));
+            touched = true;
+            rebootRequired = true;
+        }
+        if (cfg.containsKey("ota_enabled")) {
+            configManager.setOTAEnabled(cfg["ota_enabled"].as<bool>());
+            touched = true;
+        }
+        if (cfg.containsKey("led_count")) {
+            configManager.setLedCount(cfg["led_count"].as<int>());
+            touched = true;
+            reapplyHardware = true;
+        }
+        if (cfg.containsKey("motor_left_gui")) {
+            configManager.setMotorLeftGUI(constrain(cfg["motor_left_gui"].as<int>(), 0, 3));
+            touched = true;
+            reapplyHardware = true;
+        }
+        if (cfg.containsKey("motor_right_gui")) {
+            configManager.setMotorRightGUI(constrain(cfg["motor_right_gui"].as<int>(), 0, 3));
+            touched = true;
+            reapplyHardware = true;
+        }
+        if (cfg.containsKey("bt_scan_on_normal_ms")) {
+            configManager.setBtScanOnNormal(cfg["bt_scan_on_normal_ms"].as<int>());
+            touched = true;
+        }
+        if (cfg.containsKey("bt_scan_off_normal_ms")) {
+            configManager.setBtScanOffNormal(cfg["bt_scan_off_normal_ms"].as<int>());
+            touched = true;
+        }
+        if (cfg.containsKey("bt_scan_on_sta_ms")) {
+            configManager.setBtScanOnSta(cfg["bt_scan_on_sta_ms"].as<int>());
+            touched = true;
+        }
+        if (cfg.containsKey("bt_scan_off_sta_ms")) {
+            configManager.setBtScanOffSta(cfg["bt_scan_off_sta_ms"].as<int>());
+            touched = true;
+        }
+        if (cfg.containsKey("bt_scan_on_ap_ms")) {
+            configManager.setBtScanOnAp(cfg["bt_scan_on_ap_ms"].as<int>());
+            touched = true;
+        }
+        if (cfg.containsKey("bt_scan_off_ap_ms")) {
+            configManager.setBtScanOffAp(cfg["bt_scan_off_ap_ms"].as<int>());
+            touched = true;
+        }
+
+        if (!touched) {
+            resp["event"] = "error";
+            resp["message"] = "no_supported_fields";
+            sendSerialJson(resp);
+            return;
+        }
+
+        bool saved = configManager.saveConfig();
+        if (saved && reapplyHardware) {
+            board.reApplyConfig();
+        }
+
+        resp["event"] = saved ? "config_saved" : "error";
+        resp["saved"] = saved;
+        resp["reboot_required"] = rebootRequired;
+        resp["reapplied"] = saved && reapplyHardware;
+        fillSerialConfig(resp);
+        if (!saved) resp["message"] = "save_failed";
+        sendSerialJson(resp);
+        return;
+    }
+
+    if (!strcmp(command, "reset_config")) {
+        bool ok = configManager.resetConfig();
+        if (ok) {
+            board.reApplyConfig();
+        }
+        resp["event"] = ok ? "config_reset" : "error";
+        resp["saved"] = ok;
+        resp["reboot_required"] = true;
+        if (!ok) resp["message"] = "reset_failed";
+        sendSerialJson(resp);
+        return;
+    }
+
+    if (!strcmp(command, "reboot")) {
+        resp["event"] = "restarting";
+        sendSerialJson(resp);
+        Serial.flush();
+        delay(50);
+        ESP.restart();
+        return;
+    }
+
+    resp["event"] = "error";
+    resp["message"] = "unknown_command";
+    sendSerialJson(resp);
+}
+
+static void pollSerialCommands() {
+    while (Serial.available() > 0) {
+        char c = (char)Serial.read();
+        if (c == '\r') continue;
+        if (c == '\n') {
+            serialCmdBuffer[serialCmdLen] = '\0';
+            handleSerialCommandLine(serialCmdBuffer);
+            serialCmdLen = 0;
+            continue;
+        }
+        if (serialCmdLen < (sizeof(serialCmdBuffer) - 1)) {
+            serialCmdBuffer[serialCmdLen++] = c;
+        } else {
+            serialCmdLen = 0;
+            StaticJsonDocument<256> resp;
+            resp["event"] = "error";
+            resp["message"] = "command_too_long";
+            sendSerialJson(resp);
+        }
+    }
+}
 
 static int findControllerIndex(ControllerPtr ctl) {
     for (int i = 0; i < BP32_MAX_GAMEPADS; ++i) {
@@ -196,6 +495,7 @@ void setup() {
     inputBindings.reload();
 
     applyRadioMode(radioMode);
+    emitSerialReady();
 }
 
 // Arduino loop function. Runs in CPU 1.
@@ -303,6 +603,7 @@ static void applyRadioMode(RadioMode mode) {
 }
 
 void loop() {
+    pollSerialCommands();
     // This call fetches all the controllers' data.
     // Call this function in your main loop.
     bool dataUpdated = BP32.update();

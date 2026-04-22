@@ -1,0 +1,956 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TinkerThinker WebSerial Installer</title>
+  <style>
+    :root {
+      --bg: #f4efe7;
+      --panel: rgba(255, 250, 243, 0.94);
+      --panel-strong: #fff7ed;
+      --ink: #1f2937;
+      --muted: #6b7280;
+      --line: rgba(91, 62, 34, 0.18);
+      --accent: #b45309;
+      --accent-2: #0f766e;
+      --danger: #b91c1c;
+      --ok: #166534;
+      --shadow: 0 18px 45px rgba(66, 32, 6, 0.12);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "Segoe UI", "Helvetica Neue", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top left, rgba(251, 191, 36, 0.18), transparent 30%),
+        radial-gradient(circle at top right, rgba(15, 118, 110, 0.12), transparent 28%),
+        linear-gradient(180deg, #fff8ee 0%, #f4efe7 48%, #efe5d8 100%);
+      min-height: 100vh;
+    }
+
+    .shell {
+      max-width: 1240px;
+      margin: 0 auto;
+      padding: 28px 18px 40px;
+    }
+
+    .hero,
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(10px);
+    }
+
+    .hero {
+      padding: 28px;
+      margin-bottom: 18px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero::after {
+      content: "";
+      position: absolute;
+      inset: auto -5% -50px auto;
+      width: 280px;
+      height: 280px;
+      background: radial-gradient(circle, rgba(180, 83, 9, 0.18), transparent 68%);
+      pointer-events: none;
+    }
+
+    h1, h2, h3 {
+      margin: 0 0 10px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+    }
+
+    h1 { font-size: clamp(2rem, 4vw, 3.3rem); }
+    h2 { font-size: 1.35rem; }
+    h3 { font-size: 1rem; }
+
+    p {
+      margin: 0 0 12px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .grid {
+      display: grid;
+      gap: 18px;
+      grid-template-columns: repeat(12, minmax(0, 1fr));
+    }
+
+    .panel {
+      padding: 20px;
+    }
+
+    .span-4 { grid-column: span 4; }
+    .span-5 { grid-column: span 5; }
+    .span-6 { grid-column: span 6; }
+    .span-7 { grid-column: span 7; }
+    .span-8 { grid-column: span 8; }
+    .span-12 { grid-column: span 12; }
+
+    .toolbar,
+    .kv,
+    .inline-fields {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .toolbar { margin-top: 14px; }
+
+    button,
+    select,
+    input,
+    textarea {
+      font: inherit;
+      border-radius: 12px;
+      border: 1px solid rgba(120, 88, 46, 0.22);
+    }
+
+    button {
+      background: linear-gradient(180deg, #fff4dc, #f6d7a8);
+      color: #5e3206;
+      padding: 11px 16px;
+      cursor: pointer;
+      font-weight: 700;
+      transition: transform 120ms ease, box-shadow 120ms ease, filter 120ms ease;
+      box-shadow: 0 8px 20px rgba(180, 83, 9, 0.14);
+    }
+
+    button.secondary {
+      background: linear-gradient(180deg, #effaf8, #c9ece8);
+      color: #0f4e49;
+      box-shadow: 0 8px 20px rgba(15, 118, 110, 0.12);
+    }
+
+    button.danger {
+      background: linear-gradient(180deg, #fff0f0, #ffd1d1);
+      color: #8f1111;
+      box-shadow: 0 8px 20px rgba(185, 28, 28, 0.12);
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      filter: grayscale(0.35);
+      opacity: 0.6;
+      box-shadow: none;
+    }
+
+    button:hover:not(:disabled) {
+      transform: translateY(-1px);
+    }
+
+    input,
+    select,
+    textarea {
+      width: 100%;
+      padding: 10px 12px;
+      background: rgba(255, 255, 255, 0.84);
+      color: var(--ink);
+    }
+
+    textarea {
+      min-height: 120px;
+      resize: vertical;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.92rem;
+    }
+
+    label {
+      display: grid;
+      gap: 6px;
+      font-size: 0.94rem;
+      font-weight: 600;
+      color: #58381f;
+    }
+
+    .fields {
+      display: grid;
+      gap: 12px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .fields.compact {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .muted {
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+
+    .statusbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.76);
+      border: 1px solid var(--line);
+      font-weight: 700;
+      color: #5a4027;
+    }
+
+    .pill.ok { color: var(--ok); }
+    .pill.warn { color: var(--accent); }
+    .pill.bad { color: var(--danger); }
+
+    .log {
+      background: #171717;
+      color: #d6f7df;
+      min-height: 260px;
+      max-height: 420px;
+      overflow: auto;
+      border-radius: 16px;
+      padding: 14px;
+      font: 13px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      white-space: pre-wrap;
+      border: 1px solid rgba(0,0,0,0.24);
+    }
+
+    .info-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .info-grid .card {
+      padding: 12px;
+      border-radius: 16px;
+      background: var(--panel-strong);
+      border: 1px solid var(--line);
+    }
+
+    .card-key {
+      font-size: 0.78rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: #8a6d4a;
+      margin-bottom: 6px;
+    }
+
+    .card-val {
+      font-weight: 800;
+      word-break: break-word;
+    }
+
+    .table {
+      display: grid;
+      gap: 10px;
+    }
+
+    .file-row {
+      display: grid;
+      gap: 10px;
+      grid-template-columns: minmax(120px, 150px) minmax(120px, 150px) 1fr;
+      align-items: center;
+      padding: 10px 12px;
+      border-radius: 14px;
+      background: rgba(255,255,255,0.6);
+      border: 1px solid var(--line);
+    }
+
+    .release-assets {
+      display: grid;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .release-assets div {
+      padding: 10px 12px;
+      border-radius: 12px;
+      background: rgba(255,255,255,0.62);
+      border: 1px solid var(--line);
+    }
+
+    .small {
+      font-size: 0.86rem;
+    }
+
+    .mono {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+
+    .notice {
+      margin-top: 12px;
+      padding: 12px 14px;
+      border-radius: 14px;
+      border: 1px solid rgba(180, 83, 9, 0.24);
+      background: rgba(255, 244, 220, 0.82);
+      color: #7c4a07;
+    }
+
+    @media (max-width: 980px) {
+      .span-4, .span-5, .span-6, .span-7, .span-8 { grid-column: span 12; }
+      .fields, .fields.compact, .info-grid { grid-template-columns: 1fr; }
+      .file-row { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <section class="hero">
+      <h1>TinkerThinker WebSerial Installer</h1>
+      <p>Flasht das aktuelle Release oder lokale BIN-Dateien direkt in Chrome/Edge und spricht parallel mit der laufenden Firmware ueber eine serielle JSON-Schnittstelle fuer Name, Konfiguration, BT/WiFi-MAC und Live-Logs.</p>
+      <p class="small">Wenn Web Serial im Datei-Modus blockiert ist, die Datei ueber einen lokalen HTTP-Server oeffnen, zum Beispiel mit <span class="mono">python -m http.server</span> im Ordner <span class="mono">tools/</span>.</p>
+      <div class="statusbar">
+        <span class="pill" id="serialSupportPill">Web Serial wird geprueft</span>
+        <span class="pill" id="runtimePill">Runtime-Serial getrennt</span>
+        <span class="pill" id="flashPill">Flash bereit</span>
+      </div>
+    </section>
+
+    <div class="grid">
+      <section class="panel span-7">
+        <h2>Serielle Ausgabe / Flash-Log</h2>
+        <p>Normale Firmware-Logs und Flash-Ausgaben laufen hier zusammen. Serielle JSON-Antworten werden zusaetzlich rechts strukturiert ausgewertet.</p>
+        <div class="log" id="logOutput"></div>
+      </section>
+
+      <section class="panel span-5">
+        <h2>Runtime-Serial</h2>
+        <p>Fuer Monitor, Info, Name setzen und serielle Konfiguration. Nutzt 115200 Baud und die in der Firmware integrierte `TTJSON:`-Antwortstruktur.</p>
+        <div class="toolbar">
+          <button id="connectRuntimeBtn">Serial verbinden</button>
+          <button id="disconnectRuntimeBtn" class="secondary" disabled>Trennen</button>
+          <button id="getInfoBtn" class="secondary" disabled>Info lesen</button>
+          <button id="getConfigBtn" class="secondary" disabled>Konfig lesen</button>
+          <button id="rebootBtn" class="danger" disabled>Neustart</button>
+        </div>
+        <div class="fields" style="margin-top:16px;">
+          <label>
+            Geraetename / AP-Name
+            <input id="deviceNameInput" type="text" maxlength="32" placeholder="TinkerThinkerAP">
+          </label>
+          <div style="display:grid;align-content:end;">
+            <button id="setNameBtn" disabled>Name speichern</button>
+          </div>
+          <label>
+            WLAN-Modus
+            <select id="wifiModeInput">
+              <option value="AP">AP</option>
+              <option value="STA">STA</option>
+            </select>
+          </label>
+          <label>
+            WLAN-SSID
+            <input id="wifiSsidInput" type="text" placeholder="fablab">
+          </label>
+          <label>
+            WLAN-Passwort
+            <input id="wifiPasswordInput" type="text" placeholder="optional">
+          </label>
+          <label>
+            Hotspot-Passwort
+            <input id="hotspotPasswordInput" type="text" placeholder="optional">
+          </label>
+        </div>
+        <div class="fields compact" style="margin-top:12px;">
+          <label>
+            LED Count
+            <input id="ledCountInput" type="number" min="1" max="300" value="30">
+          </label>
+          <label>
+            GUI links
+            <input id="motorLeftInput" type="number" min="0" max="3" value="2">
+          </label>
+          <label>
+            GUI rechts
+            <input id="motorRightInput" type="number" min="0" max="3" value="3">
+          </label>
+        </div>
+        <div class="fields compact" style="margin-top:12px;">
+          <label>
+            BT normal an
+            <input id="btOnNormalInput" type="number" min="0" max="5000" value="500">
+          </label>
+          <label>
+            BT normal aus
+            <input id="btOffNormalInput" type="number" min="0" max="5000" value="500">
+          </label>
+          <label style="align-content:end;">
+            <span class="inline-fields"><input id="otaEnabledInput" type="checkbox" style="width:auto;"> OTA aktiv</span>
+          </label>
+        </div>
+        <div class="toolbar">
+          <button id="saveConfigBtn" disabled>Konfig seriell speichern</button>
+          <button id="resetConfigBtn" class="danger" disabled>Config zuruecksetzen</button>
+        </div>
+        <p class="small" style="margin-top:10px;">Aenderungen an WiFi-/AP-Namen werden gespeichert, greifen aber erst nach Neustart vollstaendig.</p>
+      </section>
+
+      <section class="panel span-5">
+        <h2>Geraeteinfos</h2>
+        <p>BT-MAC, WiFi-MAC, Firmware, Uptime und zuletzt empfangene JSON-Antworten.</p>
+        <div class="info-grid" id="deviceInfoGrid">
+          <div class="card"><div class="card-key">Status</div><div class="card-val" id="infoStatus">Noch keine Daten</div></div>
+          <div class="card"><div class="card-key">Firmware</div><div class="card-val" id="infoFirmware">-</div></div>
+          <div class="card"><div class="card-key">WiFi MAC</div><div class="card-val mono" id="infoWifiMac">-</div></div>
+          <div class="card"><div class="card-key">BT MAC</div><div class="card-val mono" id="infoBtMac">-</div></div>
+          <div class="card"><div class="card-key">Chip</div><div class="card-val" id="infoChip">-</div></div>
+          <div class="card"><div class="card-key">Release</div><div class="card-val" id="infoRelease">-</div></div>
+        </div>
+        <label style="margin-top:14px;">
+          Letzte JSON-Antwort
+          <textarea id="jsonOutput" readonly></textarea>
+        </label>
+      </section>
+
+      <section class="panel span-7">
+        <h2>Latest Release flashen</h2>
+        <p>Laedt die neuesten Release-Assets aus GitHub ueber die Release-Asset-API und schreibt sie mit festen Offsets passend zu diesem Projektlayout.</p>
+        <div class="toolbar">
+          <button id="loadReleaseBtn">Latest Release laden</button>
+          <button id="flashReleaseBtn" disabled>Latest Release flashen</button>
+        </div>
+        <div class="notice" id="originWarning" hidden>
+          Diese Seite laeuft gerade aus dem Datei-Modus (`file://`). Wenn GitHub-Downloads wegen CORS blockiert werden, die HTML-Datei ueber einen lokalen HTTP-Server oeffnen, z.B. mit `python -m http.server` im Ordner `tools/`.
+        </div>
+        <div class="inline-fields" style="margin-top:12px;">
+          <label style="max-width:180px;">
+            Flash Size
+            <select id="flashSizeSelect">
+              <option value="8MB" selected>8MB</option>
+              <option value="4MB">4MB</option>
+            </select>
+          </label>
+          <label style="max-width:180px;">
+            Flash Mode
+            <select id="flashModeSelect">
+              <option value="dio" selected>dio</option>
+              <option value="qio">qio</option>
+              <option value="dout">dout</option>
+              <option value="qout">qout</option>
+            </select>
+          </label>
+          <label style="max-width:180px;">
+            Flash Freq
+            <select id="flashFreqSelect">
+              <option value="40m" selected>40m</option>
+              <option value="80m">80m</option>
+              <option value="26m">26m</option>
+              <option value="20m">20m</option>
+            </select>
+          </label>
+          <label style="align-content:end;">
+            <span class="inline-fields"><input id="eraseAllInput" type="checkbox" style="width:auto;"> Flash komplett loeschen</span>
+          </label>
+        </div>
+        <div class="release-assets" id="releaseAssets">
+          <div>Noch kein Release geladen.</div>
+        </div>
+      </section>
+
+      <section class="panel span-12">
+        <h2>Offline Update</h2>
+        <p>Lokale BIN-Dateien auswaehlen. Du kannst ein Komplett-Flash oder nur einzelne Bereiche schreiben.</p>
+        <div class="table">
+          <div class="file-row">
+            <strong>Bootloader</strong>
+            <input id="offsetBoot" type="text" value="0x1000">
+            <input id="fileBoot" type="file" accept=".bin">
+          </div>
+          <div class="file-row">
+            <strong>Partitions</strong>
+            <input id="offsetPartitions" type="text" value="0x8000">
+            <input id="filePartitions" type="file" accept=".bin">
+          </div>
+          <div class="file-row">
+            <strong>Firmware</strong>
+            <input id="offsetFirmware" type="text" value="0x20000">
+            <input id="fileFirmware" type="file" accept=".bin">
+          </div>
+          <div class="file-row">
+            <strong>LittleFS</strong>
+            <input id="offsetLittlefs" type="text" value="0x620000">
+            <input id="fileLittlefs" type="file" accept=".bin">
+          </div>
+        </div>
+        <div class="toolbar">
+          <button id="flashOfflineBtn">Ausgewaehlte Dateien flashen</button>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script src="./webserial_release_bundle.js"></script>
+  <script type="module">
+    import { ESPLoader, Transport } from "https://cdn.jsdelivr.net/npm/esptool-js@0.5.6/+esm";
+
+    const REPO_API = "https://api.github.com/repos/FabLabLuebeckEV/TinkerThinker/releases/latest";
+    const REQUIRED_RELEASE_FILES = [
+      { key: "bootloader", name: "bootloader.bin", offset: 0x1000 },
+      { key: "partitions", name: "partitions.bin", offset: 0x8000 },
+      { key: "firmware", name: "firmware.bin", offset: 0x20000 },
+      { key: "littlefs", name: "littlefs.bin", offset: 0x620000 },
+    ];
+
+    const serialSupportPill = document.getElementById("serialSupportPill");
+    const runtimePill = document.getElementById("runtimePill");
+    const flashPill = document.getElementById("flashPill");
+    const logOutput = document.getElementById("logOutput");
+    const jsonOutput = document.getElementById("jsonOutput");
+    const releaseAssets = document.getElementById("releaseAssets");
+    const originWarning = document.getElementById("originWarning");
+    const bundledRelease = window.TINKERTHINKER_RELEASE_BUNDLE || null;
+
+    const infoStatus = document.getElementById("infoStatus");
+    const infoFirmware = document.getElementById("infoFirmware");
+    const infoWifiMac = document.getElementById("infoWifiMac");
+    const infoBtMac = document.getElementById("infoBtMac");
+    const infoChip = document.getElementById("infoChip");
+    const infoRelease = document.getElementById("infoRelease");
+
+    const controls = {
+      connectRuntimeBtn: document.getElementById("connectRuntimeBtn"),
+      disconnectRuntimeBtn: document.getElementById("disconnectRuntimeBtn"),
+      getInfoBtn: document.getElementById("getInfoBtn"),
+      getConfigBtn: document.getElementById("getConfigBtn"),
+      rebootBtn: document.getElementById("rebootBtn"),
+      setNameBtn: document.getElementById("setNameBtn"),
+      saveConfigBtn: document.getElementById("saveConfigBtn"),
+      resetConfigBtn: document.getElementById("resetConfigBtn"),
+      loadReleaseBtn: document.getElementById("loadReleaseBtn"),
+      flashReleaseBtn: document.getElementById("flashReleaseBtn"),
+      flashOfflineBtn: document.getElementById("flashOfflineBtn"),
+    };
+
+    const configFields = {
+      deviceName: document.getElementById("deviceNameInput"),
+      wifiMode: document.getElementById("wifiModeInput"),
+      wifiSsid: document.getElementById("wifiSsidInput"),
+      wifiPassword: document.getElementById("wifiPasswordInput"),
+      hotspotPassword: document.getElementById("hotspotPasswordInput"),
+      ledCount: document.getElementById("ledCountInput"),
+      motorLeft: document.getElementById("motorLeftInput"),
+      motorRight: document.getElementById("motorRightInput"),
+      btOnNormal: document.getElementById("btOnNormalInput"),
+      btOffNormal: document.getElementById("btOffNormalInput"),
+      otaEnabled: document.getElementById("otaEnabledInput"),
+    };
+
+    let runtimePort = null;
+    let runtimeReader = null;
+    let runtimeWriter = null;
+    let runtimeKeepReading = false;
+    let runtimeReadBuffer = "";
+    let latestRelease = null;
+
+    const terminal = {
+      clean() {
+        logOutput.textContent = "";
+      },
+      writeLine(data) {
+        appendLog(data);
+      },
+      write(data) {
+        appendLog(data, false);
+      },
+    };
+
+    function appendLog(line, addNewline = true) {
+      const chunk = (line ?? "").toString();
+      logOutput.textContent += chunk + (addNewline ? "\n" : "");
+      logOutput.scrollTop = logOutput.scrollHeight;
+    }
+
+    function setPill(el, text, cls = "") {
+      el.className = "pill" + (cls ? " " + cls : "");
+      el.textContent = text;
+    }
+
+    function base64ToUint8Array(base64) {
+      const binary = atob(base64);
+      const out = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) {
+        out[i] = binary.charCodeAt(i);
+      }
+      return out;
+    }
+
+    function setRuntimeUi(connected) {
+      controls.disconnectRuntimeBtn.disabled = !connected;
+      controls.getInfoBtn.disabled = !connected;
+      controls.getConfigBtn.disabled = !connected;
+      controls.rebootBtn.disabled = !connected;
+      controls.setNameBtn.disabled = !connected;
+      controls.saveConfigBtn.disabled = !connected;
+      controls.resetConfigBtn.disabled = !connected;
+      setPill(runtimePill, connected ? "Runtime-Serial verbunden" : "Runtime-Serial getrennt", connected ? "ok" : "");
+    }
+
+    function toPrettyJson(obj) {
+      return JSON.stringify(obj, null, 2);
+    }
+
+    function updateInfoCards(payload) {
+      infoStatus.textContent = payload.event || payload.cmd || "Antwort";
+      if (payload.firmware) infoFirmware.textContent = payload.firmware;
+      if (payload.wifi_mac) infoWifiMac.textContent = payload.wifi_mac;
+      if (payload.bt_mac) infoBtMac.textContent = payload.bt_mac;
+      if (payload.chipName) infoChip.textContent = payload.chipName;
+      if (latestRelease?.tag_name) infoRelease.textContent = latestRelease.tag_name;
+    }
+
+    function applyConfigToForm(cfg) {
+      if (cfg.hotspot_ssid != null) configFields.deviceName.value = cfg.hotspot_ssid;
+      if (cfg.wifi_mode != null) configFields.wifiMode.value = cfg.wifi_mode;
+      if (cfg.wifi_ssid != null) configFields.wifiSsid.value = cfg.wifi_ssid;
+      if (cfg.wifi_password != null) configFields.wifiPassword.value = cfg.wifi_password;
+      if (cfg.hotspot_password != null) configFields.hotspotPassword.value = cfg.hotspot_password;
+      if (cfg.led_count != null) configFields.ledCount.value = cfg.led_count;
+      if (cfg.motor_left_gui != null) configFields.motorLeft.value = cfg.motor_left_gui;
+      if (cfg.motor_right_gui != null) configFields.motorRight.value = cfg.motor_right_gui;
+      if (cfg.bt_scan_on_normal_ms != null) configFields.btOnNormal.value = cfg.bt_scan_on_normal_ms;
+      if (cfg.bt_scan_off_normal_ms != null) configFields.btOffNormal.value = cfg.bt_scan_off_normal_ms;
+      if (cfg.ota_enabled != null) configFields.otaEnabled.checked = !!cfg.ota_enabled;
+    }
+
+    function handleJsonLine(payload) {
+      jsonOutput.value = toPrettyJson(payload);
+      updateInfoCards(payload);
+      if (payload.event === "ready") {
+        appendLog("[FW] ready event empfangen");
+      }
+      if (payload.event === "config" || payload.event === "config_saved" || payload.event === "info" || payload.event === "ready") {
+        applyConfigToForm(payload);
+      }
+      if (payload.reboot_required) {
+        appendLog("[HINWEIS] Neustart erforderlich, damit alle Aenderungen greifen.");
+      }
+    }
+
+    function handleRuntimeLine(line) {
+      if (!line) return;
+      appendLog(line);
+      if (line.startsWith("TTJSON:")) {
+        const body = line.slice(7);
+        try {
+          handleJsonLine(JSON.parse(body));
+        } catch (err) {
+          appendLog("[JSON-Fehler] " + err.message);
+        }
+      }
+    }
+
+    async function connectRuntimeSerial() {
+      if (!("serial" in navigator)) {
+        throw new Error("Web Serial wird von diesem Browser nicht unterstuetzt.");
+      }
+      runtimePort = await navigator.serial.requestPort();
+      await runtimePort.open({ baudRate: 115200 });
+      runtimeWriter = runtimePort.writable.getWriter();
+      runtimeKeepReading = true;
+      runtimeReader = runtimePort.readable.getReader();
+      setRuntimeUi(true);
+      appendLog("[SERIAL] Runtime-Port verbunden");
+      readRuntimeLoop().catch(async (err) => {
+        appendLog("[SERIAL] Lesefehler: " + err.message);
+        await disconnectRuntimeSerial();
+      });
+      await sendRuntimeCommand({ cmd: "get_info" });
+    }
+
+    async function disconnectRuntimeSerial() {
+      runtimeKeepReading = false;
+      if (runtimeReader) {
+        try { await runtimeReader.cancel(); } catch (_) {}
+        try { runtimeReader.releaseLock(); } catch (_) {}
+        runtimeReader = null;
+      }
+      if (runtimeWriter) {
+        try { runtimeWriter.releaseLock(); } catch (_) {}
+        runtimeWriter = null;
+      }
+      if (runtimePort) {
+        try { await runtimePort.close(); } catch (_) {}
+        runtimePort = null;
+      }
+      setRuntimeUi(false);
+      appendLog("[SERIAL] Runtime-Port getrennt");
+    }
+
+    async function readRuntimeLoop() {
+      const decoder = new TextDecoder();
+      while (runtimeKeepReading && runtimeReader) {
+        const { value, done } = await runtimeReader.read();
+        if (done) break;
+        if (!value) continue;
+        runtimeReadBuffer += decoder.decode(value, { stream: true });
+        const parts = runtimeReadBuffer.split(/\r?\n/);
+        runtimeReadBuffer = parts.pop() || "";
+        for (const line of parts) {
+          handleRuntimeLine(line);
+        }
+      }
+    }
+
+    async function sendRuntimeCommand(obj) {
+      if (!runtimeWriter) throw new Error("Runtime-Serial ist nicht verbunden.");
+      const enc = new TextEncoder();
+      const payload = JSON.stringify(obj) + "\n";
+      appendLog("> " + payload.trim());
+      await runtimeWriter.write(enc.encode(payload));
+    }
+
+    async function loadLatestRelease() {
+      if (bundledRelease?.assets) {
+        latestRelease = bundledRelease;
+        infoRelease.textContent = latestRelease.tag_name || "-";
+        releaseAssets.innerHTML = "";
+        let complete = true;
+        for (const item of REQUIRED_RELEASE_FILES) {
+          const asset = bundledRelease.assets[item.name];
+          const div = document.createElement("div");
+          div.innerHTML = `<strong>${item.name}</strong><br><span class="small mono">${asset ? "lokal eingebettet" : "nicht im Bundle"}</span>`;
+          releaseAssets.appendChild(div);
+          if (!asset) complete = false;
+        }
+        controls.flashReleaseBtn.disabled = !complete;
+        setPill(flashPill, complete ? "Lokales Release-Bundle bereit" : "Bundle unvollstaendig", complete ? "ok" : "bad");
+        return;
+      }
+
+      setPill(flashPill, "Release wird geladen", "warn");
+      const response = await fetch(REPO_API, { headers: { Accept: "application/vnd.github+json" } });
+      if (!response.ok) {
+        throw new Error("GitHub Release API Fehler: " + response.status);
+      }
+      latestRelease = await response.json();
+      infoRelease.textContent = latestRelease.tag_name || "-";
+      const assetMap = new Map((latestRelease.assets || []).map((asset) => [asset.name, asset]));
+      releaseAssets.innerHTML = "";
+      let complete = true;
+      for (const item of REQUIRED_RELEASE_FILES) {
+        const asset = assetMap.get(item.name);
+        const div = document.createElement("div");
+        div.innerHTML = `<strong>${item.name}</strong><br><span class="small mono">${asset ? asset.url : "nicht gefunden"}</span>`;
+        releaseAssets.appendChild(div);
+        if (!asset) complete = false;
+      }
+      controls.flashReleaseBtn.disabled = !complete;
+      setPill(flashPill, complete ? "Latest Release bereit" : "Release unvollstaendig", complete ? "ok" : "bad");
+    }
+
+    async function fetchUint8Array(url, options = {}) {
+      const res = await fetch(url, options);
+      if (!res.ok) throw new Error("Download fehlgeschlagen: " + url + " (" + res.status + ")");
+      return new Uint8Array(await res.arrayBuffer());
+    }
+
+    async function fetchReleaseAsset(asset) {
+      try {
+        return await fetchUint8Array(asset.url, {
+          headers: {
+            Accept: "application/octet-stream",
+            "X-GitHub-Api-Version": "2022-11-28",
+          },
+        });
+      } catch (err) {
+        if (window.location.protocol === "file:") {
+          throw new Error("GitHub blockiert den Browser-Download im file://-Modus per CORS. Starte die Seite ueber einen lokalen HTTP-Server und versuche es erneut.");
+        }
+        throw err;
+      }
+    }
+
+    function parseOffset(value) {
+      const text = value.trim().toLowerCase();
+      return text.startsWith("0x") ? Number.parseInt(text, 16) : Number.parseInt(text, 10);
+    }
+
+    async function getOfflineFlashEntries() {
+      const rows = [
+        ["fileBoot", "offsetBoot"],
+        ["filePartitions", "offsetPartitions"],
+        ["fileFirmware", "offsetFirmware"],
+        ["fileLittlefs", "offsetLittlefs"],
+      ];
+      const entries = [];
+      for (const [fileId, offsetId] of rows) {
+        const file = document.getElementById(fileId).files[0];
+        if (!file) continue;
+        entries.push({
+          address: parseOffset(document.getElementById(offsetId).value),
+          data: new Uint8Array(await file.arrayBuffer()),
+          name: file.name,
+        });
+      }
+      return entries;
+    }
+
+    async function getReleaseFlashEntries() {
+      if (!latestRelease) throw new Error("Kein Release geladen.");
+      if (latestRelease.assets && !Array.isArray(latestRelease.assets)) {
+        const entries = [];
+        for (const item of REQUIRED_RELEASE_FILES) {
+          const asset = latestRelease.assets[item.name];
+          if (!asset?.dataBase64) throw new Error(item.name + " fehlt im lokalen Bundle.");
+          entries.push({
+            address: item.offset,
+            data: base64ToUint8Array(asset.dataBase64),
+            name: item.name,
+          });
+        }
+        return entries;
+      }
+
+      const assetMap = new Map((latestRelease.assets || []).map((asset) => [asset.name, asset]));
+      const entries = [];
+      for (const item of REQUIRED_RELEASE_FILES) {
+        const asset = assetMap.get(item.name);
+        if (!asset) throw new Error(item.name + " fehlt im Release.");
+        entries.push({
+          address: item.offset,
+          data: await fetchReleaseAsset(asset),
+          name: item.name,
+        });
+      }
+      return entries;
+    }
+
+    async function runFlash(entries) {
+      if (!entries.length) throw new Error("Keine Dateien zum Flashen ausgewaehlt.");
+      if (runtimePort) {
+        await disconnectRuntimeSerial();
+      }
+
+      const port = await navigator.serial.requestPort();
+      const transport = new Transport(port, true);
+      const loader = new ESPLoader({
+        transport,
+        baudrate: 115200,
+        terminal,
+        debugLogging: false,
+      });
+
+      setPill(flashPill, "Verbinde mit Bootloader", "warn");
+      const chipName = await loader.main();
+      infoChip.textContent = chipName || "-";
+      appendLog("[FLASH] Verbunden mit " + chipName);
+
+      const eraseAll = document.getElementById("eraseAllInput").checked;
+      await loader.writeFlash({
+        fileArray: entries.map((entry) => ({ data: entry.data, address: entry.address })),
+        flashMode: document.getElementById("flashModeSelect").value,
+        flashFreq: document.getElementById("flashFreqSelect").value,
+        flashSize: document.getElementById("flashSizeSelect").value,
+        eraseAll,
+        compress: true,
+        reportProgress: (fileIndex, written, total) => {
+          const entry = entries[fileIndex];
+          const percent = total ? ((written / total) * 100).toFixed(1) : "0.0";
+          setPill(flashPill, `Flashe ${entry.name}: ${percent}%`, "warn");
+        },
+      });
+
+      await loader.after("hard_reset");
+      await transport.disconnect();
+      setPill(flashPill, "Flash abgeschlossen", "ok");
+      appendLog("[FLASH] Vorgang abgeschlossen");
+    }
+
+    function buildConfigPayload() {
+      return {
+        hotspot_ssid: configFields.deviceName.value.trim(),
+        wifi_mode: configFields.wifiMode.value,
+        wifi_ssid: configFields.wifiSsid.value.trim(),
+        wifi_password: configFields.wifiPassword.value,
+        hotspot_password: configFields.hotspotPassword.value,
+        led_count: Number.parseInt(configFields.ledCount.value, 10),
+        motor_left_gui: Number.parseInt(configFields.motorLeft.value, 10),
+        motor_right_gui: Number.parseInt(configFields.motorRight.value, 10),
+        bt_scan_on_normal_ms: Number.parseInt(configFields.btOnNormal.value, 10),
+        bt_scan_off_normal_ms: Number.parseInt(configFields.btOffNormal.value, 10),
+        ota_enabled: configFields.otaEnabled.checked,
+      };
+    }
+
+    function setSerialSupportState() {
+      if ("serial" in navigator) {
+        setPill(serialSupportPill, "Web Serial verfuegbar", "ok");
+      } else {
+        setPill(serialSupportPill, "Web Serial fehlt", "bad");
+      }
+      if (window.location.protocol === "file:") {
+        originWarning.hidden = false;
+      }
+      if (bundledRelease?.tag_name) {
+        infoRelease.textContent = bundledRelease.tag_name;
+        appendLog("[BUNDLE] Lokales Release-Bundle gefunden: " + bundledRelease.tag_name);
+      }
+    }
+
+    controls.connectRuntimeBtn.addEventListener("click", async () => {
+      try {
+        await connectRuntimeSerial();
+      } catch (err) {
+        appendLog("[SERIAL] " + err.message);
+      }
+    });
+
+    controls.disconnectRuntimeBtn.addEventListener("click", () => disconnectRuntimeSerial());
+    controls.getInfoBtn.addEventListener("click", () => sendRuntimeCommand({ cmd: "get_info" }).catch((err) => appendLog("[SERIAL] " + err.message)));
+    controls.getConfigBtn.addEventListener("click", () => sendRuntimeCommand({ cmd: "get_config" }).catch((err) => appendLog("[SERIAL] " + err.message)));
+    controls.rebootBtn.addEventListener("click", () => sendRuntimeCommand({ cmd: "reboot" }).catch((err) => appendLog("[SERIAL] " + err.message)));
+    controls.setNameBtn.addEventListener("click", () => sendRuntimeCommand({ cmd: "set_name", name: configFields.deviceName.value }).catch((err) => appendLog("[SERIAL] " + err.message)));
+    controls.saveConfigBtn.addEventListener("click", () => sendRuntimeCommand({ cmd: "set_config", config: buildConfigPayload() }).catch((err) => appendLog("[SERIAL] " + err.message)));
+    controls.resetConfigBtn.addEventListener("click", () => sendRuntimeCommand({ cmd: "reset_config" }).catch((err) => appendLog("[SERIAL] " + err.message)));
+
+    controls.loadReleaseBtn.addEventListener("click", async () => {
+      try {
+        await loadLatestRelease();
+      } catch (err) {
+        setPill(flashPill, "Release-Fehler", "bad");
+        appendLog("[RELEASE] " + err.message);
+      }
+    });
+
+    controls.flashReleaseBtn.addEventListener("click", async () => {
+      try {
+        const entries = await getReleaseFlashEntries();
+        await runFlash(entries);
+      } catch (err) {
+        setPill(flashPill, "Flash fehlgeschlagen", "bad");
+        appendLog("[FLASH] " + err.message);
+      }
+    });
+
+    controls.flashOfflineBtn.addEventListener("click", async () => {
+      try {
+        const entries = await getOfflineFlashEntries();
+        await runFlash(entries);
+      } catch (err) {
+        setPill(flashPill, "Offline-Flash fehlgeschlagen", "bad");
+        appendLog("[FLASH] " + err.message);
+      }
+    });
+
+    window.addEventListener("beforeunload", () => {
+      if (runtimeWriter) runtimeWriter.releaseLock();
+      if (runtimeReader) runtimeReader.releaseLock();
+    });
+
+    setSerialSupportState();
+    setRuntimeUi(false);
+    appendLog("[INIT] Seite bereit");
+  </script>
+</body>
+</html>
