@@ -44,6 +44,8 @@ void ConfigManager::setDefaults() {
     // BT scan defaults already initialized in header
     // Control bindings default: mirrors current hardcoded behavior
     control_bindings_json = String(getDefaultControlBindingsJson());
+    bt_whitelist_enabled = false;
+    bt_whitelist.clear();
 }
 
 bool ConfigManager::fileExists(const char* path) {
@@ -128,6 +130,17 @@ bool ConfigManager::loadConfig() {
         control_bindings_json = tmp;
     }
 
+    // Bluetooth Whitelist
+    bt_whitelist_enabled = doc["bt_whitelist_enabled"] | false;
+    bt_whitelist.clear();
+    if (doc.containsKey("bt_whitelist")) {
+        JsonArray wlArr = doc["bt_whitelist"].as<JsonArray>();
+        for (JsonVariant v : wlArr) {
+            String mac = v.as<String>();
+            if (mac.length() == 17) bt_whitelist.push_back(mac);
+        }
+    }
+
     return true;
 }
 
@@ -187,6 +200,11 @@ bool ConfigManager::saveConfig() {
             doc["control_bindings"] = binds;
         }
     }
+
+    // Bluetooth Whitelist
+    doc["bt_whitelist_enabled"] = bt_whitelist_enabled;
+    JsonArray wlArr = doc.createNestedArray("bt_whitelist");
+    for (const auto& mac : bt_whitelist) wlArr.add(mac);
 
     File file = LittleFS.open("/config.json", "w");
     if (!file) {

@@ -8,6 +8,7 @@
 #include "SystemMonitor.h"
 #include "WebServerManager.h"
 #include "ConfigManager.h"
+#include <functional>
 
 class TinkerThinkerBoard {
 public:
@@ -58,6 +59,10 @@ public:
     int getMotorPWM(int motorIndex);
     void setSpeedMultiplier(float m);
     float getSpeedMultiplier();
+
+    void notifyControllerConnected(int slot, const char* mac, const char* model);
+    void notifyControllerDisconnected(int slot);
+    void setWhitelistApplyCallback(std::function<void()> cb);
 
 private:
     enum class ControlSource { None, Bluetooth, WebSocket };

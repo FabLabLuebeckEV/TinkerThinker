@@ -7,9 +7,16 @@
 #include <WiFi.h>
 #include <ArduinoJson.h>
 #include <Update.h>
+#include <functional>
 
 class TinkerThinkerBoard; 
 class ConfigManager;
+
+struct ConnectedControllerInfo {
+    bool connected = false;
+    char mac[18] = {};
+    char model[32] = {};
+};
 
 class WebServerManager {
 public:
@@ -19,6 +26,10 @@ public:
     void requestWifiEnable();
     void sendStatusUpdate();
     bool isWifiDisabled() const { return wifiDisabledUntilRestart || wifiTemporarilyDisabled; }
+
+    void notifyControllerConnected(int slot, const char* mac, const char* model);
+    void notifyControllerDisconnected(int slot);
+    void setWhitelistApplyCallback(std::function<void()> cb) { whitelistApplyCallback = cb; }
 
 private:
     TinkerThinkerBoard* board;
@@ -34,7 +45,7 @@ private:
     bool wifiStartupInProgress = false;
     bool _otaError = false;
 
-    void onWebSocketEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, 
+    void onWebSocketEvent(AsyncWebSocket *server, AsyncWebSocketClient *client,
                           AwsEventType type, void *arg, uint8_t *data, size_t len);
     void setupRoutes();
     void setupWebSocket();
@@ -43,6 +54,9 @@ private:
     void disableWifiUntilRestart();
     void disableWifiInternal(bool permanent);
     void enableWifiInternal();
+
+    ConnectedControllerInfo connectedControllers[4];
+    std::function<void()> whitelistApplyCallback;
 };
 
 // Helper to register control bindings REST endpoints

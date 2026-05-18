@@ -512,6 +512,142 @@ function closePopup() {
   document.getElementById('restartPopup').style.display = 'none';
 }
 
+// ── Bluetooth Whitelist UI ────────────────────────────────────────────────────
+
+let btWhitelistAddresses = [];
+
+function btMacValid(mac) {
+  return /^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$/.test(mac);
+}
+
+async function btLoadWhitelist() {
+  try {
+    const res = await fetch('/bt/whitelist');
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    document.getElementById('bt_whitelist_enabled').checked = !!data.enabled;
+    btWhitelistAddresses = Array.isArray(data.addresses) ? data.addresses.slice() : [];
+    btRenderWhitelistEntries();
+  } catch (e) {
+    document.getElementById('bt-whitelist-entries').innerHTML =
+      '<p style="color:red;">Fehler beim Laden der Whitelist.</p>';
+  }
+}
+
+function btRenderWhitelistEntries() {
+  const div = document.getElementById('bt-whitelist-entries');
+  if (btWhitelistAddresses.length === 0) {
+    div.innerHTML = '<p style="color:#888; font-style:italic;">Keine Einträge – alle Controller können verbinden (solange Whitelist deaktiviert).</p>';
+    return;
+  }
+  let html = '<table style="border-collapse:collapse; width:100%; max-width:480px;">';
+  html += '<tr><th style="text-align:left; padding:4px 8px;">MAC-Adresse</th><th></th></tr>';
+  btWhitelistAddresses.forEach((mac, idx) => {
+    html += `<tr style="border-top:1px solid #eee;">
+      <td style="padding:4px 8px; font-family:monospace;">${mac}</td>
+      <td style="padding:4px 8px;">
+        <button type="button" onclick="btWhitelistRemove(${idx})"
+          style="background:#dc3545; padding:4px 10px; font-size:0.8em;">Entfernen</button>
+      </td>
+    </tr>`;
+  });
+  html += '</table>';
+  div.innerHTML = html;
+}
+
+function btWhitelistRemove(idx) {
+  btWhitelistAddresses.splice(idx, 1);
+  btRenderWhitelistEntries();
+}
+
+function btWhitelistAddMac(mac) {
+  mac = mac.toUpperCase().trim();
+  if (!btMacValid(mac)) {
+    alert('Ungültige MAC-Adresse. Format: XX:XX:XX:XX:XX:XX');
+    return false;
+  }
+  if (btWhitelistAddresses.includes(mac)) {
+    alert('Diese MAC-Adresse ist bereits in der Whitelist.');
+    return false;
+  }
+  btWhitelistAddresses.push(mac);
+  btRenderWhitelistEntries();
+  return true;
+}
+
+function btWhitelistAddManual() {
+  const input = document.getElementById('bt-mac-input');
+  if (btWhitelistAddMac(input.value)) {
+    input.value = '';
+  }
+}
+
+async function btWhitelistSave() {
+  const status = document.getElementById('bt-whitelist-status');
+  status.textContent = 'Speichern…';
+  status.style.color = '#333';
+  try {
+    const body = {
+      enabled: document.getElementById('bt_whitelist_enabled').checked,
+      addresses: btWhitelistAddresses
+    };
+    const res = await fetch('/bt/whitelist', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    status.textContent = 'Gespeichert!';
+    status.style.color = 'green';
+    setTimeout(() => { status.textContent = ''; }, 3000);
+  } catch (e) {
+    status.textContent = 'Fehler beim Speichern: ' + e.message;
+    status.style.color = 'red';
+  }
+}
+
+async function btLoadControllers() {
+  const div = document.getElementById('bt-connected-list');
+  try {
+    const res = await fetch('/bt/controllers');
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    const controllers = Array.isArray(data.controllers) ? data.controllers : [];
+    if (controllers.length === 0) {
+      div.innerHTML = '<p style="color:#888; font-style:italic;">Kein Controller verbunden.</p>';
+      return;
+    }
+    let html = '<table style="border-collapse:collapse; width:100%; max-width:540px;">';
+    html += '<tr><th style="text-align:left; padding:4px 8px;">Modell</th>'
+          + '<th style="text-align:left; padding:4px 8px;">MAC-Adresse</th><th></th></tr>';
+    controllers.forEach(ctrl => {
+      html += `<tr style="border-top:1px solid #eee;">
+        <td style="padding:4px 8px;">${ctrl.model || '(unbekannt)'}</td>
+        <td style="padding:4px 8px; font-family:monospace;">${ctrl.mac}</td>
+        <td style="padding:4px 8px;">
+          <button type="button" onclick="btAddFromController('${ctrl.mac}')"
+            style="background:#0069d9; padding:4px 10px; font-size:0.8em;">+ Zur Whitelist</button>
+        </td>
+      </tr>`;
+    });
+    html += '</table>';
+    div.innerHTML = html;
+  } catch (e) {
+    div.innerHTML = '<p style="color:red;">Fehler beim Laden der Controller-Liste.</p>';
+  }
+}
+
+function btAddFromController(mac) {
+  if (btWhitelistAddMac(mac)) {
+    const status = document.getElementById('bt-whitelist-status');
+    status.textContent = mac + ' zur Whitelist hinzugefügt (noch nicht gespeichert)';
+    status.style.color = '#0069d9';
+    setTimeout(() => { if (status.textContent.includes(mac)) status.textContent = ''; }, 4000);
+  }
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+
 // Initialisieren der WebSocket-Verbindung und Collapsibles beim Laden der Seite
 window.onload = function() {
   connectWebSocket();
@@ -519,4 +655,6 @@ window.onload = function() {
   setupWifiDisableButton();
   setupDriveProfileControls();
   loadConfig();
+  btLoadWhitelist();
+  btLoadControllers();
 };

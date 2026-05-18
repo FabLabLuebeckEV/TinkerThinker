@@ -58,6 +58,18 @@ static void emitSerialReady();
 static char serialCmdBuffer[1024];
 static size_t serialCmdLen = 0;
 
+static void applyWhitelistFromConfig() {
+    uni_bt_allowlist_remove_all();
+    const std::vector<String>& addrs = configManager.getBtWhitelist();
+    for (const auto& mac : addrs) {
+        bd_addr_t addr;
+        if (sscanf_bd_addr(mac.c_str(), addr)) {
+            uni_bt_allowlist_add_addr(addr);
+        }
+    }
+    uni_bt_allowlist_set_enabled(configManager.getBtWhitelistEnabled());
+}
+
 static String formatBtMac() {
     const uint8_t* addr = BP32.localBdAddress();
     char buf[18];
@@ -375,8 +387,15 @@ void onConnectedController(ControllerPtr ctl) {
             ControllerProperties properties = ctl->getProperties();
             Console.printf("Controller model: %s, VID=0x%04x, PID=0x%04x\n", ctl->getModelName(), properties.vendor_id,
                            properties.product_id);
+            // Format MAC in standard Bluetooth notation (MSB first = index 5..0)
+            char mac[18];
+            snprintf(mac, sizeof(mac), "%02X:%02X:%02X:%02X:%02X:%02X",
+                properties.btaddr[5], properties.btaddr[4], properties.btaddr[3],
+                properties.btaddr[2], properties.btaddr[1], properties.btaddr[0]);
+            Console.printf("Controller MAC: %s\n", mac);
             myControllers[i] = ctl;
             foundEmptySlot = true;
+            board.notifyControllerConnected(i, mac, ctl->getModelName());
             board.setLED(0, 0, 255, 0); // Green
             board.showLEDs();
             if (radioMode == RadioMode::Normal) {
@@ -398,6 +417,7 @@ void onDisconnectedController(ControllerPtr ctl) {
             Console.printf("CALLBACK: Controller disconnected from index=%d\n", i);
             myControllers[i] = nullptr;
             foundController = true;
+            board.notifyControllerDisconnected(i);
             board.setLED(0, 255, 0, 0); // Red
             board.showLEDs();
             // Stop all motors as a safety measure
@@ -481,7 +501,9 @@ void setup() {
     BP32.enableBLEService(false);
     BP32.enableNewBluetoothConnections(false);
     sm_set_secure_connections_only_mode(false);                        // SC ausschalten
-    uni_bt_allowlist_set_enabled(false);                             // Allowlist ausschalten
+    applyWhitelistFromConfig();
+
+    board.setWhitelistApplyCallback(applyWhitelistFromConfig);
 
     Console.printf("Firmware: %s\n", BP32.firmwareVersion());
     const uint8_t* addr = BP32.localBdAddress();

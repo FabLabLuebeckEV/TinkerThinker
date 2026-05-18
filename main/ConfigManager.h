@@ -85,6 +85,12 @@ public:
     void setControlBindingsJson(const String &json) { control_bindings_json = json; }
     static const char* getDefaultControlBindingsJson();
 
+    // Bluetooth Whitelist
+    bool getBtWhitelistEnabled() const { return bt_whitelist_enabled; }
+    const std::vector<String>& getBtWhitelist() const { return bt_whitelist; }
+    void setBtWhitelistEnabled(bool enabled) { bt_whitelist_enabled = enabled; }
+    void setBtWhitelist(const std::vector<String>& addrs) { bt_whitelist = addrs; }
+
 private:
     bool motor_invert[4];
     bool motor_swap;
@@ -121,6 +127,9 @@ private:
     int bt_scan_off_ap_ms = 1900;
 
     String control_bindings_json; // raw JSON string for control mappings
+
+    bool bt_whitelist_enabled = false;
+    std::vector<String> bt_whitelist;
 
     void setDefaults();
 };

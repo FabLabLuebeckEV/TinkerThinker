@@ -370,6 +370,63 @@ document.getElementById('f').onsubmit=function(e){
         ESP.restart();
     });
 
+    // GET connected controllers (MAC + model)
+    server.on("/bt/controllers", HTTP_GET, [this](AsyncWebServerRequest *request){
+        DynamicJsonDocument doc(512);
+        JsonArray arr = doc.createNestedArray("controllers");
+        for (int i = 0; i < 4; i++) {
+            if (connectedControllers[i].connected) {
+                JsonObject obj = arr.createNestedObject();
+                obj["slot"] = i;
+                obj["mac"] = connectedControllers[i].mac;
+                obj["model"] = connectedControllers[i].model;
+            }
+        }
+        String json;
+        serializeJson(doc, json);
+        request->send(200, "application/json", json);
+    });
+
+    // GET whitelist config
+    server.on("/bt/whitelist", HTTP_GET, [this](AsyncWebServerRequest *request){
+        DynamicJsonDocument doc(1024);
+        doc["enabled"] = config->getBtWhitelistEnabled();
+        JsonArray arr = doc.createNestedArray("addresses");
+        for (const auto& mac : config->getBtWhitelist()) arr.add(mac);
+        String json;
+        serializeJson(doc, json);
+        request->send(200, "application/json", json);
+    });
+
+    // POST whitelist config (body: {"enabled": bool, "addresses": [...]})
+    server.on("/bt/whitelist", HTTP_POST,
+        [this](AsyncWebServerRequest *request){
+            request->send(200, "text/plain", "OK");
+        },
+        NULL,
+        [this](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total){
+            String body;
+            body.reserve(total);
+            body.concat((const char*)data, len);
+            DynamicJsonDocument doc(1024);
+            if (deserializeJson(doc, body) != DeserializationError::Ok) return;
+            if (doc.containsKey("enabled")) {
+                config->setBtWhitelistEnabled(doc["enabled"].as<bool>());
+            }
+            if (doc.containsKey("addresses")) {
+                std::vector<String> addrs;
+                JsonArray arr = doc["addresses"].as<JsonArray>();
+                for (JsonVariant v : arr) {
+                    String mac = v.as<String>();
+                    if (mac.length() == 17) addrs.push_back(mac);
+                }
+                config->setBtWhitelist(addrs);
+            }
+            config->saveConfig();
+            if (whitelistApplyCallback) whitelistApplyCallback();
+        }
+    );
+
     server.on("/reboot", HTTP_GET, [this](AsyncWebServerRequest* request){
         request->send(200, "text/plain", "Rebooting...");
         delay(1000);
@@ -548,6 +605,22 @@ void WebServerManager::handleConfig(AsyncWebServerRequest* request) {
 
     // Redirect
     request->redirect("/config");
+}
+
+void WebServerManager::notifyControllerConnected(int slot, const char* mac, const char* model) {
+    if (slot < 0 || slot >= 4) return;
+    connectedControllers[slot].connected = true;
+    strncpy(connectedControllers[slot].mac, mac ? mac : "", 17);
+    connectedControllers[slot].mac[17] = '\0';
+    strncpy(connectedControllers[slot].model, model ? model : "", 31);
+    connectedControllers[slot].model[31] = '\0';
+}
+
+void WebServerManager::notifyControllerDisconnected(int slot) {
+    if (slot < 0 || slot >= 4) return;
+    connectedControllers[slot].connected = false;
+    connectedControllers[slot].mac[0] = '\0';
+    connectedControllers[slot].model[0] = '\0';
 }
 
 // New endpoints for control bindings JSON

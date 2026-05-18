@@ -24,9 +24,9 @@
 
   <div class="controls">
     <h1><span id="deviceName">TinkerThinker</span> Konfiguration</h1>
-  
+
     <form id="configForm" method="post" action="/config">
-    
+
     <!-- WLAN Einstellungen -->
     <section>
       <h2>WLAN Einstellungen</h2>
@@ -109,7 +109,7 @@
         <!-- Dynamisch per JS befüllt -->
       </div>
     </section>
-   
+
     <!-- Fahrprofil -->
     <section>
       <h2>Fahrprofil</h2>
@@ -213,7 +213,7 @@
           </span>
         </label>
         <input type="checkbox" name="ota_enabled" id="ota_enabled"><br>
-        
+
         <h3>Servo Einstellungen
           <span class="tooltip">i
             <span class="tooltiptext">
@@ -275,7 +275,59 @@
 
     <input type="submit" value="Speichern">
     </form>
-  
+
+    <!-- Controller Whitelist – eigene REST-Logik, außerhalb des Hauptformulars -->
+    <section id="bt-whitelist-section" style="margin-top:20px;">
+      <h2>Controller (Bluetooth Whitelist)</h2>
+
+      <div class="row" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:12px;">
+        <label for="bt_whitelist_enabled">
+          Whitelist aktivieren:
+          <span class="tooltip">i
+            <span class="tooltiptext">
+              Wenn aktiv, werden nur Controller mit eingetragener MAC-Adresse akzeptiert. Ist die Liste leer, kann kein Controller verbinden.
+            </span>
+          </span>
+        </label>
+        <input type="checkbox" id="bt_whitelist_enabled">
+      </div>
+
+      <!-- Verbundene Controller – immer sichtbar, zeigt MACs zum Kopieren -->
+      <div id="bt-connected-panel" style="margin-bottom:16px;">
+        <h3>Aktuell verbundene Controller</h3>
+        <p style="color:#555; font-size:0.9em;">
+          Hier werden alle aktuell via Bluetooth verbundenen Controller angezeigt.<br>
+          Klicke auf <strong>+ Zur Whitelist</strong>, um die MAC-Adresse direkt zu übernehmen.
+        </p>
+        <div id="bt-connected-list">
+          <p style="color:#888; font-style:italic;">Lade Controller-Status…</p>
+        </div>
+        <button type="button" onclick="btLoadControllers()" style="margin-top:6px; background:#6c757d; font-size:0.85em; padding:6px 12px;">
+          Aktualisieren
+        </button>
+      </div>
+
+      <!-- Whitelist-Einträge -->
+      <div>
+        <h3>Whitelist-Einträge</h3>
+        <div id="bt-whitelist-entries">
+          <p style="color:#888; font-style:italic;">Lade Whitelist…</p>
+        </div>
+        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top:10px;">
+          <input type="text" id="bt-mac-input" placeholder="XX:XX:XX:XX:XX:XX" maxlength="17"
+            style="width:210px; font-family:monospace; text-transform:uppercase;">
+          <button type="button" onclick="btWhitelistAddManual()">Hinzufügen</button>
+        </div>
+      </div>
+
+      <div style="margin-top:16px; display:flex; align-items:center; gap:16px; flex-wrap:wrap;">
+        <button type="button" onclick="btWhitelistSave()" style="background:#28a745;">
+          Whitelist speichern
+        </button>
+        <span id="bt-whitelist-status" style="font-size:0.9em;"></span>
+      </div>
+    </section>
+
     <!-- Reset und Reboot Buttons -->
     <div class="action-buttons">
       <button onclick="resetConfig()">Auf Werkseinstellungen zurücksetzen</button>

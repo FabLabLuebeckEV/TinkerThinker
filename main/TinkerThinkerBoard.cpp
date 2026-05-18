@@ -192,6 +192,18 @@ void TinkerThinkerBoard::requestWifiEnable() {
     }
 }
 
+void TinkerThinkerBoard::notifyControllerConnected(int slot, const char* mac, const char* model) {
+    if (webServerManager) webServerManager->notifyControllerConnected(slot, mac, model);
+}
+
+void TinkerThinkerBoard::notifyControllerDisconnected(int slot) {
+    if (webServerManager) webServerManager->notifyControllerDisconnected(slot);
+}
+
+void TinkerThinkerBoard::setWhitelistApplyCallback(std::function<void()> cb) {
+    if (webServerManager) webServerManager->setWhitelistApplyCallback(cb);
+}
+
 // --- Arbitration helpers ---
 bool TinkerThinkerBoard::shouldAccept(ControlSource src, bool isActive) {
     uint32_t now = millis();
