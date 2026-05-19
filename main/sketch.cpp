@@ -385,7 +385,8 @@ void onConnectedController(ControllerPtr ctl) {
         if (myControllers[i] == nullptr) {
             Console.printf("CALLBACK: Controller is connected, index=%d\n", i);
             ControllerProperties properties = ctl->getProperties();
-            Console.printf("Controller model: %s, VID=0x%04x, PID=0x%04x\n", ctl->getModelName(), properties.vendor_id,
+            String modelName = ctl->getModelName();
+            Console.printf("Controller model: %s, VID=0x%04x, PID=0x%04x\n", modelName.c_str(), properties.vendor_id,
                            properties.product_id);
             // Format MAC in standard Bluetooth notation (MSB first = index 5..0)
             char mac[18];
@@ -395,7 +396,7 @@ void onConnectedController(ControllerPtr ctl) {
             Console.printf("Controller MAC: %s\n", mac);
             myControllers[i] = ctl;
             foundEmptySlot = true;
-            board.notifyControllerConnected(i, mac, ctl->getModelName());
+            board.notifyControllerConnected(i, mac, modelName.c_str());
             board.setLED(0, 0, 255, 0); // Green
             board.showLEDs();
             if (radioMode == RadioMode::Normal) {
