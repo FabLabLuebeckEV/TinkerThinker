@@ -1,37 +1,35 @@
-# Design: Live-Button-Ansicht & Binding-Persistenz-Fix
+# Design: Controller-Diagnose, Persistenz-Fix, LED- & Servo/Motor-Komfort
 
 **Datum:** 2026-06-17
 **Status:** Genehmigt (Design)
-**Scope dieser Session:** Persistenz-Bug der Control-Bindings beheben + Live-Button-Ansicht im Steuerungs-Editor.
+**Scope dieser Session (vollständig):**
+1. Persistenz-Bug der Control-Bindings beheben (A)
+2. Live-Button-Ansicht im Steuerungs-Editor (B)
+3. A/B/X/Y-Masken-Fix (C)
+4. LED-Farb-Problem („alles weiß") + Live-LED-Steuerung (D)
+5. Servo/Motor-Komfort: Live-Test-Slider + erweiterte Aktionen (E)
 
 ## Kontext / Problem
 
 Über die Weboberfläche (`controls.html`) lassen sich Controller-Buttons mit Aktionen
-belegen. Beim Test traten drei Probleme auf:
+belegen. Beim Test traten mehrere Probleme auf:
 
-1. **Bindings werden nicht gespeichert** — nach einem Reload sind die Einstellungen weg.
+1. **Bindings werden nicht gespeichert** — nach Reload sind die Einstellungen weg.
 2. **A/B/X/Y vertauscht** — Buttons wie Kreuz/Viereck lösen die falsche Aktion aus.
-3. **Keine Sichtbarkeit** — man kann nicht sehen, welcher physische Button welcher ist.
+3. **Keine Sichtbarkeit** — man sieht nicht, welcher physische Button welcher ist.
+4. **LED-Farben „eher weiß"** — gewählte Farben passen nicht zum LED-Bild.
 
-Diese Session behandelt **(1)** und **(3)**. Problem **(2)** ist diagnostiziert
-(siehe unten) und bewusst zurückgestellt — die Live-Ansicht aus (3) macht den Bug
-sichtbar, sodass er anschließend gezielt nachgezogen werden kann.
+Zusätzlich soll die Servo-/Motor-Steuerung komfortabler werden.
 
-### Diagnose von (2) — Referenz, nicht in dieser Session gefixt
+### Wichtiger Architektur-Befund
 
-In `main/InputBindingManager.cpp::buttonMaskFromString()` stehen falsche Bit-Werte
-gegenüber den echten Bluepad32-Konstanten
-(`components/bluepad32/include/controller/uni_gamepad.h`):
+Die Firmware verarbeitet in `WebServerManager::onWebSocketEvent()` **bereits** Live-Befehle
+über WebSocket (`/ws`):
+- Servo: `{"servoN": winkel}` → `board->setServoAngle()`
+- Motor (roh, ohne Deadband): `{"motor_raw":{"motor":idx,"pwm":val}}` → `board->controlMotorRaw()`
+- LED: `{"led_set":{"start":s,"count":c,"color":"#RRGGBB"}}` → `board->setLED()` + `showLEDs()`
 
-| UI-Code (Label)   | Firmware nutzt | Bluepad32 korrekt |
-|-------------------|----------------|-------------------|
-| `BTN_A` (Kreuz ×) | 2              | **1** (`BIT(0)`)  |
-| `BTN_B` (Kreis ○) | 1              | **2** (`BIT(1)`)  |
-| `BTN_X` (Viereck □)| 8             | **4** (`BIT(2)`)  |
-| `BTN_Y` (Dreieck △)| 4             | **8** (`BIT(3)`)  |
-
-A↔B und X↔Y sind paarweise vertauscht. L1/R1/L2/R2/Stick-Masken und das D-Pad
-(`dpadMaskFromString`) sind korrekt.
+Die Live-Test- und Live-LED-Funktionen (D, E) sind daher überwiegend **Frontend-Arbeit**.
 
 ## Teil A — Persistenz-Fix (Bindings speichern)
 
@@ -40,65 +38,49 @@ aber die zwei Fehlerquellen werden robust gemacht.
 
 ### A1. Chunked-POST-Handler robust machen
 
-**Datei:** `main/WebServerManager.cpp`, `registerBindingsRoutes()`, Route
-`POST /control_bindings`.
+**Datei:** `main/WebServerManager.cpp`, `registerBindingsRoutes()`, Route `POST /control_bindings`.
 
 Aktuell verarbeitet der Body-Handler nur den ersten Chunk und ignoriert `index`/`total`:
 
 ```cpp
 String body;
-body.reserve(total);
 body.concat((const char*)data, len);   // nur 1. Chunk
 DynamicJsonDocument bd(8192);
 if (deserializeJson(bd, body) == ...) { ... }   // bei mehreren Chunks: kaputt
 ```
 
-**Fix:** Body über mehrere Chunks akkumulieren und erst beim letzten Chunk
-parsen + speichern.
-
-- Puffer pro Request über `request->_tempObject` (ein `String*`), oder ein an den
-  Request gebundener Akkumulator.
-- Bei `index == 0`: Puffer anlegen, `reserve(total)`.
-- Jeden Chunk anhängen: `buf->concat((const char*)data, len)`.
-- Wenn `index + len == total`: `deserializeJson` → bei Erfolg `setControlBindingsJson()`
-  + `saveConfig()`; Puffer freigeben.
-- Speicher-Ergebnis (Erfolg/Fehler) per `Serial.println` loggen (für A3).
+**Fix:** Body über mehrere Chunks akkumulieren (Puffer über `request->_tempObject`),
+erst bei `index + len == total` parsen + `setControlBindingsJson()` + `saveConfig()`.
+Ergebnis per `Serial.println` loggen (A3).
 
 ### A2. JSON-Overflow in `saveConfig()` erkennen statt still abschneiden
 
 **Datei:** `main/ConfigManager.cpp`, `saveConfig()` / `loadConfig()`.
 
 `saveConfig()` baut die gesamte Konfiguration inkl. Deep-Copy der Bindings in einem
-`StaticJsonDocument<8192>`. Bei vielen Bindings kann das überlaufen → `serializeJson`
-schreibt unvollständiges JSON → `loadConfig()` schlägt beim Parsen fehl → In-Memory
-bleiben die Defaults → Bindings „verschwinden" beim Reload.
+`StaticJsonDocument<8192>`. Bei vielen Bindings → Overflow → unvollständiges JSON →
+`loadConfig()` schlägt beim Parsen fehl → Defaults bleiben → Bindings „verschwinden".
 
 **Fix (minimal):**
-
-- Kapazität erhöhen: `StaticJsonDocument<8192>` → `DynamicJsonDocument(16384)` für
-  Save und Load (Wert nach realer Größe wählen; großzügig dimensioniert).
-- Nach dem Befüllen vor dem Schreiben prüfen: `if (doc.overflowed()) { Serial.println(...); return false; }`
+- `StaticJsonDocument<8192>` → `DynamicJsonDocument(16384)` für Save und Load.
+- Vor dem Schreiben prüfen: `if (doc.overflowed()) { Serial.println(...); return false; }`
   — niemals stillschweigend eine abgeschnittene Datei schreiben.
-- In `loadConfig()` Parse-Fehler weiterhin per Serial loggen (existiert bereits) und
-  zusätzlich klar als Fehlerfall behandeln.
+- Parse-Fehler in `loadConfig()` klar als Fehler loggen (Logging existiert bereits).
 
 ### A3. Verifizierbarkeit
 
-Serial-Logs an den entscheidenden Stellen (POST empfangen, Bytes, Parse-OK/-Fehler,
-Save-OK/Overflow, Load-OK/Fehler). Der Nutzer flasht und verifiziert über den
-Serial-Monitor + Reload-Test (Flashen kann der Assistent nicht selbst).
+Serial-Logs an den entscheidenden Stellen (POST empfangen/Bytes, Parse-OK/-Fehler,
+Save-OK/Overflow, Load-OK/Fehler). Nutzer flasht und verifiziert über Serial-Monitor +
+Reload-Test (Flashen kann der Assistent nicht selbst).
 
 ## Teil B — Live-Button-Ansicht im Steuerungs-Editor
 
-Anzeige direkt in `controls.html`: das aktuell gedrückte Element wird im vorhandenen
-Controller-Layout hervorgehoben. Aktionen laufen dabei **normal weiter** (kein
-Testmodus — bewusst einfachste Variante).
+Anzeige in `controls.html`: das gedrückte Element wird im Controller-Layout hervorgehoben.
+Aktionen laufen dabei **normal weiter** (kein Testmodus — bewusst einfachste Variante).
 
 ### B1. Firmware — Input-Snapshot im Board
 
 **Dateien:** `main/TinkerThinkerBoard.h/.cpp`, `main/sketch.cpp`.
-
-Neue Struktur, im Board gehalten:
 
 ```cpp
 struct ControllerInputSnapshot {
@@ -111,56 +93,104 @@ struct ControllerInputSnapshot {
 ControllerInputSnapshot latestInput[BP32_MAX_GAMEPADS];
 ```
 
-- Setter `updateControllerSnapshot(int idx, ControllerPtr ctl)` füllt den Snapshot aus
-  `ctl->buttons()`, `ctl->dpad()`, `ctl->axisX()` … und `updatedMs = millis()`.
-- Aufruf in `processGamepad()` (`sketch.cpp`) pro Frame für den jeweiligen Index.
-- Bei Disconnect (`onDisconnectedController`) `latestInput[idx].connected = false`.
-- Getter für `sendStatusUpdate()` (z.B. `const ControllerInputSnapshot& getControllerSnapshot(int idx)`).
+- Setter `updateControllerSnapshot(int idx, ControllerPtr ctl)`, aufgerufen in
+  `processGamepad()` pro Frame.
+- Disconnect → `latestInput[idx].connected = false`.
+- Getter für `sendStatusUpdate()`.
 
 ### B2. Firmware — Telemetrie erweitern
 
 **Datei:** `main/WebServerManager.cpp`, `sendStatusUpdate()`.
-
-- `StaticJsonDocument<512>` → `<1024>` (Platz für Controller-Array).
-- Neues Feld `controllers`: Array mit je `{idx, buttons, dpad, x, y, rx, ry}` für jeden
-  verbundenen Controller. Rohwerte (uint), Dekodierung passiert im Frontend.
-- **Update-Cadence:** WebClientTask-Delay in `TinkerThinkerBoard.cpp::startServices()`
-  von `1000 ms` auf `100 ms` (10 Hz) senken, damit kurze Tastendrücke sichtbar sind.
-  Telemetrie bleibt leichtgewichtig (kleines JSON).
+- `StaticJsonDocument<512>` → `<1024>`.
+- Neues Feld `controllers`: Array mit `{idx, buttons, dpad, x, y, rx, ry}` je verbundenem Controller.
+- **Cadence:** WebClientTask-Delay in `TinkerThinkerBoard.cpp::startServices()` von `1000 ms`
+  auf `100 ms` (10 Hz) senken.
 
 ### B3. Frontend — controls.js / controls.html
 
 **Dateien:** `data/controls.js`, `data/controls.html`, `data/styles.css`.
+- WebSocket zu `ws://<host>/ws` (Muster aus `script.js`/`setup.js`), mit Auto-Reconnect.
+- `onmessage`: `controllers` lesen; Buttons mit den **echten** Bluepad32-Bits dekodieren
+  (`A=1,B=2,X=4,Y=8,L1=16,R1=32,L2=64,R2=128,STICK_L=256,STICK_R=512`; D-Pad `UP=1,DOWN=2,RIGHT=4,LEFT=8`).
+- Gesetzte Bits → Element im Layout mit CSS-Klasse `.live-pressed` hervorheben.
+- Achsen/Sticks visualisieren; „verbunden/getrennt"-Status (mit Timeout).
 
-- WebSocket zu `ws://<host>/ws` öffnen (Muster aus `data/script.js`), mit Auto-Reconnect.
-- `onmessage`: JSON parsen; falls `controllers` vorhanden, ersten/relevanten Controller nehmen.
-- **Button-Dekodierung mit den ECHTEN Bluepad32-Bits** (nicht den vertauschten der Engine):
-  - `BTN_A=1, BTN_B=2, BTN_X=4, BTN_Y=8, L1=16, R1=32, L2=64, R2=128, STICK_L=256, STICK_R=512`
-  - D-Pad: `UP=1, DOWN=2, RIGHT=4, LEFT=8`
-- Für jedes gesetzte Bit das zugehörige Element im Controller-Layout mit CSS-Klasse
-  `.live-pressed` hervorheben (entfernen, wenn nicht mehr gedrückt).
-- Achsen/Sticks anhand der Werte visualisieren (z.B. Stick-Punkt verschieben oder
-  „aktiv"-Highlight bei Auslenkung über Deadband).
-- Kleiner Statusindikator „Controller verbunden / getrennt" (aus `connected` bzw.
-  Anwesenheit im `controllers`-Array; Timeout, wenn länger keine Daten).
+## Teil C — A/B/X/Y-Masken-Fix
 
-### Diagnose-Effekt (bestätigt Problem 2)
+**Datei:** `main/InputBindingManager.cpp`, `buttonMaskFromString()`.
 
-Die Live-Ansicht dekodiert mit den korrekten Bits, die Binding-Engine mit den
-vertauschten. Sichtbares Resultat: Kreuz drücken → „Kreuz" leuchtet korrekt, aber eine
-Kreuz-Belegung feuert nicht (sie reagiert auf Kreis). Damit ist der A/B/X/Y-Bug
-visuell belegt; der Fix (Tausch in `buttonMaskFromString`) kann anschließend gezielt
-nachgezogen werden.
+Falsche Bit-Werte gegenüber Bluepad32 (`components/bluepad32/include/controller/uni_gamepad.h`):
+
+| UI-Code (Label)    | Firmware (falsch) | Bluepad32 korrekt |
+|--------------------|-------------------|-------------------|
+| `BTN_A` (Kreuz ×)  | 2                 | **1** (`BIT(0)`)  |
+| `BTN_B` (Kreis ○)  | 1                 | **2** (`BIT(1)`)  |
+| `BTN_X` (Viereck □)| 8                 | **4** (`BIT(2)`)  |
+| `BTN_Y` (Dreieck △)| 4                 | **8** (`BIT(3)`)  |
+
+A↔B und X↔Y sind paarweise vertauscht; L1/R1/L2/R2/Stick und D-Pad sind korrekt.
+**Fix:** Werte auf `A=1,B=2,X=4,Y=8` korrigieren. Nach dem Fix stimmen Live-Ansicht (B)
+und Binding-Engine überein — direkt mit der Live-View verifizierbar.
+
+## Teil D — LED-Farben: Ursache + Live-Steuerung
+
+**Hardware bestätigt:** WS2812 (RGB) → die Treiber-Konfiguration `WS2812, GRB` in
+`LEDController.cpp:10` ist **korrekt**, der Software-Pfad ist sauber (kein Gamma/Mischen).
+
+**Ursache des „alles eher weiß":** In `TinkerThinkerBoard.cpp:61-62` werden beim Boot
+**alle** LEDs fest auf `(60,60,60)` (blasses Weiß) gesetzt. Ohne aktive `led_set`-Aktion
+bleiben sie so. Es gibt zudem keine direkte Live-Farbsteuerung im UI — nur die
+Binding-Aktion `led_set`, die einen Bereich `start..start+count` setzt; nicht erfasste
+LEDs bleiben weiß.
+
+### D1. Boot-Default anpassen
+
+**Datei:** `main/TinkerThinkerBoard.cpp`. Boot-Default von `(60,60,60)` auf **aus**
+(`0,0,0`) bzw. eine dezente, klar nicht-weiße Farbe ändern (Standard: aus). Damit
+startet der Streifen nicht „alles weiß".
+
+### D2. Live-LED-Steuerung im Frontend
+
+**Dateien:** `data/controls.html`/`controls.js` — eigener Bereich „Live-Werkzeuge" (enthält
+auch die Servo/Motor-Test-Slider aus E1), Panel „LED-Test":
+- Farbwähler (`<input type="color">`) + „auf alle anwenden" + „aus".
+- Sendet vorhandenes `{"led_set":{"start":0,"count":<ledCount>,"color":"#rrggbb"}}` über WS.
+- Optional: Helligkeits-Slider. Dafür Firmware-seitig WS-Befehl `{"led_brightness":0-255}`
+  → `FastLED.setBrightness()` ergänzen (kleiner Zusatz in `onWebSocketEvent` + `LEDController`).
+
+## Teil E — Servo/Motor-Komfort
+
+Backend (WS-Befehle) existiert bereits; Schwerpunkt Frontend + einige Binding-Aktionen.
+
+### E1. Live-Test-Slider im Frontend
+
+**Dateien:** `data/controls.html`/`controls.js` (Panel „Servo/Motor-Test"):
+- Servo-Slider 0–180° pro Servo → `{"servoN": winkel}`.
+- Motor-Slider −255…255 pro Motor → `{"motor_raw":{"motor":idx,"pwm":val}}`; „Stop"-Button → 0.
+- Sicherheits-Hinweis/Not-Stop, da Aktionen real ausgeführt werden.
+
+### E2. Erweiterte Binding-Aktionen (Firmware)
+
+**Datei:** `main/InputBindingManager.cpp` (+ ggf. `ConfigManager` Default-Bindings,
+`controls.js` Editor-Optionen):
+- `servo_axes` verbessern: konfigurierbares Limit (min/max Winkel), Mittelstellung,
+  Geschwindigkeit/Glättung statt harter Sprünge.
+- `servo_sweep`: Servo zwischen zwei Winkeln pendeln (Start/Stop per Edge).
+- `motor_ramp`: weiches Hoch-/Runterfahren der Motor-PWM statt sofortigem Sprung.
+- Editor (`controls.js`) um die neuen Aktionstypen/Parameter erweitern.
+
+> Hinweis: E2 ist der umfangreichste Block. Falls der Plan zu groß wird, kann E2 in einen
+> Folge-Durchgang ausgelagert werden; E1 (Live-Test) ist günstig und steht zuerst.
 
 ## Testing
 
 - **Firmware:** Build + Flash durch den Nutzer; Verifikation über Serial-Monitor
-  (Persistenz-Logs aus A3) und Reload-Test der Bindings.
-- **Frontend:** Im Browser gegen das Gerät; Live-Highlights beim Drücken prüfen.
-  Optional: simulierte WS-Nachricht zum UI-Test ohne Hardware.
+  (Persistenz-Logs A3) und manuelle Tests (Buttons, LED, Servo, Motor).
+- **Frontend:** Im Browser gegen das Gerät; Live-Highlights, LED-Farbe, Test-Slider prüfen.
+  Optional simulierte WS-Nachricht für UI-Tests ohne Hardware.
 
 ## Out of Scope (diese Session)
 
-- **A/B/X/Y-Masken-Fix** in `buttonMaskFromString` (zurückgestellt; durch Live-View aufgedeckt).
-- **Servo/Motor-Komfortsteuerung** (eigener späterer Durchgang).
 - Umstieg auf separate Binding-Datei (Minimal-Fix gewählt).
+- Tieferer LED-Animationsrahmen (nur statische Farbe + Helligkeit).
+- E2 ggf. in Folge-Session, falls Umfang zu groß (Entscheidung beim Planen).
