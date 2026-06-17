@@ -556,4 +556,64 @@
 
   // ── Init ──────────────────────────────────────────────────
   load();
+
+  // ── Live-Button-Ansicht ───────────────────────────────────
+  // Echte Bluepad32-Bits (NICHT die Engine-Masken) → zeigt den physischen Button.
+  const LIVE_BUTTON_BITS = {
+    'button_BTN_A':1, 'button_BTN_B':2, 'button_BTN_X':4, 'button_BTN_Y':8,
+    'button_BUTTON_L1':16, 'button_BUTTON_R1':32, 'button_BUTTON_L2':64, 'button_BUTTON_R2':128,
+    'button_BUTTON_STICK_L':256, 'button_BUTTON_STICK_R':512
+  };
+  const LIVE_DPAD_BITS = { 'dpad_UP':1, 'dpad_DOWN':2, 'dpad_RIGHT':4, 'dpad_LEFT':8 };
+  const AXIS_DEADBAND = 80;
+
+  let liveTimeout = null;
+
+  function setLivePressed(key, pressed) {
+    const el = document.querySelector(`.ctrl-btn[data-key="${key}"]`);
+    if (el) el.classList.toggle('live-pressed', pressed);
+  }
+
+  function applyLive(ctrl) {
+    for (const [key, bit] of Object.entries(LIVE_BUTTON_BITS)) {
+      setLivePressed(key, (ctrl.buttons & bit) !== 0);
+    }
+    for (const [key, bit] of Object.entries(LIVE_DPAD_BITS)) {
+      setLivePressed(key, (ctrl.dpad & bit) !== 0);
+    }
+    const lActive = Math.abs(ctrl.x) > AXIS_DEADBAND || Math.abs(ctrl.y) > AXIS_DEADBAND;
+    const rActive = Math.abs(ctrl.rx) > AXIS_DEADBAND || Math.abs(ctrl.ry) > AXIS_DEADBAND;
+    setLivePressed('axis_LStick', lActive);
+    setLivePressed('axis_RStick', rActive);
+  }
+
+  function clearLive() {
+    document.querySelectorAll('.ctrl-btn.live-pressed').forEach(el => el.classList.remove('live-pressed'));
+  }
+
+  function setLiveStatus(connected) {
+    const box = document.getElementById('liveStatus');
+    const txt = document.getElementById('liveStatusText');
+    if (!box || !txt) return;
+    box.classList.toggle('on', connected);
+    txt.textContent = connected ? 'Controller verbunden (Live)' : 'Kein Controller (Live)';
+    if (!connected) clearLive();
+  }
+
+  function connectLiveWS() {
+    const ws = new WebSocket(`ws://${window.location.hostname}/ws`);
+    ws.onmessage = (event) => {
+      let msg;
+      try { msg = JSON.parse(event.data); } catch (_) { return; }
+      const ctrls = msg.controllers;
+      if (!Array.isArray(ctrls) || ctrls.length === 0) { setLiveStatus(false); return; }
+      setLiveStatus(true);
+      applyLive(ctrls[0]);
+      if (liveTimeout) clearTimeout(liveTimeout);
+      liveTimeout = setTimeout(() => setLiveStatus(false), 1500);
+    };
+    ws.onclose = () => { setLiveStatus(false); setTimeout(connectLiveWS, 1000); };
+    ws.onerror = () => { try { ws.close(); } catch (_) {} };
+  }
+  connectLiveWS();
 })();

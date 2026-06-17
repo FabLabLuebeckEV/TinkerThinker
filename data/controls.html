@@ -61,6 +61,10 @@
     .ctrl-btn.s-one   { background:#4a90e2; border-color:#2c6fad; color:#fff; }
     .ctrl-btn.s-multi { background:#e2944a; border-color:#ad6c2c; color:#fff; }
     .ctrl-btn.s-sel   { outline:3px solid #2ecc71; outline-offset:2px; }
+    .ctrl-btn.live-pressed { box-shadow:0 0 0 3px #e74c3c inset; background:#ffd9d4 !important; }
+    .live-status { margin:8px 0; font-size:13px; }
+    .live-status .dot { display:inline-block; width:10px; height:10px; border-radius:50%; background:#bbb; margin-right:6px; vertical-align:middle; }
+    .live-status.on .dot { background:#2ecc71; }
     .ctrl-btn.shoulder { width:52px; font-size:12px; }
     .ctrl-btn.stick    { width:44px; height:44px; border-radius:50%; font-size:11px; }
 
@@ -197,6 +201,7 @@
           <span><span class="leg-dot" style="background:#e2944a;"></span> 2+ Bindings</span>
           <span><span class="leg-dot" style="background:#ddd; outline:3px solid #2ecc71; outline-offset:1px;"></span> ausgewählt</span>
         </div>
+        <div class="live-status" id="liveStatus"><span class="dot"></span><span id="liveStatusText">Kein Controller (Live)</span></div>
       </div>
 
       <!-- Binding Panel -->
