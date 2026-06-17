@@ -17,7 +17,9 @@ void LEDController::setPixelColor(int led, uint8_t red, uint8_t green, uint8_t b
         Serial.printf("LED index out of range: %d\n", led);
         return;
     }
-    ledsArray[led] = CRGB(red, green, blue); // Beachte: FastLED ist im Format RGB, nicht GRB
+    CRGB c(red, green, blue);
+    if (gammaEnabled) c.napplyGamma_video(2.2f);
+    ledsArray[led] = c;
 }
 
 void LEDController::showPixels() {
@@ -30,4 +32,13 @@ CRGB LEDController::getLEDColor(int ledIndex) {
         return CRGB::Black;
     }
     return ledsArray[ledIndex];
+}
+
+void LEDController::setBrightness(uint8_t value) {
+    FastLED.setBrightness(value);
+    FastLED.show();
+}
+
+void LEDController::setGamma(bool enabled) {
+    gammaEnabled = enabled;
 }

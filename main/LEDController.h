@@ -11,11 +11,14 @@ public:
     void setPixelColor(int led, uint8_t red, uint8_t green, uint8_t blue);
     void showPixels();
     CRGB getLEDColor(int ledIndex);
+    void setBrightness(uint8_t value);
+    void setGamma(bool enabled);
 
 private:
     int ledCount;
     CRGB* ledsArray; // Dynamisches Array
     int dataPin = 2; // Standarddatenpin, ggf. anpassen oder aus Config laden
+    bool gammaEnabled = false;
 };
 
 #endif
