@@ -811,7 +811,7 @@ void WebServerManager::sendStatusUpdate() {
     }
     if (xSemaphoreTake(wsMutex, pdMS_TO_TICKS(50)) == pdTRUE) {
         if (ws.count() > 0) {
-            StaticJsonDocument<512> doc;
+            StaticJsonDocument<1024> doc;
             doc["batteryVoltage"] = board->getBatteryVoltage();
             doc["batteryPercentage"] = board->getBatteryPercentage();
 
@@ -836,6 +836,19 @@ void WebServerManager::sendStatusUpdate() {
             firstLED["g"] = ledColor.g;
             firstLED["b"] = ledColor.b;
 
+            JsonArray ctrls = doc.createNestedArray("controllers");
+            for (int i = 0; i < BP32_MAX_GAMEPADS; i++) {
+                const ControllerInputSnapshot& s = board->getControllerSnapshot(i);
+                if (!s.connected) continue;
+                JsonObject c = ctrls.createNestedObject();
+                c["idx"]     = i;
+                c["buttons"] = s.buttons;
+                c["dpad"]    = s.dpad;
+                c["x"]       = s.axisX;
+                c["y"]       = s.axisY;
+                c["rx"]      = s.axisRX;
+                c["ry"]      = s.axisRY;
+            }
             String jsonString;
             serializeJson(doc, jsonString);
             ws.textAll(jsonString);
