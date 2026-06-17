@@ -60,6 +60,21 @@
         </div>
     </div>
 
+    <div class="controls">
+        <h2>Joystick-Richtung (nur Website)</h2>
+        <p style="font-size:13px; color:#666; margin:4px 0 10px;">
+            Unabhängig vom Bluetooth-Controller. <b>Achsen tauschen</b> = Joystick 90° drehen
+            (Gas ↔ Lenkung) · <b>Inv X</b> = Lenkung spiegeln · <b>Inv Y</b> = vor/zurück spiegeln.
+            Kombiniere die drei, bis „hoch = vorwärts, links = links drehen" stimmt.
+        </p>
+        <div class="button-container" style="gap:18px; flex-wrap:wrap;">
+            <label><input type="checkbox" id="wsSwapSides"> Achsen tauschen (90° drehen)</label>
+            <label><input type="checkbox" id="wsInvertX"> Inv X (Lenkung)</label>
+            <label><input type="checkbox" id="wsInvertY"> Inv Y (vor/zurück)</label>
+        </div>
+        <span id="wsDriveStatus" style="font-size:12px; color:#888;"></span>
+    </div>
+
     <div class="controls led-controls">
         <h2>WS2812 LEDs</h2>
         <div class="led-section">

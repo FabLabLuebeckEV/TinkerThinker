@@ -117,6 +117,12 @@ static void fillSerialConfig(TDoc& doc) {
     doc["led_count"] = configManager.getLedCount();
     doc["led_brightness"] = configManager.getLedBrightness();
     doc["led_gamma"] = configManager.getLedGamma();
+    doc["ws_invert_x"] = configManager.getWsInvertX();
+    doc["ws_invert_y"] = configManager.getWsInvertY();
+    doc["ws_swap_sides"] = configManager.getWsSwapSides();
+    doc["bt_invert_x"] = configManager.getBtInvertX();
+    doc["bt_invert_y"] = configManager.getBtInvertY();
+    doc["bt_swap_axes"] = configManager.getBtSwapAxes();
     doc["motor_left_gui"] = configManager.getMotorLeftGUI();
     doc["motor_right_gui"] = configManager.getMotorRightGUI();
     doc["drive_mixer"] = configManager.getDriveMixer();
@@ -699,7 +705,7 @@ void loop() {
     wifi_mode_t mode = WiFi.getMode();
     bool staConnecting = (mode == WIFI_STA || mode == WIFI_AP_STA) && (WiFi.status() != WL_CONNECTED);
     bool apActive = (mode == WIFI_AP || mode == WIFI_AP_STA) && (WiFi.softAPgetStationNum() > 0);
-    bool wifiDisabledUntilRestart = (mode == WIFI_OFF);
+    bool wifiDisabledUntilRestart = board.isWifiDisabledUntilRestart();
 
     if (radioMode == RadioMode::BluetoothOnly) {
         if (!scanEnabled) {

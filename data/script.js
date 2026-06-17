@@ -490,6 +490,36 @@ function setupLedRange() {
         .catch(() => {});
 }
 
+function setupWsDrive() {
+    const cx = document.getElementById('wsInvertX');
+    const cy = document.getElementById('wsInvertY');
+    const cs = document.getElementById('wsSwapSides');
+    const st = document.getElementById('wsDriveStatus');
+    if (!cx || !cy || !cs) return;
+
+    fetch('/getConfig')
+        .then(r => r.json())
+        .then(cfg => {
+            cx.checked = !!cfg.ws_invert_x;
+            cy.checked = !!cfg.ws_invert_y;
+            cs.checked = !!cfg.ws_swap_sides;
+        })
+        .catch(() => {});
+
+    const save = () => {
+        const x = cx.checked ? '1' : '0';
+        const y = cy.checked ? '1' : '0';
+        const swap = cs.checked ? '1' : '0';
+        if (st) st.textContent = 'Speichern…';
+        fetch(`/setWsDrive?x=${x}&y=${y}&swap=${swap}`)
+            .then(r => { if (st) st.textContent = r.ok ? 'Gespeichert ✓' : 'Fehler'; })
+            .catch(() => { if (st) st.textContent = 'Fehler'; });
+    };
+    cx.addEventListener('change', save);
+    cy.addEventListener('change', save);
+    cs.addEventListener('change', save);
+}
+
 function setupDeviceName() {
     fetch('/getConfig')
         .then(r => r.json())
@@ -521,6 +551,7 @@ window.onload = function() {
     connectWebSocket();
     setupLedRange();
     setupDeviceName();
+    setupWsDrive();
     if (statusContent.classList.contains('collapsed')) {
         toggleStatusButton.textContent = '►';
         toggleStatusButton.style.transform = 'rotate(0deg)';

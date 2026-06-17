@@ -35,10 +35,10 @@ public:
     void controlMotorRaw(int motorIndex, int pwmValue);
 
     // Source-aware control API
-    void requestDriveFromBT(int axisX, int axisY);
-    void requestDriveFromWS(int axisX, int axisY);
-    void requestDriveOtherFromBT(int axisX, int axisY);
-    void requestDriveOtherFromWS(int axisX, int axisY);
+    void requestDriveFromBT(int axisX, int axisY, bool swapSides = false);
+    void requestDriveFromWS(int axisX, int axisY, bool swapSides = false);
+    void requestDriveOtherFromBT(int axisX, int axisY, bool swapSides = false);
+    void requestDriveOtherFromWS(int axisX, int axisY, bool swapSides = false);
     void requestMotorDirectFromBT(int motorIndex, int pwmValue);
     void requestMotorDirectFromWS(int motorIndex, int pwmValue);
     void requestMotorStopFromWS(int motorIndex);
@@ -66,6 +66,7 @@ public:
     void updateWebClients();
     void requestWifiDisable(bool untilRestart);
     void requestWifiEnable();
+    bool isWifiDisabledUntilRestart();
 
     int getMotorPWM(int motorIndex);
     void setSpeedMultiplier(float m);
@@ -88,8 +89,8 @@ private:
         return (abs(x) <= neutralThreshold && abs(y) <= neutralThreshold);
     }
     bool shouldAccept(ControlSource src, bool isActive);
-    void applyDrive(int axisX, int axisY);
-    void applyDriveOther(int axisX, int axisY);
+    void applyDrive(int axisX, int axisY, bool swapSides = false);
+    void applyDriveOther(int axisX, int axisY, bool swapSides = false);
     void getOtherPair(int &leftIdx, int &rightIdx);
     void takeOwnership(ControlSource src);
 

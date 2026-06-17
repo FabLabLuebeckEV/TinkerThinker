@@ -202,6 +202,13 @@ void TinkerThinkerBoard::requestWifiEnable() {
     }
 }
 
+bool TinkerThinkerBoard::isWifiDisabledUntilRestart() {
+    if (webServerManager) {
+        return webServerManager->isWifiDisabledUntilRestart();
+    }
+    return false;
+}
+
 void TinkerThinkerBoard::notifyControllerConnected(int slot, const char* mac, const char* model) {
     if (webServerManager) webServerManager->notifyControllerConnected(slot, mac, model);
 }
@@ -231,8 +238,18 @@ void TinkerThinkerBoard::takeOwnership(ControlSource src) {
     lastActiveMs = millis();
 }
 
-void TinkerThinkerBoard::applyDrive(int axisX, int axisY) {
-    controlMotors(axisX, axisY);
+void TinkerThinkerBoard::applyDrive(int axisX, int axisY, bool swapSides) {
+    int left = swapSides ? motorRightGUI : motorLeftGUI;
+    int right = swapSides ? motorLeftGUI : motorRightGUI;
+
+    static uint32_t lastPrint = 0;
+    if ((abs(axisX) > 16 || abs(axisY) > 16) && (millis() - lastPrint > 500)) {
+        Serial.printf("TinkerThinkerBoard: applyDrive raw=(%d,%d) swapSides=%d -> driving LeftMotor=%d RightMotor=%d\n",
+            axisX, axisY, swapSides, left, right);
+        lastPrint = millis();
+    }
+
+    motorController->handleMotorControl(axisX, axisY, left, right);
 }
 
 void TinkerThinkerBoard::getOtherPair(int &leftIdx, int &rightIdx) {
@@ -249,38 +266,65 @@ void TinkerThinkerBoard::getOtherPair(int &leftIdx, int &rightIdx) {
     else { leftIdx = found[1]; rightIdx = found[0]; }
 }
 
-void TinkerThinkerBoard::applyDriveOther(int axisX, int axisY) {
+void TinkerThinkerBoard::applyDriveOther(int axisX, int axisY, bool swapSides) {
     int leftIdx, rightIdx;
     getOtherPair(leftIdx, rightIdx);
-    motorController->handleMotorControl(axisX, axisY, leftIdx, rightIdx);
+    int left = swapSides ? rightIdx : leftIdx;
+    int right = swapSides ? leftIdx : rightIdx;
+
+    static uint32_t lastPrint = 0;
+    if ((abs(axisX) > 16 || abs(axisY) > 16) && (millis() - lastPrint > 500)) {
+        Serial.printf("TinkerThinkerBoard: applyDriveOther raw=(%d,%d) swapSides=%d -> driving LeftMotor=%d RightMotor=%d\n",
+            axisX, axisY, swapSides, left, right);
+        lastPrint = millis();
+    }
+
+    motorController->handleMotorControl(axisX, axisY, left, right);
 }
 
 // --- Source-aware API implementations ---
-void TinkerThinkerBoard::requestDriveFromBT(int axisX, int axisY) {
+void TinkerThinkerBoard::requestDriveFromBT(int axisX, int axisY, bool swapSides) {
     bool active = !isNeutralAxes(axisX, axisY);
     if (shouldAccept(ControlSource::Bluetooth, active)) {
-        applyDrive(axisX, axisY);
+        // Eigene BT-Controller-Einstellungen – unabhängig von der Website.
+        // bt_swap_axes = "Achsen tauschen": vertauscht Gas/Lenkung (= Joystick 90° drehen).
+        if (config->getBtSwapAxes()) { int t = axisX; axisX = axisY; axisY = t; }
+        if (config->getBtInvertX()) axisX = -axisX;
+        if (config->getBtInvertY()) axisY = -axisY;
+        applyDrive(axisX, axisY, swapSides);
     }
 }
 
-void TinkerThinkerBoard::requestDriveFromWS(int axisX, int axisY) {
+void TinkerThinkerBoard::requestDriveFromWS(int axisX, int axisY, bool swapSides) {
     bool active = !isNeutralAxes(axisX, axisY);
     if (shouldAccept(ControlSource::WebSocket, active)) {
-        applyDrive(axisX, axisY);
+        // Eigene Website-Einstellungen – unabhängig von den BT-Controller-Bindings.
+        // ws_swap_sides = "Achsen tauschen": vertauscht Gas/Lenkung (= Joystick 90° drehen).
+        if (config->getWsSwapSides()) { int t = axisX; axisX = axisY; axisY = t; }
+        if (config->getWsInvertX()) axisX = -axisX;
+        if (config->getWsInvertY()) axisY = -axisY;
+        applyDrive(axisX, axisY, false);
     }
 }
 
-void TinkerThinkerBoard::requestDriveOtherFromBT(int axisX, int axisY) {
+void TinkerThinkerBoard::requestDriveOtherFromBT(int axisX, int axisY, bool swapSides) {
     bool active = !isNeutralAxes(axisX, axisY);
     if (shouldAccept(ControlSource::Bluetooth, active)) {
-        applyDriveOther(axisX, axisY);
+        if (config->getBtSwapAxes()) { int t = axisX; axisX = axisY; axisY = t; }
+        if (config->getBtInvertX()) axisX = -axisX;
+        if (config->getBtInvertY()) axisY = -axisY;
+        applyDriveOther(axisX, axisY, swapSides);
     }
 }
 
-void TinkerThinkerBoard::requestDriveOtherFromWS(int axisX, int axisY) {
+void TinkerThinkerBoard::requestDriveOtherFromWS(int axisX, int axisY, bool swapSides) {
     bool active = !isNeutralAxes(axisX, axisY);
     if (shouldAccept(ControlSource::WebSocket, active)) {
-        applyDriveOther(axisX, axisY);
+        // Eigene Website-Einstellungen – unabhängig von den BT-Controller-Bindings.
+        if (config->getWsSwapSides()) { int t = axisX; axisX = axisY; axisY = t; }
+        if (config->getWsInvertX()) axisX = -axisX;
+        if (config->getWsInvertY()) axisY = -axisY;
+        applyDriveOther(axisX, axisY, false);
     }
 }
 

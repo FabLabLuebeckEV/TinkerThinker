@@ -11,9 +11,12 @@ void InputBindingManager::reload() {
     if (json.length() == 0) return;
     DeserializationError err = deserializeJson(bindings, json);
     if (err) {
-        // fallback to defaults
+        Serial.printf("InputBindingManager: Failed to parse bindings JSON: %s. Falling back to defaults.\n", err.c_str());
         deserializeJson(bindings, ConfigManager::getDefaultControlBindingsJson());
     }
+    Serial.print("InputBindingManager: Loaded bindings: ");
+    serializeJson(bindings, Serial);
+    Serial.println();
 }
 
 int InputBindingManager::getAxis(ControllerPtr ctl, const char* name) {
@@ -213,17 +216,25 @@ void InputBindingManager::process(ControllerPtr ctl, int idx) {
             int dead = input["deadband"] | 16;
             int x = (!strcmp(xname,"X"))?axX:(!strcmp(xname,"Y"))?axY:(!strcmp(xname,"RX"))?axRX:axRY;
             int y = (!strcmp(yname,"X"))?axX:(!strcmp(yname,"Y"))?axY:(!strcmp(yname,"RX"))?axRX:axRY;
-            if (input["invertX"] | false) x = -x;
-            if (input["invertY"] | false) y = -y;
+
             const char* actType = action["type"] | "";
             if (!strcmp(actType, "drive_pair")) {
                 const char* target = action["target"] | "gui";
-                if (!strcmp(target, "gui"))   board->requestDriveFromBT(x, y);
-                else if (!strcmp(target, "other")) board->requestDriveOtherFromBT(x, y);
+                // Richtung/Drehung wird zentral über die BT-Joystick-Richtung gesetzt
+                // (Config bt_swap_axes/bt_invert_x/bt_invert_y) – NICHT mehr pro Binding,
+                // damit es keine Doppel-Anwendung gibt.
+                static uint32_t lastPrint = 0;
+                if ((abs(x) > dead || abs(y) > dead) && (millis() - lastPrint > 500)) {
+                    Serial.printf("InputBindingManager: drive_pair target=%s raw=(%d,%d)\n", target, x, y);
+                    lastPrint = millis();
+                }
+                if (!strcmp(target, "gui"))   board->requestDriveFromBT(x, y, false);
+                else if (!strcmp(target, "other")) board->requestDriveOtherFromBT(x, y, false);
             } else if (!strcmp(actType, "servo_axes")) {
                 int servo = action["servo"] | 0;
                 float scale = action["scale"] | 1.0f;
-                int val = (int)((y / 512.0f) * 90.0f * scale + 90.0f);
+                int sy = (input["invertY"] | false) ? -y : y;
+                int val = (int)((sy / 512.0f) * 90.0f * scale + 90.0f);
                 val = constrain(val, 0, 180);
                 board->setServoAngle(servo, val);
             }

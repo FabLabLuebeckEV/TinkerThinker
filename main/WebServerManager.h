@@ -26,6 +26,7 @@ public:
     void requestWifiEnable();
     void sendStatusUpdate();
     bool isWifiDisabled() const { return wifiDisabledUntilRestart || wifiTemporarilyDisabled; }
+    bool isWifiDisabledUntilRestart() const { return wifiDisabledUntilRestart; }
 
     void notifyControllerConnected(int slot, const char* mac, const char* model);
     void notifyControllerDisconnected(int slot);

@@ -134,6 +134,8 @@ void WebServerManager::disableWifiInternal(bool permanent) {
         WiFi.mode(WIFI_OFF);
     }
     // Temporary: skip WIFI_OFF to keep the netif/stack alive for re-enable
+    // (a full WIFI_OFF here breaks the later re-init with
+    //  "netstack cb reg failed 12308 / ESP_ERR_WIFI_STOP_STATE")
 
     delay(50);
     Serial.println(permanent ? "WiFi disabled permanently." : "WiFi paused temporarily.");
@@ -323,6 +325,12 @@ document.getElementById('f').onsubmit=function(e){
         doc["led_count"] = config->getLedCount();
         doc["led_brightness"] = config->getLedBrightness();
         doc["led_gamma"] = config->getLedGamma();
+        doc["ws_invert_x"] = config->getWsInvertX();
+        doc["ws_invert_y"] = config->getWsInvertY();
+        doc["ws_swap_sides"] = config->getWsSwapSides();
+        doc["bt_invert_x"] = config->getBtInvertX();
+        doc["bt_invert_y"] = config->getBtInvertY();
+        doc["bt_swap_axes"] = config->getBtSwapAxes();
         doc["ota_enabled"] = config->getOTAEnabled();
 
         doc["drive_mixer"] = config->getDriveMixer();
@@ -446,6 +454,24 @@ document.getElementById('f').onsubmit=function(e){
         bool ok = config->saveConfig();
         board->setLedBrightness((uint8_t)config->getLedBrightness());
         board->setLedGamma(config->getLedGamma());
+        request->send(ok ? 200 : 500, "text/plain", ok ? "OK" : "save failed");
+    });
+
+    // Website-Joystick-Steuerung (unabhängig vom BT-Controller) dauerhaft speichern
+    server.on("/setWsDrive", HTTP_GET, [this](AsyncWebServerRequest* request){
+        if (request->hasParam("x"))    config->setWsInvertX(request->getParam("x")->value() == "1");
+        if (request->hasParam("y"))    config->setWsInvertY(request->getParam("y")->value() == "1");
+        if (request->hasParam("swap")) config->setWsSwapSides(request->getParam("swap")->value() == "1");
+        bool ok = config->saveConfig();
+        request->send(ok ? 200 : 500, "text/plain", ok ? "OK" : "save failed");
+    });
+
+    // BT-Controller-Joystick-Richtung (unabhängig von der Website) dauerhaft speichern
+    server.on("/setBtDrive", HTTP_GET, [this](AsyncWebServerRequest* request){
+        if (request->hasParam("x"))    config->setBtInvertX(request->getParam("x")->value() == "1");
+        if (request->hasParam("y"))    config->setBtInvertY(request->getParam("y")->value() == "1");
+        if (request->hasParam("swap")) config->setBtSwapAxes(request->getParam("swap")->value() == "1");
+        bool ok = config->saveConfig();
         request->send(ok ? 200 : 500, "text/plain", ok ? "OK" : "save failed");
     });
 }
@@ -807,6 +833,10 @@ void WebServerManager::onWebSocketEvent(AsyncWebSocket *server, AsyncWebSocketCl
 
 
 void WebServerManager::sendStatusUpdate() {
+    // Nicht auf den WebSocket/Netz-Stack zugreifen, während WiFi pausiert/abgeschaltet
+    // wird – sonst Spinlock-Crash beim gleichzeitigen Teardown (v. a. bei 10 Hz Telemetrie).
+    if (isWifiDisabled() || wifiShutdownInProgress) return;
+
     if (millis() - lastPacketTime > 5000) {
         // Kein Paket seit 1 Sekunde, stoppe alle Motoren
         for (int i = 0; i < 4; i++) {

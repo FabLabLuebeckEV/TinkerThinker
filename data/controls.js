@@ -13,7 +13,7 @@
     { input:{type:'button',code:'BTN_A',edge:'press'},
       action:{type:'led_set',start:0,count:5,color:'#ff0000'} },
     { input:{type:'axis_pair',x:'X',y:'Y',deadband:16,invertX:false,invertY:false},
-      action:{type:'drive_pair',target:'gui'} },
+      action:{type:'drive_pair',target:'gui',swapSides:false} },
   ];
 
   // ── State ─────────────────────────────────────────────────
@@ -80,7 +80,7 @@
   }
 
   function defaultActionForKey(key) {
-    if (key === 'axis_LStick' || key === 'axis_RStick') return {type:'drive_pair', target:'gui'};
+    if (key === 'axis_LStick' || key === 'axis_RStick') return {type:'drive_pair', target:'gui', swapSides:false};
     return {type:'motor_direct', motor:0, pwm:200};
   }
 
@@ -100,14 +100,23 @@
     if (!inp) return '?';
     if (inp.type === 'dpad')      return `DPAD ${inp.dir} · ${inp.edge}`;
     if (inp.type === 'button')    return `${inp.code} · ${inp.edge}`;
-    if (inp.type === 'axis_pair') return `axis ${inp.x}/${inp.y}`;
+    if (inp.type === 'axis_pair') {
+      let s = `axis ${inp.x}/${inp.y}`;
+      if (inp.invertX) s += ' (invX)';
+      if (inp.invertY) s += ' (invY)';
+      return s;
+    }
     return inp.type;
   }
 
   function actionSummary(act) {
     if (!act) return '?';
     if (act.type === 'motor_direct')  return `motor${act.motor} PWM ${act.pwm}`;
-    if (act.type === 'drive_pair')    return `drive_pair ${act.target}`;
+    if (act.type === 'drive_pair')    {
+      let s = `drive_pair ${act.target}`;
+      if (act.swapSides) s += ' (swap)';
+      return s;
+    }
     if (act.type === 'servo_sweep')   return `sweep S${act.servo} ${act.from}↔${act.to}`;
     if (act.type === 'motor_ramp')    return `ramp M${act.motor} →${act.pwm}`;
     if (act.type === 'led_set')       return `led ${act.color}`;
@@ -138,9 +147,10 @@
         );
       } else if (t === 'drive_pair') {
         refs.targSel = mkSel(['gui','other'], action.target || 'gui');
+        refs.swapSides = el('input',{type:'checkbox'}); refs.swapSides.checked = action.swapSides || false;
         fieldsDiv.append(
-          frow([el('label',{},'Ziel:'), refs.targSel]),
-          hint('gui = Haupt-Fahrwerk (Motor A+B) · other = zweites Fahrwerk (Motor C+D)')
+          frow([el('label',{},'Ziel:'), refs.targSel, el('label',{},'Swap Sides:'), refs.swapSides]),
+          hint('gui = Haupt-Fahrwerk (Motor A+B) · other = zweites Fahrwerk (Motor C+D) · Swap Sides vertauscht links/rechts')
         );
       } else if (t === 'servo_set') {
         refs.idxEl = mkNum(0, 2,   action.servo ?? 0,  60);
@@ -225,6 +235,7 @@
             break;
           case 'drive_pair':
             a.target = refs.targSel.value;
+            a.swapSides = refs.swapSides.checked;
             break;
           case 'servo_set':
             a.servo = parseInt(refs.idxEl.value || '0');
@@ -295,7 +306,10 @@
       root.append(
         frow([el('label',{},'Deadband:'), refs.deadEl]),
         hint('Totzone um Null (0–512) · verhindert Drift bei losgelassenem Stick'),
-        frow([el('label',{},'Inv X:'), refs.invX, el('label',{},'Inv Y:'), refs.invY]),
+        frow([
+          el('label',{},'Inv X:'), refs.invX, 
+          el('label',{},'Inv Y:'), refs.invY
+        ]),
         hint('Achse invertieren — nützlich wenn Richtung falsch ist')
       );
     } else {
@@ -329,7 +343,11 @@
           refs.invY   = el('input',{type:'checkbox'}); refs.invY.checked = input.invertY || false;
           subDiv.append(
             frow([el('label',{},'X-Achse:'), refs.xSel, el('label',{},'Y-Achse:'), refs.ySel]),
-            frow([el('label',{},'Deadband:'), refs.deadEl, el('label',{},'Inv X:'), refs.invX, el('label',{},'Inv Y:'), refs.invY]),
+            frow([
+              el('label',{},'Deadband:'), refs.deadEl, 
+              el('label',{},'Inv X:'), refs.invX, 
+              el('label',{},'Inv Y:'), refs.invY
+            ]),
             hint('L-Stick = X/Y · R-Stick = RX/RY')
           );
         }
@@ -652,6 +670,32 @@
     ws.onerror = () => { try { ws.close(); } catch (_) {} };
   }
   connectLiveWS();
+
+  // ── BT-Joystick-Richtung (nur Controller, unabhängig von der Website) ──
+  (function setupBtDrive() {
+    const bx = document.getElementById('btInvertX');
+    const by = document.getElementById('btInvertY');
+    const bs = document.getElementById('btSwapAxes');
+    const bst = document.getElementById('btDriveStatus');
+    if (!bx || !by || !bs) return;
+    fetch('/getConfig').then(r => r.json()).then(cfg => {
+      bx.checked = !!cfg.bt_invert_x;
+      by.checked = !!cfg.bt_invert_y;
+      bs.checked = !!cfg.bt_swap_axes;
+    }).catch(() => {});
+    const save = () => {
+      const x = bx.checked ? '1' : '0';
+      const y = by.checked ? '1' : '0';
+      const swap = bs.checked ? '1' : '0';
+      if (bst) bst.textContent = 'Speichern…';
+      fetch(`/setBtDrive?x=${x}&y=${y}&swap=${swap}`)
+        .then(r => { if (bst) bst.textContent = r.ok ? 'Gespeichert ✓ (wirkt sofort)' : 'Fehler'; })
+        .catch(() => { if (bst) bst.textContent = 'Fehler'; });
+    };
+    bx.addEventListener('change', save);
+    by.addEventListener('change', save);
+    bs.addEventListener('change', save);
+  })();
 
   // ── Live-Werkzeuge: LED ───────────────────────────────────
   const ledColor = document.getElementById('ledColor');

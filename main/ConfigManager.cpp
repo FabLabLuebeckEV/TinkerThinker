@@ -32,6 +32,12 @@ void ConfigManager::setDefaults() {
     led_count = 30;
     led_brightness = 50;
     led_gamma = false;
+    ws_invert_x = false;
+    ws_invert_y = false;
+    ws_swap_sides = false;
+    bt_invert_x = false;
+    bt_invert_y = false;
+    bt_swap_axes = false;
     ota_enabled = false;
     for (int i=0; i<4; i++) motor_frequency[i] = 5000;
     for (int i=0; i<3; i++) {
@@ -86,6 +92,12 @@ bool ConfigManager::loadConfig() {
     led_count = doc["led_count"] | 30;
     led_brightness = doc["led_brightness"] | 50;
     led_gamma = doc["led_gamma"] | false;
+    ws_invert_x = doc["ws_invert_x"] | false;
+    ws_invert_y = doc["ws_invert_y"] | false;
+    ws_swap_sides = doc["ws_swap_sides"] | false;
+    bt_invert_x = doc["bt_invert_x"] | false;
+    bt_invert_y = doc["bt_invert_y"] | false;
+    bt_swap_axes = doc["bt_swap_axes"] | false;
     ota_enabled = doc["ota_enabled"] | false;
     JsonArray motorDeadbandArr = doc["motor_deadband"].as<JsonArray>();
     for (int i=0; i<4; i++) {
@@ -174,6 +186,12 @@ bool ConfigManager::saveConfig() {
     doc["led_count"] = led_count;
     doc["led_brightness"] = led_brightness;
     doc["led_gamma"] = led_gamma;
+    doc["ws_invert_x"] = ws_invert_x;
+    doc["ws_invert_y"] = ws_invert_y;
+    doc["ws_swap_sides"] = ws_swap_sides;
+    doc["bt_invert_x"] = bt_invert_x;
+    doc["bt_invert_y"] = bt_invert_y;
+    doc["bt_swap_axes"] = bt_swap_axes;
     doc["ota_enabled"] = ota_enabled;
 
     JsonArray servoArr = doc["servo_settings"].to<JsonArray>();
@@ -272,6 +290,12 @@ int ConfigManager::getMotorRightGUI() { return motorRightGUI; }
 int ConfigManager::getLedCount() { return led_count; }
 int ConfigManager::getLedBrightness() { return led_brightness; }
 bool ConfigManager::getLedGamma() { return led_gamma; }
+bool ConfigManager::getWsInvertX() { return ws_invert_x; }
+bool ConfigManager::getWsInvertY() { return ws_invert_y; }
+bool ConfigManager::getWsSwapSides() { return ws_swap_sides; }
+bool ConfigManager::getBtInvertX() { return bt_invert_x; }
+bool ConfigManager::getBtInvertY() { return bt_invert_y; }
+bool ConfigManager::getBtSwapAxes() { return bt_swap_axes; }
 int ConfigManager::getMotorDeadband(int index) {return motor_deadband[index];}
 int ConfigManager::getMotorFrequency(int index){return motor_frequency[index];}
 bool ConfigManager::getOTAEnabled() { return ota_enabled; }
@@ -303,6 +327,12 @@ void ConfigManager::setLedBrightness(int value){
     led_brightness = value;
 }
 void ConfigManager::setLedGamma(bool enabled){ led_gamma = enabled; }
+void ConfigManager::setWsInvertX(bool v){ ws_invert_x = v; }
+void ConfigManager::setWsInvertY(bool v){ ws_invert_y = v; }
+void ConfigManager::setWsSwapSides(bool v){ ws_swap_sides = v; }
+void ConfigManager::setBtInvertX(bool v){ bt_invert_x = v; }
+void ConfigManager::setBtInvertY(bool v){ bt_invert_y = v; }
+void ConfigManager::setBtSwapAxes(bool v){ bt_swap_axes = v; }
 void ConfigManager::setOTAEnabled(bool enabled){ ota_enabled = enabled; }
 void ConfigManager::setServoPulsewidthRange(int index, int min_pw, int max_pw){
     servos[index].min_pw = min_pw;

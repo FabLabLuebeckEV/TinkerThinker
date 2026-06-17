@@ -27,6 +27,12 @@ public:
     int getLedCount();
     int getLedBrightness();
     bool getLedGamma();
+    bool getWsInvertX();
+    bool getWsInvertY();
+    bool getWsSwapSides();
+    bool getBtInvertX();
+    bool getBtInvertY();
+    bool getBtSwapAxes();
     bool getOTAEnabled();
     int getMotorDeadband(int index);
     int getMotorFrequency(int index);
@@ -60,6 +66,12 @@ public:
     void setLedCount(int count);
     void setLedBrightness(int value);
     void setLedGamma(bool enabled);
+    void setWsInvertX(bool v);
+    void setWsInvertY(bool v);
+    void setWsSwapSides(bool v);
+    void setBtInvertX(bool v);
+    void setBtInvertY(bool v);
+    void setBtSwapAxes(bool v);
     void setOTAEnabled(bool enabled);
     void setMotorFrequency(int index, int val);
     void setMotorDeadband(int index, int val);
@@ -110,6 +122,14 @@ private:
     int led_count;
     int led_brightness = 50;   // 0..255 globale FastLED-Helligkeit
     bool led_gamma = false;    // Gamma-Korrektur an/aus
+    // Website-Joystick-Steuerung (komplett unabhängig von den BT-Controller-Bindings)
+    bool ws_invert_x = false;
+    bool ws_invert_y = false;
+    bool ws_swap_sides = false;
+    // BT-Controller-Joystick (eigene Kalibrierung, unabhängig von Web)
+    bool bt_invert_x = false;
+    bool bt_invert_y = false;
+    bool bt_swap_axes = false;
     bool ota_enabled;
 
     struct ServoConfig {
