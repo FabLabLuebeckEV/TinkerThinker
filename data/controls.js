@@ -568,6 +568,11 @@
   const AXIS_DEADBAND = 80;
 
   let liveTimeout = null;
+  let liveWS = null;
+  function liveSend(obj) {
+    if (liveWS && liveWS.readyState === WebSocket.OPEN) { liveWS.send(JSON.stringify(obj)); return true; }
+    return false;
+  }
 
   function setLivePressed(key, pressed) {
     const el = document.querySelector(`.ctrl-btn[data-key="${key}"]`);
@@ -602,6 +607,7 @@
 
   function connectLiveWS() {
     const ws = new WebSocket(`ws://${window.location.hostname}/ws`);
+    liveWS = ws;
     ws.onmessage = (event) => {
       let msg;
       try { msg = JSON.parse(event.data); } catch (_) { return; }
@@ -616,4 +622,63 @@
     ws.onerror = () => { try { ws.close(); } catch (_) {} };
   }
   connectLiveWS();
+
+  // ── Live-Werkzeuge: LED ───────────────────────────────────
+  const ledColor = document.getElementById('ledColor');
+  const ledBrightness = document.getElementById('ledBrightness');
+  const ledBrightnessVal = document.getElementById('ledBrightnessVal');
+  const ledGamma = document.getElementById('ledGamma');
+  let ledCount = 30;
+  fetch('/getConfig').then(r=>r.json()).then(cfg=>{
+    if (cfg.led_count) ledCount = cfg.led_count;
+    if (typeof cfg.led_brightness === 'number') { ledBrightness.value = cfg.led_brightness; ledBrightnessVal.textContent = cfg.led_brightness; }
+    if (typeof cfg.led_gamma === 'boolean') ledGamma.checked = cfg.led_gamma;
+  }).catch(()=>{});
+
+  document.getElementById('ledApply').addEventListener('click', () => {
+    liveSend({led_set:{start:0, count:ledCount, color:ledColor.value}});
+  });
+  document.getElementById('ledOff').addEventListener('click', () => {
+    liveSend({led_set:{start:0, count:ledCount, color:'#000000'}});
+  });
+  ledBrightness.addEventListener('input', () => {
+    ledBrightnessVal.textContent = ledBrightness.value;
+    liveSend({led_brightness: parseInt(ledBrightness.value, 10)});
+  });
+  ledGamma.addEventListener('change', () => {
+    liveSend({led_gamma: ledGamma.checked});
+    liveSend({led_set:{start:0, count:ledCount, color:ledColor.value}}); // sichtbar neu zeichnen
+  });
+  document.getElementById('ledSave').addEventListener('click', () => {
+    const g = ledGamma.checked ? '1' : '0';
+    fetch(`/saveLedSettings?brightness=${parseInt(ledBrightness.value,10)}&gamma=${g}`)
+      .then(r => { document.getElementById('liveStatus2').textContent = r.ok ? 'LED gespeichert ✓' : 'Fehler'; });
+  });
+
+  // ── Live-Werkzeuge: Servos ────────────────────────────────
+  const servoTest = document.getElementById('servoTest');
+  for (let i = 0; i < 3; i++) {
+    const lbl = document.createElement('label'); lbl.textContent = `Servo ${i}:`;
+    const sl = document.createElement('input');
+    sl.type = 'range'; sl.min = '0'; sl.max = '180'; sl.value = '90';
+    const val = document.createElement('span'); val.textContent = '90';
+    sl.addEventListener('input', () => { val.textContent = sl.value; liveSend({["servo"+i]: parseInt(sl.value,10)}); });
+    servoTest.append(lbl, sl, val, document.createTextNode(' '));
+  }
+
+  // ── Live-Werkzeuge: Motoren (roh) ─────────────────────────
+  const motorTest = document.getElementById('motorTest');
+  for (let i = 0; i < 4; i++) {
+    const lbl = document.createElement('label'); lbl.textContent = `Motor ${i}:`;
+    const sl = document.createElement('input');
+    sl.type = 'range'; sl.min = '-255'; sl.max = '255'; sl.value = '0';
+    const val = document.createElement('span'); val.textContent = '0';
+    sl.addEventListener('input', () => { val.textContent = sl.value; liveSend({motor_raw:{motor:i, pwm:parseInt(sl.value,10)}}); });
+    sl.addEventListener('change', () => { sl.value = '0'; val.textContent = '0'; liveSend({motor_raw:{motor:i, pwm:0}}); }); // Loslassen → stop
+    motorTest.append(lbl, sl, val, document.createTextNode(' '));
+  }
+  document.getElementById('motorStopAll').addEventListener('click', () => {
+    for (let i = 0; i < 4; i++) liveSend({motor_raw:{motor:i, pwm:0}});
+    motorTest.querySelectorAll('input[type="range"]').forEach(sl => sl.value = '0');
+  });
 })();

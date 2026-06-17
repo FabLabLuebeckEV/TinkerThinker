@@ -224,6 +224,32 @@
     </div>
   </div>
 
+  <div class="controls" style="margin-top:16px;">
+    <h2>Live-Werkzeuge (Test)</h2>
+    <p class="hint" style="color:#a00;">Achtung: Aktionen werden sofort ausgeführt – Roboter ggf. aufbocken!</p>
+
+    <h3 style="margin:10px 0 4px;">LED-Test</h3>
+    <div class="frow">
+      <label>Farbe:</label> <input type="color" id="ledColor" value="#ff8000">
+      <button class="control-button" id="ledApply" style="padding:6px 12px;">Auf alle anwenden</button>
+      <button class="control-button" id="ledOff" style="padding:6px 12px;">Aus</button>
+    </div>
+    <div class="frow">
+      <label>Helligkeit:</label> <input type="range" id="ledBrightness" min="0" max="255" value="50">
+      <span id="ledBrightnessVal">50</span>
+      <label><input type="checkbox" id="ledGamma"> Gamma</label>
+      <button class="control-button" id="ledSave" style="padding:6px 12px;">Als Standard speichern</button>
+    </div>
+
+    <h3 style="margin:14px 0 4px;">Servo-Test</h3>
+    <div class="frow" id="servoTest"></div>
+
+    <h3 style="margin:14px 0 4px;">Motor-Test (roh, ohne Deadband)</h3>
+    <div class="frow" id="motorTest"></div>
+    <button class="control-button" id="motorStopAll" style="padding:6px 12px; margin-top:6px;">Alle Motoren stop</button>
+
+    <span id="liveStatus2" style="margin-left:8px; font-size:12px; color:#888;"></span>
+  </div>
   <script src="/controls.js"></script>
 </body>
 </html>
