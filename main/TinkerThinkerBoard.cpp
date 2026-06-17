@@ -91,7 +91,7 @@ void TinkerThinkerBoard::startServices() {
         TinkerThinkerBoard* board = (TinkerThinkerBoard*)obj;
         for (;;) {
             board->updateWebClients();
-            vTaskDelay(1000 / portTICK_PERIOD_MS);
+            vTaskDelay(100 / portTICK_PERIOD_MS);
         }
     }, "WebClientTask", 4096, this, 1, NULL, 1);
 
