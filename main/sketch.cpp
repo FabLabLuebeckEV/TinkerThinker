@@ -115,6 +115,8 @@ static void fillSerialConfig(TDoc& doc) {
     doc["wifi_password"] = configManager.getWifiPassword();
     doc["hotspot_password"] = configManager.getHotspotPassword();
     doc["led_count"] = configManager.getLedCount();
+    doc["led_brightness"] = configManager.getLedBrightness();
+    doc["led_gamma"] = configManager.getLedGamma();
     doc["motor_left_gui"] = configManager.getMotorLeftGUI();
     doc["motor_right_gui"] = configManager.getMotorRightGUI();
     doc["drive_mixer"] = configManager.getDriveMixer();

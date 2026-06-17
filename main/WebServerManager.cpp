@@ -321,6 +321,8 @@ document.getElementById('f').onsubmit=function(e){
         for (int i=0; i<4; i++) freqArr.add(config->getMotorFrequency(i));
 
         doc["led_count"] = config->getLedCount();
+        doc["led_brightness"] = config->getLedBrightness();
+        doc["led_gamma"] = config->getLedGamma();
         doc["ota_enabled"] = config->getOTAEnabled();
 
         doc["drive_mixer"] = config->getDriveMixer();
@@ -648,42 +650,45 @@ void registerBindingsRoutes(AsyncWebServer& server, ConfigManager* config) {
         request->send(200, "application/json", binds);
     });
     server.on("/control_bindings", HTTP_POST,
+        // onRequest läuft NACH dem Body-Handler: hier parsen, speichern und antworten.
         [config](AsyncWebServerRequest* request){
-            // Antwort erst nach vollständigem Body (siehe Body-Handler) – hier nur Fallback.
-            if (!request->_tempObject) {
+            char* body = reinterpret_cast<char*>(request->_tempObject);
+            if (!body) {
                 request->send(400, "text/plain", "no body");
+                return;
             }
+            Serial.printf("control_bindings: %u Bytes empfangen\n", (unsigned)strlen(body));
+            DynamicJsonDocument bd(16384);
+            // const char* erzwingt Kopie der Strings ins Dokument (kein Zero-Copy),
+            // damit der Puffer direkt danach freigegeben werden darf.
+            DeserializationError err = deserializeJson(bd, (const char*)body);
+            // Puffer freigeben (free, da mit malloc angelegt – passt zum Framework-Destruktor).
+            free(body);
+            request->_tempObject = nullptr;
+            if (err) {
+                Serial.printf("control_bindings: Parse-Fehler: %s\n", err.c_str());
+                request->send(400, "text/plain", "invalid json");
+                return;
+            }
+            String normalized;
+            serializeJson(bd, normalized);
+            config->setControlBindingsJson(normalized);
+            bool ok = config->saveConfig();
+            Serial.printf("control_bindings: gespeichert=%s\n", ok ? "true" : "false");
+            request->send(ok ? 200 : 500, "text/plain", ok ? "OK" : "save failed");
         },
         NULL,
-        [config](AsyncWebServerRequest* request, uint8_t *data, size_t len, size_t index, size_t total){
-            // Body über alle Chunks in einem String akkumulieren.
+        // Body-Handler: nur in einen malloc-Puffer akkumulieren (free-kompatibel mit
+        // ~AsyncWebServerRequest, falls die Verbindung vor onRequest abbricht).
+        [](AsyncWebServerRequest* request, uint8_t *data, size_t len, size_t index, size_t total){
             if (index == 0) {
-                String* buf = new String();
-                buf->reserve(total);
+                char* buf = (char*)malloc(total + 1);
+                if (buf) buf[total] = '\0';
                 request->_tempObject = buf;
             }
-            String* buf = reinterpret_cast<String*>(request->_tempObject);
+            char* buf = reinterpret_cast<char*>(request->_tempObject);
             if (!buf) return;
-            buf->concat((const char*)data, len);
-
-            if (index + len == total) {
-                Serial.printf("control_bindings: %u Bytes empfangen\n", (unsigned)total);
-                DynamicJsonDocument bd(16384);
-                DeserializationError err = deserializeJson(bd, *buf);
-                if (err) {
-                    Serial.printf("control_bindings: Parse-Fehler: %s\n", err.c_str());
-                    request->send(400, "text/plain", "invalid json");
-                } else {
-                    String normalized;
-                    serializeJson(bd, normalized);
-                    config->setControlBindingsJson(normalized);
-                    bool ok = config->saveConfig();
-                    Serial.printf("control_bindings: gespeichert=%s\n", ok ? "true" : "false");
-                    request->send(ok ? 200 : 500, "text/plain", ok ? "OK" : "save failed");
-                }
-                delete buf;
-                request->_tempObject = nullptr;
-            }
+            memcpy(buf + index, data, len);
         }
     );
 }
