@@ -132,31 +132,52 @@ A↔B und X↔Y sind paarweise vertauscht; L1/R1/L2/R2/Stick und D-Pad sind korr
 **Fix:** Werte auf `A=1,B=2,X=4,Y=8` korrigieren. Nach dem Fix stimmen Live-Ansicht (B)
 und Binding-Engine überein — direkt mit der Live-View verifizierbar.
 
-## Teil D — LED-Farben: Ursache + Live-Steuerung
+## Teil D — LED-Farben: „orange zu hell / alles zu weiß"
 
-**Hardware bestätigt:** WS2812 (RGB) → die Treiber-Konfiguration `WS2812, GRB` in
-`LEDController.cpp:10` ist **korrekt**, der Software-Pfad ist sauber (kein Gamma/Mischen).
+**Hardware bestätigt:** WS2812 (RGB) → Treiber-Konfiguration `WS2812, GRB` in
+`LEDController.cpp:10` ist korrekt. Eine falsche Reihenfolge gäbe falsche *Töne*
+(Rot↔Grün), nicht Weiß — daher **nicht** die Hauptursache.
 
-**Ursache des „alles eher weiß":** In `TinkerThinkerBoard.cpp:61-62` werden beim Boot
-**alle** LEDs fest auf `(60,60,60)` (blasses Weiß) gesetzt. Ohne aktive `led_set`-Aktion
-bleiben sie so. Es gibt zudem keine direkte Live-Farbsteuerung im UI — nur die
-Binding-Aktion `led_set`, die einen Bereich `start..start+count` setzt; nicht erfasste
-LEDs bleiben weiß.
+**Symptome:** Orange wirkt viel zu hell; jede gewählte Farbe wirkt zu weiß/entsättigt
+(„falsches Farbschema").
 
-### D1. Boot-Default anpassen
+**Ursachen-Hypothesen (auf HW zu verifizieren, da Assistent nicht flashen kann):**
+1. **Helligkeit = Maximum (255)** — wahrscheinlichste Ursache. `FastLED.setBrightness()`
+   wird **nirgends** aufgerufen (gesamtes `main/` geprüft) → Default 255. WS2812 bei
+   Vollhelligkeit „blühen" optisch/auf Kamera zu Weiß aus; Mischfarben wie Orange
+   (255,128,0) wirken zu hell und entsättigt. Erklärt beide Symptome zugleich.
+2. **Fehlende Gamma-Korrektur** — WS2812 sind PWM-linear, Wahrnehmung logarithmisch →
+   Mitteltöne (Grün-128 in Orange) wirken zu hell → Ton kippt Richtung Gelb/Weiß.
+3. **Boot-Default (60,60,60)** in `TinkerThinkerBoard.cpp:61-62` — setzt alle LEDs beim
+   Start auf blasses Weiß; ohne aktive `led_set` bleiben sie so (Teil des „alles weiß").
 
-**Datei:** `main/TinkerThinkerBoard.cpp`. Boot-Default von `(60,60,60)` auf **aus**
-(`0,0,0`) bzw. eine dezente, klar nicht-weiße Farbe ändern (Standard: aus). Damit
-startet der Streifen nicht „alles weiß".
+### D1. Globale Helligkeit setzen + konfigurierbar
 
-### D2. Live-LED-Steuerung im Frontend
+**Dateien:** `main/LEDController.cpp/.h`, `main/ConfigManager.*`, `main/WebServerManager.cpp`.
+- In `LEDController::init()` `FastLED.setBrightness()` mit moderatem Default (~50) aufrufen.
+- `led_brightness` (0–255) in `ConfigManager` persistieren (Getter/Setter + Save/Load).
+- WS-Befehl `{"led_brightness":0-255}` → `FastLED.setBrightness()` + `show()` (Live, ohne Reboot).
 
-**Dateien:** `data/controls.html`/`controls.js` — eigener Bereich „Live-Werkzeuge" (enthält
-auch die Servo/Motor-Test-Slider aus E1), Panel „LED-Test":
+### D2. Optionale Gamma-Korrektur
+
+**Datei:** `main/LEDController.cpp`. Gamma-Korrektur für Video-Look ergänzen (z.B.
+`napplyGamma_video` beim Setzen, oder über `setCorrection`/`setTemperature` justieren).
+Per Konfig-Flag/Toggle umschaltbar, damit auf echter HW vergleichbar.
+
+### D3. Boot-Default anpassen
+
+**Datei:** `main/TinkerThinkerBoard.cpp`. Boot-Default `(60,60,60)` → **aus** (`0,0,0`),
+damit der Streifen nicht „alles weiß" startet.
+
+### D4. Live-LED-Panel im Frontend (inkl. Diagnose-Umschalter)
+
+**Dateien:** `data/controls.html`/`controls.js` — Bereich „Live-Werkzeuge" (enthält auch
+die Servo/Motor-Test-Slider aus E1), Panel „LED-Test":
 - Farbwähler (`<input type="color">`) + „auf alle anwenden" + „aus".
+- **Helligkeits-Slider** (sendet `{"led_brightness":...}`).
 - Sendet vorhandenes `{"led_set":{"start":0,"count":<ledCount>,"color":"#rrggbb"}}` über WS.
-- Optional: Helligkeits-Slider. Dafür Firmware-seitig WS-Befehl `{"led_brightness":0-255}`
-  → `FastLED.setBrightness()` ergänzen (kleiner Zusatz in `onWebSocketEvent` + `LEDController`).
+- **Diagnose:** Umschalter für Gamma an/aus (und optional Farbreihenfolge), damit auf der
+  echten Hardware das korrekte „Farbschema" empirisch bestimmt werden kann.
 
 ## Teil E — Servo/Motor-Komfort
 
