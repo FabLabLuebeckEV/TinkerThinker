@@ -237,6 +237,19 @@ void InputBindingManager::process(ControllerPtr ctl, int idx) {
                 int val = (int)((sy / 512.0f) * 90.0f * scale + 90.0f);
                 val = constrain(val, 0, 180);
                 board->setServoAngle(servo, val);
+            } else if (!strcmp(actType, "motor_axis")) {
+                // Eine einzelne Stick-Achse → ein Motor (proportional).
+                int motor       = action["motor"]    | 0;
+                const char* sel = action["axis"]     | "y";   // "x" oder "y" des Achsenpaars
+                float scale     = action["scale"]    | 1.0f;
+                int mdead       = action["deadband"] | 16;
+                bool inv        = action["invert"]   | false;
+                int v = (!strcmp(sel, "x")) ? x : y;
+                if (abs(v) < mdead) v = 0;
+                int pwm = (int)((v / 512.0f) * 255.0f * scale);
+                if (inv) pwm = -pwm;
+                pwm = constrain(pwm, -255, 255);
+                if (motor >= 0 && motor < 4) board->requestMotorDirectFromBT(motor, pwm);
             }
         } else if (!strcmp(inType, "button")) {
             String code = input["code"].as<String>();

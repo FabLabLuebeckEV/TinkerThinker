@@ -4,7 +4,7 @@
   const DPAD_DIRS    = ['UP','DOWN','LEFT','RIGHT'];
   const EDGES        = ['press','release','hold'];
   const AXES         = ['X','Y','RX','RY'];
-  const ACTION_TYPES = ['motor_direct','drive_pair','servo_set','servo_toggle_band','servo_nudge','servo_axes','servo_sweep','motor_ramp','led_set','gpio_set','speed_adjust'];
+  const ACTION_TYPES = ['motor_direct','drive_pair','servo_set','servo_toggle_band','servo_nudge','servo_axes','motor_axis','servo_sweep','motor_ramp','led_set','gpio_set','speed_adjust'];
   const INPUT_TYPES  = ['button','dpad','axis_pair'];
 
   const EXAMPLES = [
@@ -119,6 +119,7 @@
     }
     if (act.type === 'servo_sweep')   return `sweep S${act.servo} ${act.from}↔${act.to}`;
     if (act.type === 'motor_ramp')    return `ramp M${act.motor} →${act.pwm}`;
+    if (act.type === 'motor_axis')    return `M${act.motor} ← Achse ${act.axis}${act.invert ? ' (inv)' : ''}`;
     if (act.type === 'led_set')       return `led ${act.color}`;
     if (act.type === 'servo_set')     return `servo${act.servo} ${act.angle}°`;
     if (act.type === 'servo_nudge')   return `servo${act.servo} ${act.delta > 0 ? '+' : ''}${act.delta}°`;
@@ -179,6 +180,17 @@
         fieldsDiv.append(
           frow([el('label',{},'Servo:'), refs.idxEl, el('label',{},'Scale:'), refs.scaleEl]),
           hint('Joystick-Achse → Servo-Winkel · Scale 1.0 = voller Bereich (0–180°)')
+        );
+      } else if (t === 'motor_axis') {
+        refs.motorEl = mkNum(0, 3, action.motor ?? 0, 60);
+        refs.axisSel = mkSel(['x','y'], action.axis || 'y');
+        refs.scaleEl = el('input',{type:'number', step:'0.1', value: String(action.scale ?? 1.0), style:'width:80px;'});
+        refs.deadEl  = mkNum(0, 512, action.deadband ?? 16, 72);
+        refs.invEl   = el('input',{type:'checkbox'}); refs.invEl.checked = action.invert || false;
+        fieldsDiv.append(
+          frow([el('label',{},'Motor:'), refs.motorEl, el('label',{},'Achse:'), refs.axisSel, el('label',{},'Scale:'), refs.scaleEl]),
+          frow([el('label',{},'Deadband:'), refs.deadEl, el('label',{},'Invert:'), refs.invEl]),
+          hint('Eine Stick-Achse → ein Motor (PWM). Achse x = waagerecht (X/RX) · y = senkrecht (Y/RY). Mehrere motor_axis am selben Stick möglich.')
         );
       } else if (t === 'servo_sweep') {
         refs.idxEl  = mkNum(0, 2, action.servo ?? 0, 60);
@@ -252,6 +264,13 @@
           case 'servo_axes':
             a.servo = parseInt(refs.idxEl.value   || '0');
             a.scale = parseFloat(refs.scaleEl.value || '1');
+            break;
+          case 'motor_axis':
+            a.motor = parseInt(refs.motorEl.value || '0');
+            a.axis = refs.axisSel.value;
+            a.scale = parseFloat(refs.scaleEl.value || '1');
+            a.deadband = parseInt(refs.deadEl.value || '16');
+            a.invert = refs.invEl.checked;
             break;
           case 'servo_sweep':
             a.servo = parseInt(refs.idxEl.value || '0');
