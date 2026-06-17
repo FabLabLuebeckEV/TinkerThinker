@@ -100,6 +100,10 @@ void InputBindingManager::applyAction(JsonObject action, ControllerPtr ctl) {
             pwm = constrain(pwm, -255, 255);
             board->requestMotorDirectFromBT(idx, pwm);
         }
+    } else if (!strcmp(type, "servo_sweep")) {
+        startServoSweep(action);
+    } else if (!strcmp(type, "motor_ramp")) {
+        startMotorRamp(action);
     }
 }
 
@@ -112,8 +116,66 @@ void InputBindingManager::applyMotorHold(JsonObject action, uint32_t tickMs) {
     motorHoldUntil[motorIdx] = tickMs + MOTOR_HOLD_COAST_MS;
 }
 
+void InputBindingManager::startServoSweep(JsonObject action) {
+    int idx = action["servo"] | 0;
+    if (idx < 0 || idx >= 3) return;
+    int from = action["from"] | 0;
+    int to   = action["to"]   | 180;
+    int step = action["step"] | 2;
+    if (step < 1) step = 1;
+    // Toggle: aktiver Sweep wird gestoppt
+    if (sweepActive[idx]) { sweepActive[idx] = false; return; }
+    sweepFrom[idx] = constrain(from, 0, 180);
+    sweepTo[idx]   = constrain(to,   0, 180);
+    sweepStep[idx] = step;
+    sweepPos[idx]  = sweepFrom[idx];
+    sweepDir[idx]  = (sweepTo[idx] >= sweepFrom[idx]) ? 1 : -1;
+    sweepNextMs[idx] = millis();
+    sweepActive[idx] = true;
+}
+
+void InputBindingManager::startMotorRamp(JsonObject action) {
+    int idx = action["motor"] | 0;
+    if (idx < 0 || idx >= 4) return;
+    int target = action["pwm"]  | 0;
+    int step   = action["step"] | 10;
+    if (step < 1) step = 1;
+    rampTarget[idx]  = constrain(target, -255, 255);
+    rampStep[idx]    = step;
+    rampCurrent[idx] = board->getMotorPWM(idx);
+    rampNextMs[idx]  = millis();
+    rampActive[idx]  = true;
+}
+
+void InputBindingManager::tickSweepsAndRamps(uint32_t now) {
+    // Servo-Sweeps (alle 20 ms ein Schritt)
+    for (int i = 0; i < 3; i++) {
+        if (!sweepActive[i]) continue;
+        if (now < sweepNextMs[i]) continue;
+        sweepNextMs[i] = now + 20;
+        sweepPos[i] += sweepDir[i] * sweepStep[i];
+        if (sweepDir[i] > 0 && sweepPos[i] >= sweepTo[i])   { sweepPos[i] = sweepTo[i];   sweepDir[i] = -1; }
+        else if (sweepDir[i] < 0 && sweepPos[i] <= sweepFrom[i]) { sweepPos[i] = sweepFrom[i]; sweepDir[i] = 1; }
+        board->setServoAngle(i, sweepPos[i]);
+    }
+    // Motor-Rampen (alle 20 ms ein Schritt)
+    for (int i = 0; i < 4; i++) {
+        if (!rampActive[i]) continue;
+        if (now < rampNextMs[i]) continue;
+        rampNextMs[i] = now + 20;
+        if (rampCurrent[i] < rampTarget[i]) {
+            rampCurrent[i] = min(rampCurrent[i] + rampStep[i], rampTarget[i]);
+        } else if (rampCurrent[i] > rampTarget[i]) {
+            rampCurrent[i] = max(rampCurrent[i] - rampStep[i], rampTarget[i]);
+        }
+        board->controlMotorDirect(i, rampCurrent[i]);
+        if (rampCurrent[i] == rampTarget[i]) rampActive[i] = false;
+    }
+}
+
 void InputBindingManager::tick() {
     uint32_t now = millis();
+    tickSweepsAndRamps(now);
     for (int m = 0; m < 4; m++) {
         if (motorHoldUntil[m] == 0) continue;
         if (now < motorHoldUntil[m]) {
