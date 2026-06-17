@@ -432,6 +432,20 @@ document.getElementById('f').onsubmit=function(e){
         delay(1000);
         ESP.restart();
     });
+
+    // LED-Einstellungen (Helligkeit/Gamma) dauerhaft speichern
+    server.on("/saveLedSettings", HTTP_GET, [this](AsyncWebServerRequest* request){
+        if (request->hasParam("brightness")) {
+            config->setLedBrightness(request->getParam("brightness")->value().toInt());
+        }
+        if (request->hasParam("gamma")) {
+            config->setLedGamma(request->getParam("gamma")->value() == "1");
+        }
+        bool ok = config->saveConfig();
+        board->setLedBrightness((uint8_t)config->getLedBrightness());
+        board->setLedGamma(config->getLedGamma());
+        request->send(ok ? 200 : 500, "text/plain", ok ? "OK" : "save failed");
+    });
 }
 
 
@@ -755,6 +769,16 @@ void WebServerManager::onWebSocketEvent(AsyncWebSocket *server, AsyncWebSocketCl
                     board->setLED(i, r, g, b);
                 }
                 board->showLEDs();
+            }
+            // LED-Helligkeit live setzen (Vorschau, ohne Speichern): {"led_brightness":0-255}
+            if (doc.containsKey("led_brightness")) {
+                int b = doc["led_brightness"].as<int>();
+                if (b < 0) b = 0; if (b > 255) b = 255;
+                board->setLedBrightness((uint8_t)b);
+            }
+            // Gamma live umschalten: {"led_gamma":true|false}
+            if (doc.containsKey("led_gamma")) {
+                board->setLedGamma(doc["led_gamma"].as<bool>());
             }
             // Optionale Einstellung zum Setzen des Swap-Flags, falls von der UI gesendet
             // z.B. {"swap":true} oder {"swap":false}

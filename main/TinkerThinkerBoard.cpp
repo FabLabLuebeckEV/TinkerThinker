@@ -58,8 +58,10 @@ void TinkerThinkerBoard::reApplyConfig() {
 
     ledController = new LEDController(config->getLedCount());
     ledController->init();
+    ledController->setGamma(config->getLedGamma());
+    FastLED.setBrightness(config->getLedBrightness());
     for (int i = 0; i < config->getLedCount(); i++) {
-        ledController->setPixelColor(i, 60, 60, 60);
+        ledController->setPixelColor(i, 0, 0, 0); // Boot-Default: aus (nicht „weiß")
     }
     FastLED.show();
 
@@ -148,6 +150,14 @@ void TinkerThinkerBoard::showLEDs() {
 
 CRGB TinkerThinkerBoard::getLEDColor(int ledIndex) {
     return ledController->getLEDColor(ledIndex);
+}
+
+void TinkerThinkerBoard::setLedBrightness(uint8_t value) {
+    if (ledController) ledController->setBrightness(value);
+}
+
+void TinkerThinkerBoard::setLedGamma(bool enabled) {
+    if (ledController) ledController->setGamma(enabled);
 }
 
 float TinkerThinkerBoard::getBatteryVoltage() {
