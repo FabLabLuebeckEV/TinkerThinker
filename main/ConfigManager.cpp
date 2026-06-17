@@ -58,7 +58,7 @@ bool ConfigManager::loadConfig() {
         Serial.println("Failed to open config file for reading");
         return false;
     }
-    StaticJsonDocument<8192> doc;
+    DynamicJsonDocument doc(16384);
     DeserializationError err = deserializeJson(doc, file);
     file.close();
     if (err) {
@@ -145,7 +145,7 @@ bool ConfigManager::loadConfig() {
 }
 
 bool ConfigManager::saveConfig() {
-    StaticJsonDocument<8192> doc;
+    DynamicJsonDocument doc(16384);
     doc["wifi_mode"] = wifi_mode;
     doc["wifi_ssid"] = wifi_ssid;
     doc["wifi_password"] = wifi_password;
@@ -206,15 +206,20 @@ bool ConfigManager::saveConfig() {
     JsonArray wlArr = doc.createNestedArray("bt_whitelist");
     for (const auto& mac : bt_whitelist) wlArr.add(mac);
 
+    if (doc.overflowed()) {
+        Serial.println("saveConfig: JSON-Dokument zu klein (overflow) – NICHT gespeichert");
+        return false;
+    }
+
     File file = LittleFS.open("/config.json", "w");
     if (!file) {
         Serial.println("Failed to open config file for writing");
         return false;
     }
 
-    serializeJson(doc, file);
+    size_t written = serializeJson(doc, file);
     file.close();
-    //loadConfig();
+    Serial.printf("saveConfig: %u Bytes nach /config.json geschrieben\n", (unsigned)written);
     return true;
 }
 
