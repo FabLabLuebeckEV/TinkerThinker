@@ -30,6 +30,8 @@ void ConfigManager::setDefaults() {
     motorRightGUI = 3;
     for (int i = 0; i < 4; i++) motor_deadband[i] = 50;
     led_count = 30;
+    led_brightness = 50;
+    led_gamma = false;
     ota_enabled = false;
     for (int i=0; i<4; i++) motor_frequency[i] = 5000;
     for (int i=0; i<3; i++) {
@@ -82,6 +84,8 @@ bool ConfigManager::loadConfig() {
     motorLeftGUI = doc["motor_left_gui"] | 2;
     motorRightGUI = doc["motor_right_gui"] | 3;
     led_count = doc["led_count"] | 30;
+    led_brightness = doc["led_brightness"] | 50;
+    led_gamma = doc["led_gamma"] | false;
     ota_enabled = doc["ota_enabled"] | false;
     JsonArray motorDeadbandArr = doc["motor_deadband"].as<JsonArray>();
     for (int i=0; i<4; i++) {
@@ -168,6 +172,8 @@ bool ConfigManager::saveConfig() {
     for (int i=0; i<4; i++) freqArr.add(motor_frequency[i]);
 
     doc["led_count"] = led_count;
+    doc["led_brightness"] = led_brightness;
+    doc["led_gamma"] = led_gamma;
     doc["ota_enabled"] = ota_enabled;
 
     JsonArray servoArr = doc.createNestedArray("servo_settings");
@@ -264,6 +270,8 @@ bool ConfigManager::getMotorSwap() { return motor_swap; }
 int ConfigManager::getMotorLeftGUI() { return motorLeftGUI; }
 int ConfigManager::getMotorRightGUI() { return motorRightGUI; }
 int ConfigManager::getLedCount() { return led_count; }
+int ConfigManager::getLedBrightness() { return led_brightness; }
+bool ConfigManager::getLedGamma() { return led_gamma; }
 int ConfigManager::getMotorDeadband(int index) {return motor_deadband[index];}
 int ConfigManager::getMotorFrequency(int index){return motor_frequency[index];}
 bool ConfigManager::getOTAEnabled() { return ota_enabled; }
@@ -289,6 +297,12 @@ void ConfigManager::setMotorSwap(bool swap) { motor_swap = swap; }
 void ConfigManager::setMotorLeftGUI(int motorIndex){ motorLeftGUI = motorIndex; }
 void ConfigManager::setMotorRightGUI(int motorIndex){ motorRightGUI = motorIndex; }
 void ConfigManager::setLedCount(int count){ led_count = count; }
+void ConfigManager::setLedBrightness(int value){
+    if (value < 0) value = 0;
+    if (value > 255) value = 255;
+    led_brightness = value;
+}
+void ConfigManager::setLedGamma(bool enabled){ led_gamma = enabled; }
 void ConfigManager::setOTAEnabled(bool enabled){ ota_enabled = enabled; }
 void ConfigManager::setServoPulsewidthRange(int index, int min_pw, int max_pw){
     servos[index].min_pw = min_pw;

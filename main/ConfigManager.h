@@ -25,6 +25,8 @@ public:
     int getMotorLeftGUI();
     int getMotorRightGUI();
     int getLedCount();
+    int getLedBrightness();
+    bool getLedGamma();
     bool getOTAEnabled();
     int getMotorDeadband(int index);
     int getMotorFrequency(int index);
@@ -56,6 +58,8 @@ public:
     void setMotorInvert(int index, bool inv);
     void setMotorSwap(bool swap);
     void setLedCount(int count);
+    void setLedBrightness(int value);
+    void setLedGamma(bool enabled);
     void setOTAEnabled(bool enabled);
     void setMotorFrequency(int index, int val);
     void setMotorDeadband(int index, int val);
@@ -104,6 +108,8 @@ private:
     String hotspot_ssid;
     String hotspot_password;
     int led_count;
+    int led_brightness = 50;   // 0..255 globale FastLED-Helligkeit
+    bool led_gamma = false;    // Gamma-Korrektur an/aus
     bool ota_enabled;
 
     struct ServoConfig {
