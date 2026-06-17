@@ -3,7 +3,7 @@
 #include "ConfigManager.h"
 
 InputBindingManager::InputBindingManager(TinkerThinkerBoard* b, ConfigManager* c)
-    : board(b), config(c), bindings(8192) {}
+    : board(b), config(c) {}
 
 void InputBindingManager::reload() {
     bindings.clear();

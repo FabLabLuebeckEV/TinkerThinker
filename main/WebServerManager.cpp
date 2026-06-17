@@ -298,7 +298,7 @@ document.getElementById('f').onsubmit=function(e){
 
     // JSON mit aktueller Config liefern
     server.on("/getConfig", HTTP_GET, [this](AsyncWebServerRequest *request){
-        DynamicJsonDocument doc(8192);
+        JsonDocument doc;
 
         doc["wifi_mode"] = config->getWifiMode();
         doc["wifi_ssid"] = config->getWifiSSID();
@@ -307,17 +307,17 @@ document.getElementById('f').onsubmit=function(e){
         doc["hotspot_password"] = config->getHotspotPassword();
         doc["wifi_disabled_until_restart"] = wifiDisabledUntilRestart || (WiFi.getMode() == WIFI_OFF);
 
-        JsonArray invArr = doc.createNestedArray("motor_invert");
+        JsonArray invArr = doc["motor_invert"].to<JsonArray>();
         for (int i=0; i<4; i++) invArr.add(config->getMotorInvert(i));
 
         doc["motor_swap"] = config->getMotorSwap();
         doc["motor_left_gui"] = config->getMotorLeftGUI();
         doc["motor_right_gui"] = config->getMotorRightGUI();
 
-        JsonArray dbArr = doc.createNestedArray("motor_deadband");
+        JsonArray dbArr = doc["motor_deadband"].to<JsonArray>();
         for (int i=0; i<4; i++) dbArr.add(config->getMotorDeadband(i));
 
-        JsonArray freqArr = doc.createNestedArray("motor_frequency");
+        JsonArray freqArr = doc["motor_frequency"].to<JsonArray>();
         for (int i=0; i<4; i++) freqArr.add(config->getMotorFrequency(i));
 
         doc["led_count"] = config->getLedCount();
@@ -339,9 +339,9 @@ document.getElementById('f').onsubmit=function(e){
         doc["bt_scan_on_ap_ms"]      = config->getBtScanOnAp();
         doc["bt_scan_off_ap_ms"]     = config->getBtScanOffAp();
 
-        JsonArray servoArr = doc.createNestedArray("servo_settings");
+        JsonArray servoArr = doc["servo_settings"].to<JsonArray>();
         for (int i=0; i<3; i++) {
-            JsonObject sObj = servoArr.createNestedObject();
+            JsonObject sObj = servoArr.add<JsonObject>();
             sObj["min_pulsewidth"] = config->getServoMinPulsewidth(i);
             sObj["max_pulsewidth"] = config->getServoMaxPulsewidth(i);
         }
@@ -350,7 +350,7 @@ document.getElementById('f').onsubmit=function(e){
         {
             String binds = config->getControlBindingsJson();
             if (binds.length() == 0) binds = String(ConfigManager::getDefaultControlBindingsJson());
-            DynamicJsonDocument bd(8192);
+            JsonDocument bd;
             if (deserializeJson(bd, binds) == DeserializationError::Ok) {
                 doc["control_bindings"] = bd;
             }
@@ -374,11 +374,11 @@ document.getElementById('f').onsubmit=function(e){
 
     // GET connected controllers (MAC + model)
     server.on("/bt/controllers", HTTP_GET, [this](AsyncWebServerRequest *request){
-        DynamicJsonDocument doc(512);
-        JsonArray arr = doc.createNestedArray("controllers");
+        JsonDocument doc;
+        JsonArray arr = doc["controllers"].to<JsonArray>();
         for (int i = 0; i < 4; i++) {
             if (connectedControllers[i].connected) {
-                JsonObject obj = arr.createNestedObject();
+                JsonObject obj = arr.add<JsonObject>();
                 obj["slot"] = i;
                 obj["mac"] = connectedControllers[i].mac;
                 obj["model"] = connectedControllers[i].model;
@@ -391,9 +391,9 @@ document.getElementById('f').onsubmit=function(e){
 
     // GET whitelist config
     server.on("/bt/whitelist", HTTP_GET, [this](AsyncWebServerRequest *request){
-        DynamicJsonDocument doc(1024);
+        JsonDocument doc;
         doc["enabled"] = config->getBtWhitelistEnabled();
-        JsonArray arr = doc.createNestedArray("addresses");
+        JsonArray arr = doc["addresses"].to<JsonArray>();
         for (const auto& mac : config->getBtWhitelist()) arr.add(mac);
         String json;
         serializeJson(doc, json);
@@ -410,12 +410,12 @@ document.getElementById('f').onsubmit=function(e){
             String body;
             body.reserve(total);
             body.concat((const char*)data, len);
-            DynamicJsonDocument doc(1024);
+            JsonDocument doc;
             if (deserializeJson(doc, body) != DeserializationError::Ok) return;
-            if (doc.containsKey("enabled")) {
+            if (!doc["enabled"].isNull()) {
                 config->setBtWhitelistEnabled(doc["enabled"].as<bool>());
             }
-            if (doc.containsKey("addresses")) {
+            if (!doc["addresses"].isNull()) {
                 std::vector<String> addrs;
                 JsonArray arr = doc["addresses"].as<JsonArray>();
                 for (JsonVariant v : arr) {
@@ -609,7 +609,7 @@ void WebServerManager::handleConfig(AsyncWebServerRequest* request) {
 
     if (wifiChanged) {
         // Sende eine Nachricht über WebSocket, dass ein Neustart erfolgt
-        StaticJsonDocument<200> doc;
+        JsonDocument doc;
         doc["restart"] = true;
         String json;
         serializeJson(doc, json);
@@ -658,7 +658,7 @@ void registerBindingsRoutes(AsyncWebServer& server, ConfigManager* config) {
                 return;
             }
             Serial.printf("control_bindings: %u Bytes empfangen\n", (unsigned)strlen(body));
-            DynamicJsonDocument bd(16384);
+            JsonDocument bd;
             // const char* erzwingt Kopie der Strings ins Dokument (kein Zero-Copy),
             // damit der Puffer direkt danach freigegeben werden darf.
             DeserializationError err = deserializeJson(bd, (const char*)body);
@@ -704,11 +704,11 @@ void WebServerManager::onWebSocketEvent(AsyncWebSocket *server, AsyncWebSocketCl
             message += (char)data[i];
         }
 
-        StaticJsonDocument<512> doc;
+        JsonDocument doc;
         DeserializationError error = deserializeJson(doc, message);
         if (!error) {
             // Vorhandene Steuerung für Joystick & Servo
-            if (doc.containsKey("x") && doc.containsKey("y")) {
+            if (!doc["x"].isNull() && !doc["y"].isNull()) {
                 float x = doc["x"].as<float>();
                 float y = doc["y"].as<float>();
 
@@ -722,7 +722,7 @@ void WebServerManager::onWebSocketEvent(AsyncWebSocket *server, AsyncWebSocketCl
             // Bestehende Motor Steuerung (A, B, C, D)
             for (int i = 0; i < 4; i++) {
                 String motorKey = "motor" + String((char)('A' + i));
-                if (doc.containsKey(motorKey)) {
+                if (!doc[motorKey].isNull()) {
                     String command = doc[motorKey].as<String>();
                     if (command == "forward") {
                         board->requestMotorDirectFromWS(i, 255);
@@ -739,7 +739,7 @@ void WebServerManager::onWebSocketEvent(AsyncWebSocket *server, AsyncWebSocketCl
             }
 
             // Raw Motor PWM (bypasses deadband, used by setup)
-            if (doc.containsKey("motor_raw")) {
+            if (!doc["motor_raw"].isNull()) {
                 JsonObject raw = doc["motor_raw"].as<JsonObject>();
                 int idx = raw["motor"] | -1;
                 int pwm = raw["pwm"] | 0;
@@ -753,7 +753,7 @@ void WebServerManager::onWebSocketEvent(AsyncWebSocket *server, AsyncWebSocketCl
             // Erwartetes Format: {"servo0": <angle>, "servo1": <angle>, "servo2": <angle>}
             for (int i = 0; i < 3; i++) {
                 String servoKey = "servo" + String(i);
-                if (doc.containsKey(servoKey)) {
+                if (!doc[servoKey].isNull()) {
                     Serial.println(servoKey + ": " + String(doc[servoKey].as<int>()));
                     int angle = doc[servoKey].as<int>();
                     board->setServoAngle(i, angle);
@@ -761,7 +761,7 @@ void WebServerManager::onWebSocketEvent(AsyncWebSocket *server, AsyncWebSocketCl
             }
 
             // LED set (expects {"led_set":{"start":0,"count":1,"color":"#RRGGBB"}})
-            if (doc.containsKey("led_set")) {
+            if (!doc["led_set"].isNull()) {
                 JsonObject led = doc["led_set"].as<JsonObject>();
                 int start = led["start"] | 0;
                 int count = led["count"] | 1;
@@ -776,18 +776,18 @@ void WebServerManager::onWebSocketEvent(AsyncWebSocket *server, AsyncWebSocketCl
                 board->showLEDs();
             }
             // LED-Helligkeit live setzen (Vorschau, ohne Speichern): {"led_brightness":0-255}
-            if (doc.containsKey("led_brightness")) {
+            if (!doc["led_brightness"].isNull()) {
                 int b = doc["led_brightness"].as<int>();
                 if (b < 0) b = 0; if (b > 255) b = 255;
                 board->setLedBrightness((uint8_t)b);
             }
             // Gamma live umschalten: {"led_gamma":true|false}
-            if (doc.containsKey("led_gamma")) {
+            if (!doc["led_gamma"].isNull()) {
                 board->setLedGamma(doc["led_gamma"].as<bool>());
             }
             // Optionale Einstellung zum Setzen des Swap-Flags, falls von der UI gesendet
             // z.B. {"swap":true} oder {"swap":false}
-            if (doc.containsKey("swap")) {
+            if (!doc["swap"].isNull()) {
                 bool sw = doc["swap"].as<bool>();
                 // Config entsprechend setzen
                 config->setMotorSwap(sw);
@@ -816,36 +816,36 @@ void WebServerManager::sendStatusUpdate() {
     }
     if (xSemaphoreTake(wsMutex, pdMS_TO_TICKS(50)) == pdTRUE) {
         if (ws.count() > 0) {
-            StaticJsonDocument<1024> doc;
+            JsonDocument doc;
             doc["batteryVoltage"] = board->getBatteryVoltage();
             doc["batteryPercentage"] = board->getBatteryPercentage();
 
-            JsonArray servos = doc.createNestedArray("servos");
+            JsonArray servos = doc["servos"].to<JsonArray>();
             for (int i = 0; i < 3; i++) {
                 servos.add(board->getServoAngle(i));
             }
 
-            JsonArray motorPWMs = doc.createNestedArray("motorPWMs");
+            JsonArray motorPWMs = doc["motorPWMs"].to<JsonArray>();
             for (int i = 0; i < 4; i++) {
                 motorPWMs.add(board->getMotorPWM(i));
             }
 
-            JsonArray motorCurrents = doc.createNestedArray("motorCurrents");
+            JsonArray motorCurrents = doc["motorCurrents"].to<JsonArray>();
             for (int i = 0; i < 2; i++) {
                 motorCurrents.add(board->getHBridgeAmps(i));
             }
 
             CRGB ledColor = board->getLEDColor(0);
-            JsonObject firstLED = doc.createNestedObject("firstLED");
+            JsonObject firstLED = doc["firstLED"].to<JsonObject>();
             firstLED["r"] = ledColor.r;
             firstLED["g"] = ledColor.g;
             firstLED["b"] = ledColor.b;
 
-            JsonArray ctrls = doc.createNestedArray("controllers");
+            JsonArray ctrls = doc["controllers"].to<JsonArray>();
             for (int i = 0; i < BP32_MAX_GAMEPADS; i++) {
                 const ControllerInputSnapshot& s = board->getControllerSnapshot(i);
                 if (!s.connected) continue;
-                JsonObject c = ctrls.createNestedObject();
+                JsonObject c = ctrls.add<JsonObject>();
                 c["idx"]     = i;
                 c["buttons"] = s.buttons;
                 c["dpad"]    = s.dpad;

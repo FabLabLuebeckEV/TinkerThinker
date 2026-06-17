@@ -18,7 +18,7 @@ public:
 private:
     TinkerThinkerBoard* board;
     ConfigManager* config;
-    DynamicJsonDocument bindings;
+    JsonDocument bindings;
     uint32_t prevButtons[BP32_MAX_GAMEPADS] = {0};
     uint32_t prevDpad[BP32_MAX_GAMEPADS] = {0};
     int servoBand[3] = {0,0,0};

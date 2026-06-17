@@ -60,7 +60,7 @@ bool ConfigManager::loadConfig() {
         Serial.println("Failed to open config file for reading");
         return false;
     }
-    DynamicJsonDocument doc(16384);
+    JsonDocument doc;
     DeserializationError err = deserializeJson(doc, file);
     file.close();
     if (err) {
@@ -111,24 +111,24 @@ bool ConfigManager::loadConfig() {
     bt_scan_on_ap_ms      = doc["bt_scan_on_ap_ms"]      | bt_scan_on_ap_ms;
     bt_scan_off_ap_ms     = doc["bt_scan_off_ap_ms"]     | bt_scan_off_ap_ms;
 
-    if (doc.containsKey("drive_mixer")) {
+    if (!doc["drive_mixer"].isNull()) {
         setDriveMixer(String((const char*)doc["drive_mixer"]));
     }
-    if (doc.containsKey("drive_turn_gain")) {
+    if (!doc["drive_turn_gain"].isNull()) {
         setDriveTurnGain(doc["drive_turn_gain"].as<float>());
     }
-    if (doc.containsKey("drive_axis_deadband")) {
+    if (!doc["drive_axis_deadband"].isNull()) {
         setDriveAxisDeadband(doc["drive_axis_deadband"].as<int>());
     }
-    if (doc.containsKey("motor_curve_type")) {
+    if (!doc["motor_curve_type"].isNull()) {
         setMotorCurveType(String((const char*)doc["motor_curve_type"]));
     }
-    if (doc.containsKey("motor_curve_strength")) {
+    if (!doc["motor_curve_strength"].isNull()) {
         setMotorCurveStrength(doc["motor_curve_strength"].as<float>());
     }
 
     // Control bindings (store raw JSON)
-    if (doc.containsKey("control_bindings")) {
+    if (!doc["control_bindings"].isNull()) {
         String tmp;
         serializeJson(doc["control_bindings"], tmp);
         control_bindings_json = tmp;
@@ -137,7 +137,7 @@ bool ConfigManager::loadConfig() {
     // Bluetooth Whitelist
     bt_whitelist_enabled = doc["bt_whitelist_enabled"] | false;
     bt_whitelist.clear();
-    if (doc.containsKey("bt_whitelist")) {
+    if (!doc["bt_whitelist"].isNull()) {
         JsonArray wlArr = doc["bt_whitelist"].as<JsonArray>();
         for (JsonVariant v : wlArr) {
             String mac = v.as<String>();
@@ -149,14 +149,14 @@ bool ConfigManager::loadConfig() {
 }
 
 bool ConfigManager::saveConfig() {
-    DynamicJsonDocument doc(16384);
+    JsonDocument doc;
     doc["wifi_mode"] = wifi_mode;
     doc["wifi_ssid"] = wifi_ssid;
     doc["wifi_password"] = wifi_password;
     doc["hotspot_ssid"] = hotspot_ssid;
     doc["hotspot_password"] = hotspot_password;
 
-    JsonArray invArr = doc.createNestedArray("motor_invert");
+    JsonArray invArr = doc["motor_invert"].to<JsonArray>();
     for (int i=0; i<4; i++) invArr.add(motor_invert[i]);
 
     doc["motor_swap"] = motor_swap;
@@ -165,10 +165,10 @@ bool ConfigManager::saveConfig() {
     doc["motor_left_gui"] = motorLeftGUI;
     doc["motor_right_gui"] = motorRightGUI;
 
-    JsonArray dbArr = doc.createNestedArray("motor_deadband");
+    JsonArray dbArr = doc["motor_deadband"].to<JsonArray>();
     for (int i=0; i<4; i++) dbArr.add(motor_deadband[i]);
 
-    JsonArray freqArr = doc.createNestedArray("motor_frequency");
+    JsonArray freqArr = doc["motor_frequency"].to<JsonArray>();
     for (int i=0; i<4; i++) freqArr.add(motor_frequency[i]);
 
     doc["led_count"] = led_count;
@@ -176,9 +176,9 @@ bool ConfigManager::saveConfig() {
     doc["led_gamma"] = led_gamma;
     doc["ota_enabled"] = ota_enabled;
 
-    JsonArray servoArr = doc.createNestedArray("servo_settings");
+    JsonArray servoArr = doc["servo_settings"].to<JsonArray>();
     for (int i=0; i<3; i++){
-        JsonObject sObj = servoArr.createNestedObject();
+        JsonObject sObj = servoArr.add<JsonObject>();
         sObj["min_pulsewidth"] = servos[i].min_pw;
         sObj["max_pulsewidth"] = servos[i].max_pw;
     }
@@ -200,7 +200,7 @@ bool ConfigManager::saveConfig() {
 
     // Control bindings: embed stored JSON
     if (control_bindings_json.length() > 0) {
-        DynamicJsonDocument binds(4096);
+        JsonDocument binds;
         DeserializationError err = deserializeJson(binds, control_bindings_json);
         if (!err) {
             doc["control_bindings"] = binds;
@@ -209,7 +209,7 @@ bool ConfigManager::saveConfig() {
 
     // Bluetooth Whitelist
     doc["bt_whitelist_enabled"] = bt_whitelist_enabled;
-    JsonArray wlArr = doc.createNestedArray("bt_whitelist");
+    JsonArray wlArr = doc["bt_whitelist"].to<JsonArray>();
     for (const auto& mac : bt_whitelist) wlArr.add(mac);
 
     if (doc.overflowed()) {

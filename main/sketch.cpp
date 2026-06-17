@@ -133,7 +133,7 @@ static void fillSerialConfig(TDoc& doc) {
 }
 
 static void emitSerialReady() {
-    StaticJsonDocument<384> doc;
+    JsonDocument doc;
     doc["event"] = "ready";
     fillSerialInfo(doc);
     sendSerialJson(doc);
@@ -148,10 +148,10 @@ static void handleSerialCommandLine(const char* rawLine) {
         line.trim();
     }
 
-    StaticJsonDocument<1024> cmd;
+    JsonDocument cmd;
     DeserializationError err = deserializeJson(cmd, line);
     if (err) {
-        StaticJsonDocument<256> resp;
+        JsonDocument resp;
         resp["event"] = "error";
         resp["message"] = "invalid_json";
         sendSerialJson(resp);
@@ -159,7 +159,7 @@ static void handleSerialCommandLine(const char* rawLine) {
     }
 
     const char* command = cmd["cmd"] | "";
-    StaticJsonDocument<1024> resp;
+    JsonDocument resp;
     resp["cmd"] = command;
 
     if (!strcmp(command, "ping")) {
@@ -213,13 +213,13 @@ static void handleSerialCommandLine(const char* rawLine) {
         bool reapplyHardware = false;
         bool rebootRequired = false;
 
-        if (cfg.containsKey("wifi_mode")) {
+        if (!cfg["wifi_mode"].isNull()) {
             const char* mode = cfg["wifi_mode"] | "AP";
             configManager.setWifiMode(String(mode));
             touched = true;
             rebootRequired = true;
         }
-        if (cfg.containsKey("wifi_ssid")) {
+        if (!cfg["wifi_ssid"].isNull()) {
             const char* rawSsid = cfg["wifi_ssid"] | "";
             String ssid = String(rawSsid);
             ssid.trim();
@@ -227,7 +227,7 @@ static void handleSerialCommandLine(const char* rawLine) {
             touched = true;
             rebootRequired = true;
         }
-        if (cfg.containsKey("wifi_password")) {
+        if (!cfg["wifi_password"].isNull()) {
             const char* rawPass = cfg["wifi_password"] | "";
             String pass = String(rawPass);
             pass.trim();
@@ -235,7 +235,7 @@ static void handleSerialCommandLine(const char* rawLine) {
             touched = true;
             rebootRequired = true;
         }
-        if (cfg.containsKey("hotspot_ssid")) {
+        if (!cfg["hotspot_ssid"].isNull()) {
             const char* rawHotspot = cfg["hotspot_ssid"] | "";
             String ssid = sanitizeDeviceName(String(rawHotspot));
             if (ssid.length()) {
@@ -244,52 +244,52 @@ static void handleSerialCommandLine(const char* rawLine) {
                 rebootRequired = true;
             }
         }
-        if (cfg.containsKey("hotspot_password")) {
+        if (!cfg["hotspot_password"].isNull()) {
             const char* rawPass = cfg["hotspot_password"] | "";
             configManager.setHotspotPassword(String(rawPass));
             touched = true;
             rebootRequired = true;
         }
-        if (cfg.containsKey("ota_enabled")) {
+        if (!cfg["ota_enabled"].isNull()) {
             configManager.setOTAEnabled(cfg["ota_enabled"].as<bool>());
             touched = true;
         }
-        if (cfg.containsKey("led_count")) {
+        if (!cfg["led_count"].isNull()) {
             configManager.setLedCount(cfg["led_count"].as<int>());
             touched = true;
             reapplyHardware = true;
         }
-        if (cfg.containsKey("motor_left_gui")) {
+        if (!cfg["motor_left_gui"].isNull()) {
             configManager.setMotorLeftGUI(constrain(cfg["motor_left_gui"].as<int>(), 0, 3));
             touched = true;
             reapplyHardware = true;
         }
-        if (cfg.containsKey("motor_right_gui")) {
+        if (!cfg["motor_right_gui"].isNull()) {
             configManager.setMotorRightGUI(constrain(cfg["motor_right_gui"].as<int>(), 0, 3));
             touched = true;
             reapplyHardware = true;
         }
-        if (cfg.containsKey("bt_scan_on_normal_ms")) {
+        if (!cfg["bt_scan_on_normal_ms"].isNull()) {
             configManager.setBtScanOnNormal(cfg["bt_scan_on_normal_ms"].as<int>());
             touched = true;
         }
-        if (cfg.containsKey("bt_scan_off_normal_ms")) {
+        if (!cfg["bt_scan_off_normal_ms"].isNull()) {
             configManager.setBtScanOffNormal(cfg["bt_scan_off_normal_ms"].as<int>());
             touched = true;
         }
-        if (cfg.containsKey("bt_scan_on_sta_ms")) {
+        if (!cfg["bt_scan_on_sta_ms"].isNull()) {
             configManager.setBtScanOnSta(cfg["bt_scan_on_sta_ms"].as<int>());
             touched = true;
         }
-        if (cfg.containsKey("bt_scan_off_sta_ms")) {
+        if (!cfg["bt_scan_off_sta_ms"].isNull()) {
             configManager.setBtScanOffSta(cfg["bt_scan_off_sta_ms"].as<int>());
             touched = true;
         }
-        if (cfg.containsKey("bt_scan_on_ap_ms")) {
+        if (!cfg["bt_scan_on_ap_ms"].isNull()) {
             configManager.setBtScanOnAp(cfg["bt_scan_on_ap_ms"].as<int>());
             touched = true;
         }
-        if (cfg.containsKey("bt_scan_off_ap_ms")) {
+        if (!cfg["bt_scan_off_ap_ms"].isNull()) {
             configManager.setBtScanOffAp(cfg["bt_scan_off_ap_ms"].as<int>());
             touched = true;
         }
@@ -357,7 +357,7 @@ static void pollSerialCommands() {
             serialCmdBuffer[serialCmdLen++] = c;
         } else {
             serialCmdLen = 0;
-            StaticJsonDocument<256> resp;
+            JsonDocument resp;
             resp["event"] = "error";
             resp["message"] = "command_too_long";
             sendSerialJson(resp);
