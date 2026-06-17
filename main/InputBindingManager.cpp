@@ -26,10 +26,10 @@ int InputBindingManager::getAxis(ControllerPtr ctl, const char* name) {
 }
 
 uint32_t InputBindingManager::buttonMaskFromString(const String& code) {
-    if (code == "BTN_A") return 2;
-    if (code == "BTN_B") return 1;
-    if (code == "BTN_X") return 8;
-    if (code == "BTN_Y") return 4;
+    if (code == "BTN_A") return 1;
+    if (code == "BTN_B") return 2;
+    if (code == "BTN_X") return 4;
+    if (code == "BTN_Y") return 8;
     if (code == "BUTTON_L1") return 16;
     if (code == "BUTTON_R1") return 32;
     if (code == "BUTTON_L2") return 64;
