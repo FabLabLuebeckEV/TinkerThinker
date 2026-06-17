@@ -635,22 +635,40 @@ void registerBindingsRoutes(AsyncWebServer& server, ConfigManager* config) {
     });
     server.on("/control_bindings", HTTP_POST,
         [config](AsyncWebServerRequest* request){
-            // completed in body handler
-            request->send(200, "text/plain", "OK");
+            // Antwort erst nach vollständigem Body (siehe Body-Handler) – hier nur Fallback.
+            if (!request->_tempObject) {
+                request->send(400, "text/plain", "no body");
+            }
         },
         NULL,
         [config](AsyncWebServerRequest* request, uint8_t *data, size_t len, size_t index, size_t total){
-            String body;
-            body.reserve(total);
-            body.concat((const char*)data, len);
-            // naive: assume single chunk
-            DynamicJsonDocument bd(8192);
-            if (deserializeJson(bd, body) == DeserializationError::Ok) {
-                // reserialize normalized
-                String normalized;
-                serializeJson(bd, normalized);
-                config->setControlBindingsJson(normalized);
-                config->saveConfig();
+            // Body über alle Chunks in einem String akkumulieren.
+            if (index == 0) {
+                String* buf = new String();
+                buf->reserve(total);
+                request->_tempObject = buf;
+            }
+            String* buf = reinterpret_cast<String*>(request->_tempObject);
+            if (!buf) return;
+            buf->concat((const char*)data, len);
+
+            if (index + len == total) {
+                Serial.printf("control_bindings: %u Bytes empfangen\n", (unsigned)total);
+                DynamicJsonDocument bd(16384);
+                DeserializationError err = deserializeJson(bd, *buf);
+                if (err) {
+                    Serial.printf("control_bindings: Parse-Fehler: %s\n", err.c_str());
+                    request->send(400, "text/plain", "invalid json");
+                } else {
+                    String normalized;
+                    serializeJson(bd, normalized);
+                    config->setControlBindingsJson(normalized);
+                    bool ok = config->saveConfig();
+                    Serial.printf("control_bindings: gespeichert=%s\n", ok ? "true" : "false");
+                    request->send(ok ? 200 : 500, "text/plain", ok ? "OK" : "save failed");
+                }
+                delete buf;
+                request->_tempObject = nullptr;
             }
         }
     );
