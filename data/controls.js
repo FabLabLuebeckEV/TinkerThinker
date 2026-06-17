@@ -4,7 +4,7 @@
   const DPAD_DIRS    = ['UP','DOWN','LEFT','RIGHT'];
   const EDGES        = ['press','release','hold'];
   const AXES         = ['X','Y','RX','RY'];
-  const ACTION_TYPES = ['motor_direct','drive_pair','servo_set','servo_toggle_band','servo_nudge','servo_axes','led_set','gpio_set','speed_adjust'];
+  const ACTION_TYPES = ['motor_direct','drive_pair','servo_set','servo_toggle_band','servo_nudge','servo_axes','servo_sweep','motor_ramp','led_set','gpio_set','speed_adjust'];
   const INPUT_TYPES  = ['button','dpad','axis_pair'];
 
   const EXAMPLES = [
@@ -108,6 +108,8 @@
     if (!act) return '?';
     if (act.type === 'motor_direct')  return `motor${act.motor} PWM ${act.pwm}`;
     if (act.type === 'drive_pair')    return `drive_pair ${act.target}`;
+    if (act.type === 'servo_sweep')   return `sweep S${act.servo} ${act.from}↔${act.to}`;
+    if (act.type === 'motor_ramp')    return `ramp M${act.motor} →${act.pwm}`;
     if (act.type === 'led_set')       return `led ${act.color}`;
     if (act.type === 'servo_set')     return `servo${act.servo} ${act.angle}°`;
     if (act.type === 'servo_nudge')   return `servo${act.servo} ${act.delta > 0 ? '+' : ''}${act.delta}°`;
@@ -168,6 +170,23 @@
           frow([el('label',{},'Servo:'), refs.idxEl, el('label',{},'Scale:'), refs.scaleEl]),
           hint('Joystick-Achse → Servo-Winkel · Scale 1.0 = voller Bereich (0–180°)')
         );
+      } else if (t === 'servo_sweep') {
+        refs.idxEl  = mkNum(0, 2, action.servo ?? 0, 60);
+        refs.fromEl = mkNum(0, 180, action.from ?? 0, 60);
+        refs.toEl   = mkNum(0, 180, action.to ?? 180, 60);
+        refs.stepEl = mkNum(1, 30, action.step ?? 2, 60);
+        fieldsDiv.append(
+          frow([el('label',{},'Servo:'), refs.idxEl, el('label',{},'Von:'), refs.fromEl, el('label',{},'Bis:'), refs.toEl, el('label',{},'Schritt:'), refs.stepEl]),
+          hint('Pendelt den Servo zwischen Von/Bis · erneuter Tastendruck stoppt')
+        );
+      } else if (t === 'motor_ramp') {
+        refs.motorEl = mkNum(0, 3, action.motor ?? 0, 60);
+        refs.pwmEl   = mkNum(-255, 255, action.pwm ?? 200, 72);
+        refs.stepEl  = mkNum(1, 50, action.step ?? 10, 60);
+        fieldsDiv.append(
+          frow([el('label',{},'Motor:'), refs.motorEl, el('label',{},'Ziel-PWM:'), refs.pwmEl, el('label',{},'Schritt:'), refs.stepEl]),
+          hint('Fährt den Motor weich auf die Ziel-PWM (Schritt pro 20 ms)')
+        );
       } else if (t === 'led_set') {
         refs.startEl = mkNum(0, 999, action.start ?? 0, 60);
         refs.countEl = mkNum(1, 999, action.count ?? 1, 60);
@@ -222,6 +241,17 @@
           case 'servo_axes':
             a.servo = parseInt(refs.idxEl.value   || '0');
             a.scale = parseFloat(refs.scaleEl.value || '1');
+            break;
+          case 'servo_sweep':
+            a.servo = parseInt(refs.idxEl.value || '0');
+            a.from  = parseInt(refs.fromEl.value || '0');
+            a.to    = parseInt(refs.toEl.value || '180');
+            a.step  = parseInt(refs.stepEl.value || '2');
+            break;
+          case 'motor_ramp':
+            a.motor = parseInt(refs.motorEl.value || '0');
+            a.pwm   = parseInt(refs.pwmEl.value || '0');
+            a.step  = parseInt(refs.stepEl.value || '10');
             break;
           case 'led_set':
             a.start = parseInt(refs.startEl.value || '0');
