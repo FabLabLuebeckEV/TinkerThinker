@@ -419,6 +419,7 @@ void onDisconnectedController(ControllerPtr ctl) {
             myControllers[i] = nullptr;
             foundController = true;
             board.notifyControllerDisconnected(i);
+            board.clearControllerSnapshot(i);
             board.setLED(0, 255, 0, 0); // Red
             board.showLEDs();
             // Stop all motors as a safety measure
@@ -442,7 +443,10 @@ void onDisconnectedController(ControllerPtr ctl) {
 void processGamepad(ControllerPtr ctl) {
     // Dispatch to input binding manager
     int idx = findControllerIndex(ctl);
-    if (idx >= 0) inputBindings.process(ctl, idx);
+    if (idx >= 0) {
+        board.updateControllerSnapshot(idx, ctl);
+        inputBindings.process(ctl, idx);
+    }
 
     // Update player LEDs to show battery level
     float voltage = board.getBatteryVoltage();
