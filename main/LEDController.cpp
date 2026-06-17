@@ -18,7 +18,7 @@ void LEDController::setPixelColor(int led, uint8_t red, uint8_t green, uint8_t b
         return;
     }
     CRGB c(red, green, blue);
-    if (gammaEnabled) c.napplyGamma_video(2.2f);
+    if (gammaEnabled) napplyGamma_video(c, 2.2f); // freie FastLED-Funktion (CRGB hat keinen Member)
     ledsArray[led] = c;
 }
 
