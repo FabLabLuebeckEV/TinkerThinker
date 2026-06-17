@@ -9,6 +9,15 @@
 #include "WebServerManager.h"
 #include "ConfigManager.h"
 #include <functional>
+#include <Bluepad32.h>
+
+struct ControllerInputSnapshot {
+    bool     connected = false;
+    uint32_t buttons   = 0;
+    uint8_t  dpad      = 0;
+    int16_t  axisX = 0, axisY = 0, axisRX = 0, axisRY = 0;
+    uint32_t updatedMs = 0;
+};
 
 class TinkerThinkerBoard {
 public:
@@ -64,6 +73,9 @@ public:
 
     void notifyControllerConnected(int slot, const char* mac, const char* model);
     void notifyControllerDisconnected(int slot);
+    void updateControllerSnapshot(int idx, ControllerPtr ctl);
+    void clearControllerSnapshot(int idx);
+    const ControllerInputSnapshot& getControllerSnapshot(int idx) const;
     void setWhitelistApplyCallback(std::function<void()> cb);
 
 private:
@@ -96,6 +108,7 @@ private:
     ServoMotor servos[SERVO_COUNT];
     int motorLeftGUI = 2;
     int motorRightGUI = 3;
+    ControllerInputSnapshot controllerSnapshots[BP32_MAX_GAMEPADS];
 };
 
 #endif

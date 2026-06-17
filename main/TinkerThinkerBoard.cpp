@@ -304,3 +304,27 @@ void TinkerThinkerBoard::requestMotorStopFromWS(int motorIndex) {
         controlMotorStop(motorIndex);
     }
 }
+
+void TinkerThinkerBoard::updateControllerSnapshot(int idx, ControllerPtr ctl) {
+    if (idx < 0 || idx >= BP32_MAX_GAMEPADS || !ctl) return;
+    ControllerInputSnapshot& s = controllerSnapshots[idx];
+    s.connected = true;
+    s.buttons   = ctl->buttons();
+    s.dpad      = ctl->dpad();
+    s.axisX     = ctl->axisX();
+    s.axisY     = ctl->axisY();
+    s.axisRX    = ctl->axisRX();
+    s.axisRY    = ctl->axisRY();
+    s.updatedMs = millis();
+}
+
+void TinkerThinkerBoard::clearControllerSnapshot(int idx) {
+    if (idx < 0 || idx >= BP32_MAX_GAMEPADS) return;
+    controllerSnapshots[idx] = ControllerInputSnapshot();
+}
+
+const ControllerInputSnapshot& TinkerThinkerBoard::getControllerSnapshot(int idx) const {
+    static const ControllerInputSnapshot empty;
+    if (idx < 0 || idx >= BP32_MAX_GAMEPADS) return empty;
+    return controllerSnapshots[idx];
+}
