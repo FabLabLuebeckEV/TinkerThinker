@@ -12,8 +12,8 @@
       action:{type:'motor_direct',motor:0,pwm:200} },
     { input:{type:'button',code:'BTN_A',edge:'press'},
       action:{type:'led_set',start:0,count:5,color:'#ff0000'} },
-    { input:{type:'axis_pair',x:'X',y:'Y',deadband:16,invertX:false,invertY:false},
-      action:{type:'drive_pair',target:'gui',swapSides:false} },
+    { input:{type:'axis_pair',x:'X',y:'Y',deadband:16,invertY:false},
+      action:{type:'drive_pair',target:'gui'} },
   ];
 
   // ── State ─────────────────────────────────────────────────
@@ -74,13 +74,13 @@
   function defaultInputForKey(key) {
     if (key.startsWith('dpad_'))   return {type:'dpad',   dir: key.split('_')[1],  edge:'hold'};
     if (key.startsWith('button_')) return {type:'button',  code: key.substring(7), edge:'press'};
-    if (key === 'axis_LStick') return {type:'axis_pair', x:'X',  y:'Y',  deadband:16, invertX:false, invertY:false};
-    if (key === 'axis_RStick') return {type:'axis_pair', x:'RX', y:'RY', deadband:16, invertX:false, invertY:false};
+    if (key === 'axis_LStick') return {type:'axis_pair', x:'X',  y:'Y',  deadband:16, invertY:false};
+    if (key === 'axis_RStick') return {type:'axis_pair', x:'RX', y:'RY', deadband:16, invertY:false};
     return {type:'button', code:'BTN_A', edge:'press'};
   }
 
   function defaultActionForKey(key) {
-    if (key === 'axis_LStick' || key === 'axis_RStick') return {type:'drive_pair', target:'gui', swapSides:false};
+    if (key === 'axis_LStick' || key === 'axis_RStick') return {type:'drive_pair', target:'gui'};
     return {type:'motor_direct', motor:0, pwm:200};
   }
 
@@ -102,7 +102,6 @@
     if (inp.type === 'button')    return `${inp.code} · ${inp.edge}`;
     if (inp.type === 'axis_pair') {
       let s = `axis ${inp.x}/${inp.y}`;
-      if (inp.invertX) s += ' (invX)';
       if (inp.invertY) s += ' (invY)';
       return s;
     }
@@ -112,11 +111,7 @@
   function actionSummary(act) {
     if (!act) return '?';
     if (act.type === 'motor_direct')  return `motor${act.motor} PWM ${act.pwm}`;
-    if (act.type === 'drive_pair')    {
-      let s = `drive_pair ${act.target}`;
-      if (act.swapSides) s += ' (swap)';
-      return s;
-    }
+    if (act.type === 'drive_pair')    return `drive_pair ${act.target}`;
     if (act.type === 'servo_sweep')   return `sweep S${act.servo} ${act.from}↔${act.to}`;
     if (act.type === 'motor_ramp')    return `ramp M${act.motor} →${act.pwm}`;
     if (act.type === 'motor_axis')    return `M${act.motor} ← Achse ${act.axis}${act.invert ? ' (inv)' : ''}`;
@@ -148,10 +143,9 @@
         );
       } else if (t === 'drive_pair') {
         refs.targSel = mkSel(['gui','other'], action.target || 'gui');
-        refs.swapSides = el('input',{type:'checkbox'}); refs.swapSides.checked = action.swapSides || false;
         fieldsDiv.append(
-          frow([el('label',{},'Ziel:'), refs.targSel, el('label',{},'Swap Sides:'), refs.swapSides]),
-          hint('gui = Haupt-Fahrwerk (Motor A+B) · other = zweites Fahrwerk (Motor C+D) · Swap Sides vertauscht links/rechts')
+          frow([el('label',{},'Ziel:'), refs.targSel]),
+          hint('gui = Haupt-Fahrwerk (Motor A+B) · other = zweites Fahrwerk (Motor C+D) · Richtung/Lenkung über „BT-Joystick-Richtung" oben einstellen')
         );
       } else if (t === 'servo_set') {
         refs.idxEl = mkNum(0, 2,   action.servo ?? 0,  60);
@@ -247,7 +241,6 @@
             break;
           case 'drive_pair':
             a.target = refs.targSel.value;
-            a.swapSides = refs.swapSides.checked;
             break;
           case 'servo_set':
             a.servo = parseInt(refs.idxEl.value || '0');
@@ -320,16 +313,12 @@
       );
     } else if (key === 'axis_LStick' || key === 'axis_RStick') {
       refs.deadEl = mkNum(0, 512, input.deadband ?? 16, 72);
-      refs.invX   = el('input',{type:'checkbox'}); refs.invX.checked = input.invertX || false;
       refs.invY   = el('input',{type:'checkbox'}); refs.invY.checked = input.invertY || false;
       root.append(
         frow([el('label',{},'Deadband:'), refs.deadEl]),
         hint('Totzone um Null (0–512) · verhindert Drift bei losgelassenem Stick'),
-        frow([
-          el('label',{},'Inv X:'), refs.invX, 
-          el('label',{},'Inv Y:'), refs.invY
-        ]),
-        hint('Achse invertieren — nützlich wenn Richtung falsch ist')
+        frow([el('label',{},'Inv Y (nur Servo):'), refs.invY]),
+        hint('Invertiert die Y-Achse nur für servo_axes. Fahrtrichtung wird über „BT-Joystick-Richtung" oben eingestellt.')
       );
     } else {
       // Freie Bearbeitung (z.B. via "+ Neu" in der Toolbar)
@@ -358,14 +347,12 @@
           refs.xSel   = mkSel(AXES, input.x || 'X');
           refs.ySel   = mkSel(AXES, input.y || 'Y');
           refs.deadEl = mkNum(0, 512, input.deadband ?? 16, 72);
-          refs.invX   = el('input',{type:'checkbox'}); refs.invX.checked = input.invertX || false;
           refs.invY   = el('input',{type:'checkbox'}); refs.invY.checked = input.invertY || false;
           subDiv.append(
             frow([el('label',{},'X-Achse:'), refs.xSel, el('label',{},'Y-Achse:'), refs.ySel]),
             frow([
-              el('label',{},'Deadband:'), refs.deadEl, 
-              el('label',{},'Inv X:'), refs.invX, 
-              el('label',{},'Inv Y:'), refs.invY
+              el('label',{},'Deadband:'), refs.deadEl,
+              el('label',{},'Inv Y (nur Servo):'), refs.invY
             ]),
             hint('L-Stick = X/Y · R-Stick = RX/RY')
           );
@@ -386,17 +373,17 @@
           i.type = 'button'; i.code = key.substring(7); i.edge = refs.edgeSel.value;
         } else if (key === 'axis_LStick') {
           i.type='axis_pair'; i.x='X';  i.y='Y';
-          i.deadband=parseInt(refs.deadEl.value||'16'); i.invertX=refs.invX.checked; i.invertY=refs.invY.checked;
+          i.deadband=parseInt(refs.deadEl.value||'16'); i.invertY=refs.invY.checked;
         } else if (key === 'axis_RStick') {
           i.type='axis_pair'; i.x='RX'; i.y='RY';
-          i.deadband=parseInt(refs.deadEl.value||'16'); i.invertX=refs.invX.checked; i.invertY=refs.invY.checked;
+          i.deadband=parseInt(refs.deadEl.value||'16'); i.invertY=refs.invY.checked;
         } else {
           i.type = refs.typeSel.value;
           if (i.type === 'button')    { i.code=refs.codeSel.value; i.edge=refs.edgeSel.value; }
           if (i.type === 'dpad')      { i.dir=refs.dirSel.value;   i.edge=refs.edgeSel.value; }
           if (i.type === 'axis_pair') {
             i.x=refs.xSel.value; i.y=refs.ySel.value;
-            i.deadband=parseInt(refs.deadEl.value||'16'); i.invertX=refs.invX.checked; i.invertY=refs.invY.checked;
+            i.deadband=parseInt(refs.deadEl.value||'16'); i.invertY=refs.invY.checked;
           }
         }
         return i;
