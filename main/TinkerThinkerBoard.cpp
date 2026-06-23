@@ -19,6 +19,10 @@ TinkerThinkerBoard::TinkerThinkerBoard(ConfigManager* configManager)
     servos[0] = {13, 8, 180, 500, 2500};
     servos[1] = {33, 9, 180, 500, 2500};
     servos[2] = {17, 10, 180, 500, 2500};
+    servos[3] = {23, 11, 180, 500, 2500};
+    servos[4] = {18, 12, 180, 500, 2500};
+    servos[5] = {19, 13, 180, 500, 2500};
+    servos[6] = {5,  14, 180, 500, 2500};
 }
 
 void TinkerThinkerBoard::reApplyConfig() {

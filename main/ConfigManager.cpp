@@ -40,7 +40,7 @@ void ConfigManager::setDefaults() {
     bt_swap_axes = false;
     ota_enabled = false;
     for (int i=0; i<4; i++) motor_frequency[i] = 5000;
-    for (int i=0; i<3; i++) {
+    for (int i=0; i<7; i++) {
         servos[i].min_pw = 500;
         servos[i].max_pw = 2500;
     }
@@ -110,7 +110,7 @@ bool ConfigManager::loadConfig() {
     }
 
     JsonArray servoArr = doc["servo_settings"].as<JsonArray>();
-    for (int i=0; i<3; i++) {
+    for (int i=0; i<7; i++) {
         servos[i].min_pw = servoArr[i]["min_pulsewidth"] | 500;
         servos[i].max_pw = servoArr[i]["max_pulsewidth"] | 2500;
     }
@@ -195,7 +195,7 @@ bool ConfigManager::saveConfig() {
     doc["ota_enabled"] = ota_enabled;
 
     JsonArray servoArr = doc["servo_settings"].to<JsonArray>();
-    for (int i=0; i<3; i++){
+    for (int i=0; i<7; i++){
         JsonObject sObj = servoArr.add<JsonObject>();
         sObj["min_pulsewidth"] = servos[i].min_pw;
         sObj["max_pulsewidth"] = servos[i].max_pw;

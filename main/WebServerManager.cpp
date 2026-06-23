@@ -776,8 +776,8 @@ void WebServerManager::onWebSocketEvent(AsyncWebSocket *server, AsyncWebSocketCl
             }
 
             // Servo setzen
-            // Erwartetes Format: {"servo0": <angle>, "servo1": <angle>, "servo2": <angle>}
-            for (int i = 0; i < 3; i++) {
+            // Erwartetes Format: {"servo0": <angle>, ... "servo6": <angle>}
+            for (int i = 0; i < 7; i++) {
                 String servoKey = "servo" + String(i);
                 if (!doc[servoKey].isNull()) {
                     Serial.println(servoKey + ": " + String(doc[servoKey].as<int>()));

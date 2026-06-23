@@ -21,16 +21,16 @@ private:
     JsonDocument bindings;
     uint32_t prevButtons[BP32_MAX_GAMEPADS] = {0};
     uint32_t prevDpad[BP32_MAX_GAMEPADS] = {0};
-    int servoBand[3] = {0,0,0};
+    int servoBand[7] = {0,0,0,0,0,0,0};
 
-    // servo_sweep state (pro Servo 0..2)
-    bool    sweepActive[3]   = {false,false,false};
-    int     sweepFrom[3]     = {0,0,0};
-    int     sweepTo[3]       = {180,180,180};
-    int     sweepStep[3]     = {2,2,2};
-    int     sweepPos[3]      = {0,0,0};
-    int     sweepDir[3]      = {1,1,1};
-    uint32_t sweepNextMs[3]  = {0,0,0};
+    // servo_sweep state (pro Servo 0..6)
+    bool    sweepActive[7]   = {false,false,false,false,false,false,false};
+    int     sweepFrom[7]     = {0,0,0,0,0,0,0};
+    int     sweepTo[7]       = {180,180,180,180,180,180,180};
+    int     sweepStep[7]     = {2,2,2,2,2,2,2};
+    int     sweepPos[7]      = {0,0,0,0,0,0,0};
+    int     sweepDir[7]      = {1,1,1,1,1,1,1};
+    uint32_t sweepNextMs[7]  = {0,0,0,0,0,0,0};
 
     // motor_ramp state (pro Motor 0..3)
     bool     rampActive[4]   = {false,false,false,false};

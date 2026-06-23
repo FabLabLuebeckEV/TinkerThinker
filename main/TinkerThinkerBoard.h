@@ -104,7 +104,7 @@ private:
 
     // Werte aus Config lesen
     static const size_t MOTOR_COUNT = 4;
-    static const size_t SERVO_COUNT = 3;
+    static const size_t SERVO_COUNT = 7;
     Motor motors[MOTOR_COUNT];
     ServoMotor servos[SERVO_COUNT];
     int motorLeftGUI = 2;

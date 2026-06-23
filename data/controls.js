@@ -148,28 +148,28 @@
           hint('gui = Haupt-Fahrwerk (Motor A+B) · other = zweites Fahrwerk (Motor C+D) · Richtung/Lenkung über „BT-Joystick-Richtung" oben einstellen')
         );
       } else if (t === 'servo_set') {
-        refs.idxEl = mkNum(0, 2,   action.servo ?? 0,  60);
+        refs.idxEl = mkNum(0, 6,   action.servo ?? 0,  60);
         refs.angEl = mkNum(0, 180, action.angle ?? 90, 72);
         fieldsDiv.append(
-          frow([el('label',{},'Servo (0–2):'), refs.idxEl, el('label',{},'Winkel °:'), refs.angEl]),
+          frow([el('label',{},'Servo (0–6):'), refs.idxEl, el('label',{},'Winkel °:'), refs.angEl]),
           hint('Setzt Servo direkt auf einen festen Winkel (0–180°)')
         );
       } else if (t === 'servo_toggle_band') {
-        refs.idxEl   = mkNum(0, 2, action.servo ?? 0, 60);
+        refs.idxEl   = mkNum(0, 6, action.servo ?? 0, 60);
         refs.bandsEl = el('input',{type:'text', value:(action.bands||[0,90]).join(','), style:'width:140px;'});
         fieldsDiv.append(
           frow([el('label',{},'Servo:'), refs.idxEl, el('label',{},'Positionen:'), refs.bandsEl]),
           hint('Komma-getrennte Winkel, z.B. 0,90,180 — wechselt bei jedem Tastendruck')
         );
       } else if (t === 'servo_nudge') {
-        refs.idxEl   = mkNum(0, 2,   action.servo ?? 0,  60);
+        refs.idxEl   = mkNum(0, 6,   action.servo ?? 0,  60);
         refs.deltaEl = mkNum(-90, 90, action.delta ?? 10, 72);
         fieldsDiv.append(
           frow([el('label',{},'Servo:'), refs.idxEl, el('label',{},'Delta °:'), refs.deltaEl]),
           hint('+ = mehr Grad · − = weniger Grad · mit hold: kontinuierlich')
         );
       } else if (t === 'servo_axes') {
-        refs.idxEl   = mkNum(0, 2, action.servo ?? 0, 60);
+        refs.idxEl   = mkNum(0, 6, action.servo ?? 0, 60);
         refs.scaleEl = el('input',{type:'number', step:'0.1', value: String(action.scale ?? 1.0), style:'width:80px;'});
         fieldsDiv.append(
           frow([el('label',{},'Servo:'), refs.idxEl, el('label',{},'Scale:'), refs.scaleEl]),
@@ -187,7 +187,7 @@
           hint('Eine Stick-Achse → ein Motor (PWM). Achse x = waagerecht (X/RX) · y = senkrecht (Y/RY). Mehrere motor_axis am selben Stick möglich.')
         );
       } else if (t === 'servo_sweep') {
-        refs.idxEl  = mkNum(0, 2, action.servo ?? 0, 60);
+        refs.idxEl  = mkNum(0, 6, action.servo ?? 0, 60);
         refs.fromEl = mkNum(0, 180, action.from ?? 0, 60);
         refs.toEl   = mkNum(0, 180, action.to ?? 180, 60);
         refs.stepEl = mkNum(1, 30, action.step ?? 2, 60);
@@ -736,9 +736,10 @@
   });
 
   // ── Live-Werkzeuge: Servos ────────────────────────────────
+  const SERVO_PINS = [13, 33, 17, 23, 18, 19, 5];
   const servoTest = document.getElementById('servoTest');
-  for (let i = 0; i < 3; i++) {
-    const lbl = document.createElement('label'); lbl.textContent = `Servo ${i}:`;
+  for (let i = 0; i < SERVO_PINS.length; i++) {
+    const lbl = document.createElement('label'); lbl.textContent = `Servo ${i} (Pin ${SERVO_PINS[i]}):`;
     const sl = document.createElement('input');
     sl.type = 'range'; sl.min = '0'; sl.max = '180'; sl.value = '90';
     const val = document.createElement('span'); val.textContent = '90';

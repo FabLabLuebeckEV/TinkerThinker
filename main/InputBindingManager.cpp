@@ -121,7 +121,7 @@ void InputBindingManager::applyMotorHold(JsonObject action, uint32_t tickMs) {
 
 void InputBindingManager::startServoSweep(JsonObject action) {
     int idx = action["servo"] | 0;
-    if (idx < 0 || idx >= 3) return;
+    if (idx < 0 || idx >= 7) return;
     int from = action["from"] | 0;
     int to   = action["to"]   | 180;
     int step = action["step"] | 2;
@@ -152,7 +152,7 @@ void InputBindingManager::startMotorRamp(JsonObject action) {
 
 void InputBindingManager::tickSweepsAndRamps(uint32_t now) {
     // Servo-Sweeps (alle 20 ms ein Schritt)
-    for (int i = 0; i < 3; i++) {
+    for (int i = 0; i < 7; i++) {
         if (!sweepActive[i]) continue;
         if (now < sweepNextMs[i]) continue;
         sweepNextMs[i] = now + 20;

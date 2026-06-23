@@ -136,7 +136,7 @@ private:
         int min_pw;
         int max_pw;
     };
-    ServoConfig servos[3];
+    ServoConfig servos[7];
 
     String drive_mixer = "arcade";
     float drive_turn_gain = 1.0f;
