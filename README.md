@@ -29,8 +29,7 @@ This README starts with the finished product from the end user's perspective. De
 ### Power on
 
 1. Turn on the board using the physical power switch on the board edge next to the antenna housing.
-2. The status LED should light dim white.
-3. Dim white means the board is on and in `Normal` radio mode.
+2. The status LED should light dim white. Dim white means the board is on and in `Normal` radio mode.
 
 From here you have two main control options:
 
@@ -51,13 +50,11 @@ Notes:
 
 ### Option 2: Control over Wi-Fi
 
-1. Search for the board's hotspot on your phone or laptop.
-2. Depending on the saved configuration, the hotspot is typically named `TinkerThinker` or `TinkerThinkerAP`.
-3. After a factory reset, the hotspot name returns to `TinkerThinkerAP`.
-4. Connect to that Wi-Fi network.
-5. If your device warns that the network has no internet access, stay connected anyway.
-6. Open `http://192.168.4.1` in your browser.
-7. The control interface should appear and you can drive and configure the robot there.
+1. Search for the board's hotspot on your phone or laptop. Depending on the saved configuration, the hotspot is typically named `TinkerThinker` or `TinkerThinkerAP`.
+2. Connect to that Wi-Fi network.
+3. If your device warns that the network has no internet access, stay connected anyway.
+4. Open [http://192.168.4.1](http://192.168.4.1) in your browser.
+5. The control interface should appear and you can drive and configure the robot there.
 
 Important mobile/network notes:
 
@@ -99,9 +96,8 @@ If you changed the configuration, forgot a password, or want to return to a know
 
 1. Press and hold the MODE button on the side of the board.
 2. While holding MODE, briefly press the reset button to reboot the board.
-3. Keep holding MODE during startup for about 10 seconds.
-4. During the reset hold time, the status LED cycles through red, white, and orange.
-5. When the reset completes, the configuration is cleared and the board restarts.
+3. Keep holding MODE during startup for about 10 seconds. During the reset hold time, the status LED cycles through red, white, and orange.
+4. When the reset completes, the configuration is cleared and the board restarts.
 
 After a factory reset:
 
