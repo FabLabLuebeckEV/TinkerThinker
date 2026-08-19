@@ -29,8 +29,7 @@ Diese README beginnt aus Sicht von Endnutzern mit einer bereits geflashten Plati
 ### Einschalten
 
 1. Schalte die Platine ueber den physischen Ein-/Ausschalter an der Kante neben der Antennenabdeckung ein.
-2. Die Status-LED sollte danach schwach weiss leuchten.
-3. Schwach weiss bedeutet, dass die Platine eingeschaltet ist und sich im Funkmodus `Normal` befindet.
+2. Die Status-LED sollte danach schwach weiss leuchten. Schwach weiss bedeutet, dass die Platine eingeschaltet ist und sich im Funkmodus `Normal` befindet.
 
 Ab hier hast du zwei Hauptmoeglichkeiten:
 
@@ -51,13 +50,11 @@ Hinweise:
 
 ### Option 2: Steuerung ueber WLAN
 
-1. Suche auf deinem Handy oder Laptop nach dem Hotspot der Platine.
-2. Je nach gespeicherter Konfiguration heisst dieser typischerweise `TinkerThinker` oder `TinkerThinkerAP`.
-3. Nach einem Werksreset heisst das WLAN wieder `TinkerThinkerAP`.
-4. Verbinde dich mit diesem WLAN.
-5. Wenn dein Geraet meldet, dass das Netzwerk kein Internet hat, bleibe trotzdem verbunden.
-6. Oeffne `http://192.168.4.1` im Browser.
-7. Danach sollte die Steuerungsoberflaeche erscheinen und du kannst den Roboter steuern und konfigurieren.
+1. Suche auf deinem Handy oder Laptop nach dem Hotspot der Platine. Je nach gespeicherter Konfiguration heisst dieser typischerweise `TinkerThinker` oder `TinkerThinkerAP`.
+2. Verbinde dich mit diesem WLAN.
+3. Wenn dein Geraet meldet, dass das Netzwerk kein Internet hat, bleibe trotzdem verbunden.
+4. Oeffne [http://192.168.4.1](http://192.168.4.1) im Browser.
+5. Danach sollte die Steuerungsoberflaeche erscheinen und du kannst den Roboter steuern und konfigurieren.
 
 Wichtige Hinweise fuer Handy und Netzwerk:
 
@@ -99,9 +96,8 @@ Wenn du die Konfiguration geaendert hast, ein Passwort vergessen hast oder zu ei
 
 1. Halte den MODE-Taster an der Seite der Platine gedrueckt.
 2. Waehrend du MODE gedrueckt haeltst, druecke den Reset-Taster kurz.
-3. Halte MODE waehrend des Starts etwa 10 Sekunden weiter gedrueckt.
-4. Waehrend dieser Zeit wechselt die Status-LED zwischen Rot, Weiss und Orange.
-5. Nach Abschluss des Resets wird die Konfiguration geloescht und die Platine startet neu.
+3. Halte MODE waehrend des Starts etwa 10 Sekunden weiter gedrueckt. Waehrend dieser Zeit wechselt die Status-LED zwischen Rot, Weiss und Orange.
+4. Nach Abschluss des Resets wird die Konfiguration geloescht und die Platine startet neu.
 
 Nach einem Werksreset:
 
