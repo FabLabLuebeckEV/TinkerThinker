@@ -55,8 +55,9 @@ static bool boardReady = false;
 static void pollSerialCommands();
 static void emitSerialReady();
 
-static char serialCmdBuffer[1024];
+static char serialCmdBuffer[16384];
 static size_t serialCmdLen = 0;
+static bool serialCmdOverflow = false;
 
 static void applyWhitelistFromConfig() {
     uni_bt_allowlist_remove_all();
@@ -90,10 +91,9 @@ static String sanitizeDeviceName(String name) {
 
 template <typename TDoc>
 static void sendSerialJson(TDoc& doc) {
-    String out;
-    serializeJson(doc, out);
     Serial.print("TTJSON:");
-    Serial.println(out);
+    serializeJson(doc, Serial);
+    Serial.println();
 }
 
 static void fillSerialInfo(JsonDocument& doc) {
@@ -178,13 +178,15 @@ static void emitSerialReady() {
 }
 
 static void handleSerialCommandLine(const char* rawLine) {
-    String line = rawLine ? String(rawLine) : String();
-    line.trim();
-    if (!line.length()) return;
-    if (line.startsWith("TTCMD:")) {
-        line.remove(0, 6);
-        line.trim();
+    if (!rawLine) return;
+    const char* line = rawLine;
+    while (*line == ' ' || *line == '\t' || *line == '\r' || *line == '\n') line++;
+    if (!*line) return;
+    if (strncmp(line, "TTCMD:", 6) == 0) {
+        line += 6;
+        while (*line == ' ' || *line == '\t') line++;
     }
+    if (!*line) return;
 
     JsonDocument cmd;
     DeserializationError err = deserializeJson(cmd, line);
@@ -504,19 +506,28 @@ static void pollSerialCommands() {
         char c = (char)Serial.read();
         if (c == '\r') continue;
         if (c == '\n') {
+            if (serialCmdOverflow) {
+                serialCmdOverflow = false;
+                serialCmdLen = 0;
+                JsonDocument resp;
+                resp["event"] = "error";
+                resp["message"] = "command_too_long";
+                sendSerialJson(resp);
+                continue;
+            }
             serialCmdBuffer[serialCmdLen] = '\0';
             handleSerialCommandLine(serialCmdBuffer);
             serialCmdLen = 0;
             continue;
         }
+        if (serialCmdOverflow) {
+            continue;
+        }
         if (serialCmdLen < (sizeof(serialCmdBuffer) - 1)) {
             serialCmdBuffer[serialCmdLen++] = c;
         } else {
+            serialCmdOverflow = true;
             serialCmdLen = 0;
-            JsonDocument resp;
-            resp["event"] = "error";
-            resp["message"] = "command_too_long";
-            sendSerialJson(resp);
         }
     }
 }
