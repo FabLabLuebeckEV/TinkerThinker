@@ -47,10 +47,37 @@ jobs:
       - name: Show PlatformIO version
         run: pio --version
 
-      - name: Show PlatformIO system info
+      - name: Patch SCons FortranCommon bug in PlatformIO
         run: |
-          pio system info || true
-          pio settings get || true
+          # SCons 4.8.x/4.11 has an upstream import bug on Linux with FortranCommon during smart_link
+          pio pkg install --tool platformio/tool-scons || true
+          python3 - <<'PY'
+          import os
+
+          def patch_scons():
+              for root, dirs, files in os.walk(os.path.expanduser('~/.platformio')):
+                  if 'tool-scons' in root:
+                      try:
+                          with open(os.path.join(root, '.piokeep'), 'w') as f:
+                              f.write('keep')
+                      except Exception:
+                          pass
+                  if 'linkCommon' in root and '__init__.py' in files:
+                      p = os.path.join(root, '__init__.py')
+                      with open(p, 'r') as f:
+                          content = f.read()
+                      old_target = '    import SCons.Tool.cxx\n    import SCons.Tool.FortranCommon'
+                      new_target = '''    try:\n        from .. import cxx\n    except Exception:\n        try:\n            import SCons.Tool.cxx as cxx\n        except Exception:\n            cxx = None\n    try:\n        from .. import FortranCommon\n    except Exception:\n        try:\n            import SCons.Tool.FortranCommon as FortranCommon\n        except Exception:\n            FortranCommon = None'''
+                      if old_target in content:
+                          content = content.replace(old_target, new_target)
+                          content = content.replace('has_cplusplus = SCons.Tool.cxx.iscplusplus(source)', 'has_cplusplus = cxx.iscplusplus(source) if cxx else False')
+                          content = content.replace('has_fortran = SCons.Tool.FortranCommon.isfortran(env, source)', 'has_fortran = FortranCommon.isfortran(env, source) if FortranCommon else False')
+                          with open(p, 'w') as f:
+                              f.write(content)
+                          print(f"Successfully patched {p}")
+
+          patch_scons()
+          PY
 
       - name: Build firmware
         run: |
