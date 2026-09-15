@@ -96,8 +96,7 @@ static void sendSerialJson(TDoc& doc) {
     Serial.println(out);
 }
 
-template <typename TDoc>
-static void fillSerialInfo(TDoc& doc) {
+static void fillSerialInfo(JsonDocument& doc) {
     doc["wifi_mode"] = configManager.getWifiMode();
     doc["wifi_ssid"] = configManager.getWifiSSID();
     doc["hotspot_ssid"] = configManager.getHotspotSSID();
@@ -109,11 +108,24 @@ static void fillSerialInfo(TDoc& doc) {
     doc["uptime_ms"] = millis();
 }
 
-template <typename TDoc>
-static void fillSerialConfig(TDoc& doc) {
+static void fillSerialConfig(JsonDocument& doc) {
     fillSerialInfo(doc);
     doc["wifi_password"] = configManager.getWifiPassword();
     doc["hotspot_password"] = configManager.getHotspotPassword();
+
+    JsonArray invArr = doc["motor_invert"].to<JsonArray>();
+    for (int i = 0; i < 4; i++) invArr.add(configManager.getMotorInvert(i));
+
+    doc["motor_swap"] = configManager.getMotorSwap();
+    doc["motor_left_gui"] = configManager.getMotorLeftGUI();
+    doc["motor_right_gui"] = configManager.getMotorRightGUI();
+
+    JsonArray dbArr = doc["motor_deadband"].to<JsonArray>();
+    for (int i = 0; i < 4; i++) dbArr.add(configManager.getMotorDeadband(i));
+
+    JsonArray freqArr = doc["motor_frequency"].to<JsonArray>();
+    for (int i = 0; i < 4; i++) freqArr.add(configManager.getMotorFrequency(i));
+
     doc["led_count"] = configManager.getLedCount();
     doc["led_brightness"] = configManager.getLedBrightness();
     doc["led_gamma"] = configManager.getLedGamma();
@@ -123,19 +135,39 @@ static void fillSerialConfig(TDoc& doc) {
     doc["bt_invert_x"] = configManager.getBtInvertX();
     doc["bt_invert_y"] = configManager.getBtInvertY();
     doc["bt_swap_axes"] = configManager.getBtSwapAxes();
-    doc["motor_left_gui"] = configManager.getMotorLeftGUI();
-    doc["motor_right_gui"] = configManager.getMotorRightGUI();
+    doc["ota_enabled"] = configManager.getOTAEnabled();
+
     doc["drive_mixer"] = configManager.getDriveMixer();
     doc["drive_turn_gain"] = configManager.getDriveTurnGain();
     doc["drive_axis_deadband"] = configManager.getDriveAxisDeadband();
     doc["motor_curve_type"] = configManager.getMotorCurveType();
     doc["motor_curve_strength"] = configManager.getMotorCurveStrength();
+
     doc["bt_scan_on_normal_ms"] = configManager.getBtScanOnNormal();
     doc["bt_scan_off_normal_ms"] = configManager.getBtScanOffNormal();
     doc["bt_scan_on_sta_ms"] = configManager.getBtScanOnSta();
     doc["bt_scan_off_sta_ms"] = configManager.getBtScanOffSta();
     doc["bt_scan_on_ap_ms"] = configManager.getBtScanOnAp();
     doc["bt_scan_off_ap_ms"] = configManager.getBtScanOffAp();
+
+    JsonArray servoArr = doc["servo_settings"].to<JsonArray>();
+    for (int i = 0; i < 7; i++) {
+        JsonObject sObj = servoArr.add<JsonObject>();
+        sObj["min_pulsewidth"] = configManager.getServoMinPulsewidth(i);
+        sObj["max_pulsewidth"] = configManager.getServoMaxPulsewidth(i);
+    }
+
+    // Control bindings (JSON)
+    String binds = configManager.getControlBindingsJson();
+    if (binds.length() == 0) binds = String(ConfigManager::getDefaultControlBindingsJson());
+    JsonDocument bd;
+    if (deserializeJson(bd, binds) == DeserializationError::Ok) {
+        doc["control_bindings"] = bd;
+    }
+
+    doc["bt_whitelist_enabled"] = configManager.getBtWhitelistEnabled();
+    JsonArray wlArr = doc["bt_whitelist"].to<JsonArray>();
+    for (const auto& mac : configManager.getBtWhitelist()) wlArr.add(mac);
 }
 
 static void emitSerialReady() {
@@ -265,6 +297,69 @@ static void handleSerialCommandLine(const char* rawLine) {
             touched = true;
             reapplyHardware = true;
         }
+        if (!cfg["led_brightness"].isNull()) {
+            configManager.setLedBrightness(cfg["led_brightness"].as<int>());
+            touched = true;
+            reapplyHardware = true;
+        }
+        if (!cfg["led_gamma"].isNull()) {
+            configManager.setLedGamma(cfg["led_gamma"].as<bool>());
+            touched = true;
+            reapplyHardware = true;
+        }
+        if (!cfg["ws_invert_x"].isNull()) {
+            configManager.setWsInvertX(cfg["ws_invert_x"].as<bool>());
+            touched = true;
+        }
+        if (!cfg["ws_invert_y"].isNull()) {
+            configManager.setWsInvertY(cfg["ws_invert_y"].as<bool>());
+            touched = true;
+        }
+        if (!cfg["ws_swap_sides"].isNull()) {
+            configManager.setWsSwapSides(cfg["ws_swap_sides"].as<bool>());
+            touched = true;
+        }
+        if (!cfg["bt_invert_x"].isNull()) {
+            configManager.setBtInvertX(cfg["bt_invert_x"].as<bool>());
+            touched = true;
+        }
+        if (!cfg["bt_invert_y"].isNull()) {
+            configManager.setBtInvertY(cfg["bt_invert_y"].as<bool>());
+            touched = true;
+        }
+        if (!cfg["bt_swap_axes"].isNull()) {
+            configManager.setBtSwapAxes(cfg["bt_swap_axes"].as<bool>());
+            touched = true;
+        }
+        if (!cfg["motor_invert"].isNull()) {
+            JsonArray invArr = cfg["motor_invert"].as<JsonArray>();
+            for (int i = 0; i < 4 && i < (int)invArr.size(); i++) {
+                configManager.setMotorInvert(i, invArr[i].as<bool>());
+            }
+            touched = true;
+            reapplyHardware = true;
+        }
+        if (!cfg["motor_swap"].isNull()) {
+            configManager.setMotorSwap(cfg["motor_swap"].as<bool>());
+            touched = true;
+            reapplyHardware = true;
+        }
+        if (!cfg["motor_deadband"].isNull()) {
+            JsonArray dbArr = cfg["motor_deadband"].as<JsonArray>();
+            for (int i = 0; i < 4 && i < (int)dbArr.size(); i++) {
+                configManager.setMotorDeadband(i, dbArr[i].as<int>());
+            }
+            touched = true;
+            reapplyHardware = true;
+        }
+        if (!cfg["motor_frequency"].isNull()) {
+            JsonArray freqArr = cfg["motor_frequency"].as<JsonArray>();
+            for (int i = 0; i < 4 && i < (int)freqArr.size(); i++) {
+                configManager.setMotorFrequency(i, freqArr[i].as<int>());
+            }
+            touched = true;
+            reapplyHardware = true;
+        }
         if (!cfg["motor_left_gui"].isNull()) {
             configManager.setMotorLeftGUI(constrain(cfg["motor_left_gui"].as<int>(), 0, 3));
             touched = true;
@@ -274,6 +369,61 @@ static void handleSerialCommandLine(const char* rawLine) {
             configManager.setMotorRightGUI(constrain(cfg["motor_right_gui"].as<int>(), 0, 3));
             touched = true;
             reapplyHardware = true;
+        }
+        if (!cfg["drive_mixer"].isNull()) {
+            configManager.setDriveMixer(String((const char*)(cfg["drive_mixer"] | "arcade")));
+            touched = true;
+            reapplyHardware = true;
+        }
+        if (!cfg["drive_turn_gain"].isNull()) {
+            configManager.setDriveTurnGain(cfg["drive_turn_gain"].as<float>());
+            touched = true;
+            reapplyHardware = true;
+        }
+        if (!cfg["drive_axis_deadband"].isNull()) {
+            configManager.setDriveAxisDeadband(cfg["drive_axis_deadband"].as<int>());
+            touched = true;
+            reapplyHardware = true;
+        }
+        if (!cfg["motor_curve_type"].isNull()) {
+            configManager.setMotorCurveType(String((const char*)(cfg["motor_curve_type"] | "linear")));
+            touched = true;
+            reapplyHardware = true;
+        }
+        if (!cfg["motor_curve_strength"].isNull()) {
+            configManager.setMotorCurveStrength(cfg["motor_curve_strength"].as<float>());
+            touched = true;
+            reapplyHardware = true;
+        }
+        if (!cfg["servo_settings"].isNull()) {
+            JsonArray servoArr = cfg["servo_settings"].as<JsonArray>();
+            for (int i = 0; i < 7 && i < (int)servoArr.size(); i++) {
+                int min_pw = servoArr[i]["min_pulsewidth"] | 500;
+                int max_pw = servoArr[i]["max_pulsewidth"] | 2500;
+                configManager.setServoPulsewidthRange(i, min_pw, max_pw);
+            }
+            touched = true;
+            reapplyHardware = true;
+        }
+        if (!cfg["control_bindings"].isNull()) {
+            String tmp;
+            serializeJson(cfg["control_bindings"], tmp);
+            configManager.setControlBindingsJson(tmp);
+            touched = true;
+        }
+        if (!cfg["bt_whitelist_enabled"].isNull()) {
+            configManager.setBtWhitelistEnabled(cfg["bt_whitelist_enabled"].as<bool>());
+            touched = true;
+        }
+        if (!cfg["bt_whitelist"].isNull()) {
+            std::vector<String> addrs;
+            JsonArray wlArr = cfg["bt_whitelist"].as<JsonArray>();
+            for (JsonVariant v : wlArr) {
+                String mac = v.as<String>();
+                if (mac.length() == 17) addrs.push_back(mac);
+            }
+            configManager.setBtWhitelist(addrs);
+            touched = true;
         }
         if (!cfg["bt_scan_on_normal_ms"].isNull()) {
             configManager.setBtScanOnNormal(cfg["bt_scan_on_normal_ms"].as<int>());

@@ -5,6 +5,7 @@ import time
 import csv
 import requests
 import subprocess
+import shutil
 from typing import Optional, Tuple, Dict
 
 try:
@@ -167,6 +168,39 @@ def get_mac(port: str) -> str:
     return 'UNKNOWN'
 
 
+def find_labelle() -> Optional[str]:
+    """Find labelle executable in PATH or standard user directories."""
+    found = shutil.which('labelle')
+    if found:
+        return found
+    fallback = os.path.expanduser('~/.local/bin/labelle')
+    if os.path.isfile(fallback) and os.access(fallback, os.X_OK):
+        return fallback
+    return None
+
+
+def print_mac_label(mac: str) -> bool:
+    """Print a label with the board's MAC address using labelle."""
+    labelle_bin = find_labelle()
+    if not labelle_bin:
+        eprint('labelle not found (checked PATH and ~/.local/bin/labelle); skipping label print.')
+        return False
+
+    print(f'Printing label for MAC: {mac} ...')
+    try:
+        res = subprocess.run([labelle_bin, mac], capture_output=True, text=True, timeout=30)
+        if res.returncode == 0:
+            print('Label printed successfully.')
+            return True
+        else:
+            err_msg = res.stderr.strip() or res.stdout.strip()
+            eprint(f'Label printing failed (exit code {res.returncode}): {err_msg}')
+            return False
+    except Exception as e:
+        eprint(f'Error executing labelle: {e}')
+        return False
+
+
 def program(port: str) -> bool:
     csv_path = read_partitions_csv_path()
     flash_size = '8MB'
@@ -243,6 +277,8 @@ def program(port: str) -> bool:
     except Exception:
         pass
     print('Flashing completed.')
+    if mac and mac != 'UNKNOWN':
+        print_mac_label(mac)
     return True
 
 
