@@ -139,6 +139,12 @@
       box-shadow: 0 8px 20px rgba(185, 28, 28, 0.12);
     }
 
+    button.success {
+      background: linear-gradient(180deg, #ecfdf5, #a7f3d0);
+      color: #065f46;
+      box-shadow: 0 8px 20px rgba(16, 185, 129, 0.16);
+    }
+
     button:disabled {
       cursor: not-allowed;
       filter: grayscale(0.35);
@@ -458,6 +464,82 @@
         </div>
       </section>
 
+      <section class="panel span-12" id="clonePanel">
+        <h2>Konfiguration klonen & vervielfältigen (Backup & Rollout)</h2>
+        <p>Lade die komplette Konfiguration von einer Platine herunter, exportiere sie als Backup-Datei (.json) oder übertrage sie mit 1 Klick auf beliebig viele weitere Platinen.</p>
+        
+        <div class="toolbar">
+          <button id="loadConfigFromBoardBtn">📥 Config von Platine laden</button>
+          <button id="exportConfigFileBtn" class="secondary" disabled>💾 Als JSON-Datei exportieren</button>
+          <label style="display:inline-flex; align-items:center; margin:0; cursor:pointer;">
+            <button id="importConfigTriggerBtn" class="secondary" type="button">📂 Config-Datei öffnen...</button>
+            <input id="configFileInput" type="file" accept=".json,application/json" style="display:none;">
+          </label>
+          <button id="flashConfigToBoardBtn" class="success" disabled>🚀 Config auf Platine schreiben</button>
+        </div>
+
+        <div class="statusbar" style="margin-top:14px;">
+          <span class="pill" id="cloneBufferPill">Keine Konfiguration im Klon-Speicher</span>
+          <span class="pill ok" id="cloneCounterPill">Geklonte Platinen in dieser Sitzung: 0</span>
+        </div>
+
+        <div class="grid" style="margin-top:16px;">
+          <div class="span-6">
+            <h3 style="margin-bottom:8px;">Klon- & Rollout-Optionen</h3>
+            <div style="display:grid; gap:12px; background:var(--panel-strong); padding:16px; border-radius:16px; border:1px solid var(--line);">
+              <label>
+                Gerätename / AP-SSID beim Schreiben:
+                <select id="cloneNameModeSelect">
+                  <option value="keep_config">Aus Klon-Config übernehmen</option>
+                  <option value="keep_board">Ziel-Board-Namen beibehalten (AP-Name nicht überschreiben)</option>
+                  <option value="prefix_auto">Auto-Nummerierung mit Präfix (z. B. TinkerBot-01, -02...)</option>
+                  <option value="custom">Fester benutzerdefinierter Name</option>
+                </select>
+              </label>
+
+              <div id="clonePrefixWrapper" style="display:none;" class="fields">
+                <label>
+                  Präfix
+                  <input id="clonePrefixInput" type="text" value="TinkerBot-" placeholder="z. B. TinkerBot-">
+                </label>
+                <label>
+                  Nächste Nummer
+                  <input id="cloneCounterInput" type="number" min="1" max="999" value="1">
+                </label>
+              </div>
+
+              <div id="cloneCustomNameWrapper" style="display:none;">
+                <label>
+                  Name für Zielplatinen
+                  <input id="cloneCustomNameInput" type="text" placeholder="z. B. MeinRoboter">
+                </label>
+              </div>
+
+              <label class="inline-fields" style="cursor:pointer; margin-top:4px;">
+                <input id="cloneAutoRebootInput" type="checkbox" checked style="width:auto;">
+                Ziel-Board nach erfolgreichem Schreiben automatisch neu starten (Reboot)
+              </label>
+
+              <label class="inline-fields" style="cursor:pointer;">
+                <input id="cloneSyncRuntimeFieldsInput" type="checkbox" checked style="width:auto;">
+                Eingabefelder im Bereich „Runtime-Serial“ synchron halten
+              </label>
+            </div>
+          </div>
+
+          <div class="span-6">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+              <h3 style="margin:0;">JSON-Konfiguration (Klon-Puffer)</h3>
+              <div class="inline-fields">
+                <button id="formatCloneJsonBtn" class="secondary" style="padding:5px 10px; font-size:0.85rem;" type="button">Formatieren</button>
+                <button id="clearCloneJsonBtn" class="danger" style="padding:5px 10px; font-size:0.85rem;" type="button">Leeren</button>
+              </div>
+            </div>
+            <textarea id="cloneJsonTextarea" style="min-height:190px;" placeholder="Lade eine Konfiguration von der Platine, öffne eine .json-Datei oder füge hier JSON ein..."></textarea>
+          </div>
+        </div>
+      </section>
+
       <section class="panel span-12">
         <h2>Offline Update</h2>
         <p>Lokale BIN-Dateien auswaehlen. Du kannst ein Komplett-Flash oder nur einzelne Bereiche schreiben.</p>
@@ -546,6 +628,31 @@
       otaEnabled: document.getElementById("otaEnabledInput"),
     };
 
+    const cloneControls = {
+      panel: document.getElementById("clonePanel"),
+      loadConfigBtn: document.getElementById("loadConfigFromBoardBtn"),
+      exportConfigBtn: document.getElementById("exportConfigFileBtn"),
+      importTriggerBtn: document.getElementById("importConfigTriggerBtn"),
+      fileInput: document.getElementById("configFileInput"),
+      flashConfigBtn: document.getElementById("flashConfigToBoardBtn"),
+      bufferPill: document.getElementById("cloneBufferPill"),
+      counterPill: document.getElementById("cloneCounterPill"),
+      nameModeSelect: document.getElementById("cloneNameModeSelect"),
+      prefixWrapper: document.getElementById("clonePrefixWrapper"),
+      prefixInput: document.getElementById("clonePrefixInput"),
+      counterInput: document.getElementById("cloneCounterInput"),
+      customNameWrapper: document.getElementById("cloneCustomNameWrapper"),
+      customNameInput: document.getElementById("cloneCustomNameInput"),
+      autoRebootInput: document.getElementById("cloneAutoRebootInput"),
+      syncRuntimeFieldsInput: document.getElementById("cloneSyncRuntimeFieldsInput"),
+      formatJsonBtn: document.getElementById("formatCloneJsonBtn"),
+      clearJsonBtn: document.getElementById("clearCloneJsonBtn"),
+      jsonTextarea: document.getElementById("cloneJsonTextarea"),
+    };
+
+    let currentCloneConfig = null;
+    let clonedBoardsCount = 0;
+
     let runtimePort = null;
     let runtimeReader = null;
     let runtimeWriter = null;
@@ -623,6 +730,45 @@
       if (cfg.ota_enabled != null) configFields.otaEnabled.checked = !!cfg.ota_enabled;
     }
 
+    function cleanConfigForTransfer(raw) {
+      if (!raw || typeof raw !== "object") return {};
+      const source = raw.config && typeof raw.config === "object" ? raw.config : raw;
+      const clean = {};
+      const ignoreKeys = new Set([
+        "event", "cmd", "saved", "reapplied", "reboot_required",
+        "uptime_ms", "firmware", "wifi_mac", "bt_mac", "chipName",
+        "wifi_disabled_until_restart"
+      ]);
+
+      for (const [key, val] of Object.entries(source)) {
+        if (!ignoreKeys.has(key) && val !== undefined) {
+          clean[key] = val;
+        }
+      }
+      return clean;
+    }
+
+    function setCloneConfig(rawConfig, sourceLabel = "Manuell") {
+      const clean = cleanConfigForTransfer(rawConfig);
+      if (!Object.keys(clean).length) {
+        appendLog("[KLONEN] Keine gueltigen Konfigurationsdaten gefunden.");
+        return;
+      }
+      currentCloneConfig = clean;
+      cloneControls.jsonTextarea.value = toPrettyJson(clean);
+      cloneControls.exportConfigBtn.disabled = false;
+      cloneControls.flashConfigBtn.disabled = false;
+
+      const deviceName = clean.hotspot_ssid || clean.wifi_ssid || "Unbenannt";
+      const keyCount = Object.keys(clean).length;
+      setPill(cloneControls.bufferPill, `Klon-Puffer: ${deviceName} (${keyCount} Parameter, ${sourceLabel})`, "ok");
+
+      if (cloneControls.syncRuntimeFieldsInput.checked) {
+        applyConfigToForm(clean);
+      }
+      appendLog(`[KLONEN] Konfiguration im Klon-Puffer geladen: ${deviceName} (${keyCount} Einstellungen aus ${sourceLabel})`);
+    }
+
     function handleJsonLine(payload) {
       jsonOutput.value = toPrettyJson(payload);
       updateInfoCards(payload);
@@ -631,6 +777,9 @@
       }
       if (payload.event === "config" || payload.event === "config_saved" || payload.event === "info" || payload.event === "ready") {
         applyConfigToForm(payload);
+      }
+      if (payload.event === "config" || payload.cmd === "get_config") {
+        setCloneConfig(payload, "Platine");
       }
       if (payload.reboot_required) {
         appendLog("[HINWEIS] Neustart erforderlich, damit alle Aenderungen greifen.");
@@ -913,6 +1062,162 @@
     controls.setNameBtn.addEventListener("click", () => sendRuntimeCommand({ cmd: "set_name", name: configFields.deviceName.value }).catch((err) => appendLog("[SERIAL] " + err.message)));
     controls.saveConfigBtn.addEventListener("click", () => sendRuntimeCommand({ cmd: "set_config", config: buildConfigPayload() }).catch((err) => appendLog("[SERIAL] " + err.message)));
     controls.resetConfigBtn.addEventListener("click", () => sendRuntimeCommand({ cmd: "reset_config" }).catch((err) => appendLog("[SERIAL] " + err.message)));
+
+    // --- Klon- & Rollout-Event-Listener ---
+    cloneControls.nameModeSelect.addEventListener("change", () => {
+      const mode = cloneControls.nameModeSelect.value;
+      cloneControls.prefixWrapper.style.display = (mode === "prefix_auto") ? "grid" : "none";
+      cloneControls.customNameWrapper.style.display = (mode === "custom") ? "block" : "none";
+    });
+
+    cloneControls.loadConfigBtn.addEventListener("click", async () => {
+      try {
+        if (!runtimePort || !runtimeWriter) {
+          appendLog("[KLONEN] Verbinde zuerst mit Runtime-Serial...");
+          await connectRuntimeSerial();
+        }
+        appendLog("[KLONEN] Lese vollstaendige Konfiguration von Platine...");
+        await sendRuntimeCommand({ cmd: "get_config" });
+      } catch (err) {
+        appendLog("[KLONEN-FEHLER] " + err.message);
+      }
+    });
+
+    cloneControls.exportConfigBtn.addEventListener("click", () => {
+      try {
+        const text = cloneControls.jsonTextarea.value.trim();
+        if (!text) throw new Error("Klon-Puffer ist leer.");
+        const obj = JSON.parse(text);
+        const clean = cleanConfigForTransfer(obj);
+        const name = (clean.hotspot_ssid || clean.wifi_ssid || "tinker").replace(/[^a-zA-Z0-9_-]/g, "_");
+        const dateStr = new Date().toISOString().slice(0, 10);
+        const blob = new Blob([toPrettyJson(clean)], { type: "application/json;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `tinker_config_${name}_${dateStr}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        appendLog(`[EXPORT] Konfiguration als Datei gespeichert: ${a.download}`);
+      } catch (err) {
+        appendLog("[EXPORT-FEHLER] " + err.message);
+      }
+    });
+
+    cloneControls.importTriggerBtn.addEventListener("click", () => {
+      cloneControls.fileInput.click();
+    });
+
+    cloneControls.fileInput.addEventListener("change", (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (evt) => {
+        try {
+          const parsed = JSON.parse(evt.target.result);
+          setCloneConfig(parsed, `Datei "${file.name}"`);
+        } catch (err) {
+          appendLog("[IMPORT-FEHLER] Ungueltige JSON-Datei: " + err.message);
+        }
+      };
+      reader.readAsText(file);
+      cloneControls.fileInput.value = "";
+    });
+
+    cloneControls.formatJsonBtn.addEventListener("click", () => {
+      try {
+        const text = cloneControls.jsonTextarea.value.trim();
+        if (!text) return;
+        const obj = JSON.parse(text);
+        cloneControls.jsonTextarea.value = toPrettyJson(obj);
+      } catch (err) {
+        appendLog("[JSON-FEHLER] Ungueltiges JSON: " + err.message);
+      }
+    });
+
+    cloneControls.clearJsonBtn.addEventListener("click", () => {
+      currentCloneConfig = null;
+      cloneControls.jsonTextarea.value = "";
+      cloneControls.exportConfigBtn.disabled = true;
+      cloneControls.flashConfigBtn.disabled = true;
+      setPill(cloneControls.bufferPill, "Keine Konfiguration im Klon-Speicher");
+      appendLog("[KLONEN] Klon-Puffer geleert.");
+    });
+
+    cloneControls.flashConfigBtn.addEventListener("click", async () => {
+      try {
+        const text = cloneControls.jsonTextarea.value.trim();
+        if (!text) throw new Error("Keine Konfiguration im Puffer vorhanden.");
+        const configObj = cleanConfigForTransfer(JSON.parse(text));
+
+        const mode = cloneControls.nameModeSelect.value;
+        if (mode === "keep_board") {
+          delete configObj.hotspot_ssid;
+        } else if (mode === "prefix_auto") {
+          const prefix = cloneControls.prefixInput.value.trim() || "TinkerBot-";
+          const num = Number.parseInt(cloneControls.counterInput.value, 10) || 1;
+          configObj.hotspot_ssid = `${prefix}${String(num).padStart(2, "0")}`;
+          cloneControls.counterInput.value = num + 1;
+        } else if (mode === "custom") {
+          const customName = cloneControls.customNameInput.value.trim();
+          if (customName) configObj.hotspot_ssid = customName;
+        }
+
+        if (!runtimePort || !runtimeWriter) {
+          appendLog("[KLONEN] Verbinde fuer Uebertragung mit Runtime-Serial...");
+          await connectRuntimeSerial();
+        }
+
+        appendLog(`[KLONEN] Uebertrage Konfiguration auf Ziel-Platine (AP-Name: ${configObj.hotspot_ssid || "unveraendert"})...`);
+        await sendRuntimeCommand({ cmd: "set_config", config: configObj });
+
+        clonedBoardsCount++;
+        setPill(cloneControls.counterPill, `Geklonte Platinen in dieser Sitzung: ${clonedBoardsCount}`, "ok");
+        appendLog(`[KLONEN] ✓ Konfiguration erfolgreich uebertragen! (Bisher geklont: ${clonedBoardsCount})`);
+
+        if (cloneControls.autoRebootInput.checked) {
+          appendLog("[KLONEN] Sende Neustart-Befehl an Platine...");
+          setTimeout(async () => {
+            try {
+              await sendRuntimeCommand({ cmd: "reboot" });
+              appendLog("[KLONEN] Platine startet neu. Naechste Platine kann angesteckt werden!");
+            } catch (_) {}
+          }, 350);
+        }
+      } catch (err) {
+        appendLog("[KLONEN-FEHLER] " + err.message);
+      }
+    });
+
+    // Drag & Drop fuer JSON-Dateien
+    if (cloneControls.panel) {
+      cloneControls.panel.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        cloneControls.panel.style.boxShadow = "0 0 0 2px var(--accent-2), var(--shadow)";
+      });
+      cloneControls.panel.addEventListener("dragleave", () => {
+        cloneControls.panel.style.boxShadow = "var(--shadow)";
+      });
+      cloneControls.panel.addEventListener("drop", (e) => {
+        e.preventDefault();
+        cloneControls.panel.style.boxShadow = "var(--shadow)";
+        const file = e.dataTransfer.files?.[0];
+        if (file && (file.name.endsWith(".json") || file.type === "application/json")) {
+          const reader = new FileReader();
+          reader.onload = (evt) => {
+            try {
+              const parsed = JSON.parse(evt.target.result);
+              setCloneConfig(parsed, `Datei "${file.name}"`);
+            } catch (err) {
+              appendLog("[IMPORT-FEHLER] Ungueltige JSON-Datei: " + err.message);
+            }
+          };
+          reader.readAsText(file);
+        }
+      });
+    }
 
     controls.loadReleaseBtn.addEventListener("click", async () => {
       try {
