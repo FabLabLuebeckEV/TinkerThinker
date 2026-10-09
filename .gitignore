@@ -73,3 +73,7 @@ tools/bootloader.bin
 tools/firmware.bin
 tools/littlefs.bin
 tools/partitions.bin
+tools/latest_tag.txt
+
+# Extracted config dumps
+extracted_*.json

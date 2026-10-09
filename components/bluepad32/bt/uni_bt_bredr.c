@@ -40,7 +40,8 @@ _Static_assert(INQUIRY_REMOTE_NAME_TIMEOUT_MS < HID_DEVICE_CONNECTION_TIMEOUT_MS
 // stays in one place and is easy to remove when upstream Bluepad32 adds proper
 // support for this class of clones.
 static inline bool is_ps3_clone(const uni_hid_device_t* d) {
-    return d && d->conn.btaddr[0] == 0xA0 && d->conn.btaddr[1] == 0x5A && d->conn.btaddr[2] == 0x5F;
+    return d && d->conn.btaddr[0] == 0xA0 && d->conn.btaddr[1] == 0x5A &&
+           (d->conn.btaddr[2] == 0x5E || d->conn.btaddr[2] == 0x5F);
 }
 
 static bool bt_bredr_enabled = true;

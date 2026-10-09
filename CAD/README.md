@@ -1,29 +1,34 @@
-# CAD Dateien
+# CAD-Dateien
 
-Diese Ordner enthält Beispiel-CAD-Dateien (Autodesk Fusion 360) rund um das TinkerThinker‑Projekt.
+Dieser Ordner enthaelt CAD-Dateien (Autodesk Fusion 360, STEP, DXF, 3MF) rund um das TinkerThinker-Projekt.
 
-Inhalt
-- Roboter V3 v27.f3z: Komplettes Fusion‑Archiv (Baugruppe) des Roboters. Zum Import in Fusion 360: Datei > Öffnen > Upload.
-- RescueBot2025OLD PCB.f3z: Älteres Fusion‑Archiv mit PCB‑Bezug (Historie/Referenz).
-- PlatinenhalterNEU v6.f3d: Einzelteil (Platinenträger/Halter) als Fusion‑Bauteil.
+## Inhalt
 
-Öffnen/Export
-- Empfohlen: Autodesk Fusion 360 (Native .f3d/.f3z).
-- Alternativen: In Fusion 360 als STEP/OBJ exportieren und in FreeCAD, Blender, PrusaSlicer o. ä. weiterverwenden.
+### Roboter-Chassis & Halterungen
+- `Roboter V3 v27.f3z`: Komplettes Fusion-Archiv (Baugruppe) des Roboters. Zum Import in Fusion 360: Datei > Oeffnen > Upload.
+- `RescueBot2025OLD PCB.f3z`: Aelteres Fusion-Archiv mit PCB-Bezug (Historie/Referenz).
+- `PlatinenhalterNEU v6.f3d`: Einzelteil (Platinentraeger/Halter) als Fusion-Bauteil.
 
-3D‑Druck‑Hinweise (Platinenhalter)
-- Material: PETG oder PLA+ (stabiler bei Wärme: PETG/ABS empfohlen).
-- Layerhöhe: 0,2 mm (Feiner bei Passflächen: 0,12–0,16 mm).
-- Infill: 20–40 % (je nach Steifigkeit).
-- Wände/Perimeter: 3–4.
-- Ausrichtung: So drucken, dass Klemmlaschen und Bohrungen sauber werden; Support nur falls erforderlich.
+### Sumo-Roboter-Bausatz
+- `Sumo Bausatz.step`: STEP-Baugruppe des vollstaendigen Sumo-Roboters.
+- `Sumo Bausatz 3D Druck.3mf`: Druckfertige 3D-Druck-Komponenten fuer den Bausatz.
+- `Sumo Bausatz Grundplatte.dxf`: DXF-Kontur der Grundplatte fuer Laser- oder Fraesbearbeitung.
+- `Sumo Bausatz Wippe.dxf`: DXF-Kontur der beweglichen Wippe.
 
-Mechanik‑Abgleich
-- Abmessungen prüfen: Platinen‑Bohrungen und Außenkontur mit der in PCB/ enthaltenen OBJ/PDF vergleichen.
-- Falls Toleranzen nötig sind (z. B. +0,2 mm an Bohrungen), im CAD oder im Slicer anpassen.
+## Oeffnen und Export
+- Empfohlen: Autodesk Fusion 360 (native `.f3d` / `.f3z`).
+- Alternativen: FreeCAD, Blender, PrusaSlicer, Bambu Studio o. ae. ueber STEP-, 3MF- und DXF-Formate.
 
-Lizenz/Verwendung
-- Sofern nicht anders angegeben, gelten die Lizenzbedingungen des Repository‑Root (siehe LICENSE). Bei Abweichungen bitte README/Kommentare der jeweiligen Datei beachten.
+## 3D-Druck-Hinweise (Platinenhalter & Chassis)
+- Material: PETG oder PLA+ (fuer hoehere Waermebestaendigkeit und Flexibilitaet wird PETG empfohlen).
+- Layerhoehe: 0.2 mm (feiner bei Passflaechen: 0.12 bis 0.16 mm).
+- Infill: 20 bis 40% (je nach gewuenschter Steifigkeit).
+- Waende/Perimeter: 3 bis 4.
+- Ausrichtung: So auf dem Druckbett platzieren, dass Rastnasen und Bohrungen sauber gedruckt werden; Stuetzen nur falls noetig.
 
-Kontakt/Feedback
-- Issues/Verbesserungen bitte als GitHub‑Issue einstellen oder direkt im Projektteam melden.
+## Mechanik-Abgleich
+- Abmessungen pruefen: Platinen-Bohrungen und Aussenkontur mit den Daten in `PCB/` abgleichen.
+- Falls Passungstoleranzen noetig sind (z. B. +0.2 mm an Bohrungen), direkt im CAD oder im Slicer anpassen.
+
+## Lizenz und Verwendung
+- Sofern nicht anders angegeben, gelten die Lizenzbedingungen des Repository-Root (siehe `LICENSE`).

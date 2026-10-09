@@ -1,4 +1,4 @@
-# TinkerThinkerBL
+# TinkerThinker
 
 English | [Deutsch](README.de.md)
 
@@ -70,7 +70,7 @@ The web interface is not only for driving the board. It also lets you change the
 
 ## Default Controls
 
-The default Bluetooth mapping is configured in [`main/ConfigManager.cpp`](/mnt/c/Users/mgabr/Desktop/GitProjekte/TinkerThinkerBL/main/ConfigManager.cpp) and mirrored in [`data/config.json`](/mnt/c/Users/mgabr/Desktop/GitProjekte/TinkerThinkerBL/data/config.json).
+The default Bluetooth mapping is configured in [`main/ConfigManager.cpp`](main/ConfigManager.cpp) and mirrored in [`data/config.json`](data/config.json).
 
 By default:
 
@@ -181,16 +181,17 @@ Important:
 
 ## Project Layout
 
-- [`main/`](/mnt/c/Users/mgabr/Desktop/GitProjekte/TinkerThinkerBL/main)
-  - [`sketch.cpp`](/mnt/c/Users/mgabr/Desktop/GitProjekte/TinkerThinkerBL/main/sketch.cpp): Arduino setup/loop, radio-mode handling, Bluepad32 processing
-  - [`main.c`](/mnt/c/Users/mgabr/Desktop/GitProjekte/TinkerThinkerBL/main/main.c): ESP-IDF entry point and Bluepad32 glue
-  - [`TinkerThinkerBoard.*`](/mnt/c/Users/mgabr/Desktop/GitProjekte/TinkerThinkerBL/main/TinkerThinkerBoard.cpp): board facade and control arbitration
-  - [`InputBindingManager.*`](/mnt/c/Users/mgabr/Desktop/GitProjekte/TinkerThinkerBL/main/InputBindingManager.cpp): controller input mapping
-  - [`WebServerManager.*`](/mnt/c/Users/mgabr/Desktop/GitProjekte/TinkerThinkerBL/main/WebServerManager.cpp): web UI, WebSocket, config routes
-  - [`ConfigManager.*`](/mnt/c/Users/mgabr/Desktop/GitProjekte/TinkerThinkerBL/main/ConfigManager.cpp): persistent configuration in LittleFS
-- [`data/`](/mnt/c/Users/mgabr/Desktop/GitProjekte/TinkerThinkerBL/data): web app files stored in LittleFS
-- [`PCB/`](/mnt/c/Users/mgabr/Desktop/GitProjekte/TinkerThinkerBL/PCB): board files and exports
-- [`CAD/`](/mnt/c/Users/mgabr/Desktop/GitProjekte/TinkerThinkerBL/CAD): mechanical models
+- [`main/`](main/)
+  - [`sketch.cpp`](main/sketch.cpp): Arduino setup/loop, radio-mode handling, Bluepad32 processing
+  - [`main.c`](main/main.c): ESP-IDF entry point and Bluepad32 glue
+  - [`TinkerThinkerBoard.*`](main/TinkerThinkerBoard.cpp): board facade and control arbitration
+  - [`InputBindingManager.*`](main/InputBindingManager.cpp): controller input mapping
+  - [`WebServerManager.*`](main/WebServerManager.cpp): web UI, WebSocket, config routes
+  - [`ConfigManager.*`](main/ConfigManager.cpp): persistent configuration in LittleFS
+- [`data/`](data/): web app files stored in LittleFS
+- [`PCB/`](PCB/): board files and exports
+- [`CAD/`](CAD/): mechanical models and Sumo robot kit files
+- [`tools/`](tools/): automated flashing scripts, WebSerial installer, and CI helpers
 
 ## Quick Start (PlatformIO)
 
@@ -236,7 +237,7 @@ The firmware uses a last-writer-wins model:
 - the last non-neutral control source becomes the owner
 - neutral input from another source does not cancel the active owner
 
-This behavior is implemented in [`main/TinkerThinkerBoard.cpp`](/mnt/c/Users/mgabr/Desktop/GitProjekte/TinkerThinkerBL/main/TinkerThinkerBoard.cpp).
+This behavior is implemented in [`main/TinkerThinkerBoard.cpp`](main/TinkerThinkerBoard.cpp).
 
 ## Releases and Flashing
 
@@ -249,13 +250,32 @@ The main CI workflow builds:
 
 On successful pushes to `main`, GitHub Actions creates a release tagged like `main-YYYYMMDD-HHMM-<shortsha>`.
 
-You can flash release assets automatically with:
+### Flashing with Auto-Flasher
 
-```bash
-python tools/auto_flasher.py
-```
+You can flash release assets automatically using the flasher scripts in `tools/`:
 
-The script downloads the latest release, computes offsets from [`platformio.ini`](/mnt/c/Users/mgabr/Desktop/GitProjekte/TinkerThinkerBL/platformio.ini) and the partition CSV, and flashes the correct images.
+- **Windows (one-click):** Run [`tools/start_flasher.bat`](tools/start_flasher.bat). It automatically checks for `uv` (recommended) or Python with `.venv`, installs requirements (`esptool`, `pyserial`), and launches the flasher.
+- **Python / CLI:**
+  ```bash
+  python tools/auto_flasher.py
+  ```
+  Or using `uv`:
+  ```bash
+  uv run --with-requirements tools/requirements.txt python tools/auto_flasher.py
+  ```
+
+Flasher features:
+- Automatically downloads and extracts the latest release assets from GitHub Actions.
+- Calculates offsets from [`platformio.ini`](platformio.ini) and the partition CSV.
+- Continuously watches serial ports: connect an ESP32 board to flash it automatically.
+- Tracks flashed boards by MAC in `tools/blacklist.txt` per release tag. Boards already on the target release are skipped; if a new release is available, they will be updated.
+- CLI flags:
+  - `--once` or `-1`: Flash a single connected board and exit.
+  - `--clear-blacklist` or `-c`: Clear blacklist to reflash boards.
+
+### WebSerial Installer (Browser)
+
+Alternatively, you can flash firmware and upload configurations directly through Google Chrome or Edge using the WebSerial installer at [`tools/webserial_installer.html`](tools/webserial_installer.html).
 
 ## Configuration Reference
 
@@ -273,7 +293,7 @@ Main config groups:
 - drive profile and motor curve
 - `control_bindings`
 
-The HTTP and WebSocket API is documented in [`API.md`](/mnt/c/Users/mgabr/Desktop/GitProjekte/TinkerThinkerBL/API.md).
+The HTTP and WebSocket API is documented in [`API.md`](API.md).
 
 ## Troubleshooting
 
@@ -286,7 +306,7 @@ The HTTP and WebSocket API is documented in [`API.md`](/mnt/c/Users/mgabr/Deskto
 - The board shows a white LED but the controller does not connect:
   - put the controller back into pairing mode
   - switch to Bluetooth scan mode if needed so the LED turns blue
-- **PS3 / DualShock 3 clone controllers** (common no-name clones with MAC prefix `A0:5A:5F`) are supported with special handling:
+- **PS3 / DualShock 3 clone controllers** (common no-name clones with MAC prefix `A0:5A:5E` or `A0:5A:5F`) are supported with special handling:
   - the firmware skips the Bluetooth name request (clones don't answer it and cause a 15-second timeout)
   - GAP Security Level 2 and Wii-style PIN logic are bypassed for these devices
   - if your clone has a different MAC OUI and still doesn't connect, open an issue with the first 3 bytes of its MAC address

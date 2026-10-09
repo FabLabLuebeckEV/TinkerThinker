@@ -1,4 +1,4 @@
-# TinkerThinkerBL
+# TinkerThinker
 
 [English](README.md) | Deutsch
 
@@ -70,7 +70,7 @@ Die Weboberflaeche dient nicht nur zum Fahren. Dort kannst du auch die Bluetooth
 
 ## Standardsteuerung
 
-Die Standard-Belegung fuer Bluetooth ist in [`main/ConfigManager.cpp`](/mnt/c/Users/mgabr/Desktop/GitProjekte/TinkerThinkerBL/main/ConfigManager.cpp) definiert und in [`data/config.json`](/mnt/c/Users/mgabr/Desktop/GitProjekte/TinkerThinkerBL/data/config.json) gespiegelt.
+Die Standard-Belegung fuer Bluetooth ist in [`main/ConfigManager.cpp`](main/ConfigManager.cpp) definiert und in [`data/config.json`](data/config.json) gespiegelt.
 
 Standardmaessig gilt:
 
@@ -181,16 +181,17 @@ Wichtig:
 
 ## Projektstruktur
 
-- [`main/`](/mnt/c/Users/mgabr/Desktop/GitProjekte/TinkerThinkerBL/main)
-  - [`sketch.cpp`](/mnt/c/Users/mgabr/Desktop/GitProjekte/TinkerThinkerBL/main/sketch.cpp): Arduino-Setup/Loop, Funkmodi, Bluepad32-Verarbeitung
-  - [`main.c`](/mnt/c/Users/mgabr/Desktop/GitProjekte/TinkerThinkerBL/main/main.c): ESP-IDF-Einstiegspunkt und Bluepad32-Glue
-  - [`TinkerThinkerBoard.*`](/mnt/c/Users/mgabr/Desktop/GitProjekte/TinkerThinkerBL/main/TinkerThinkerBoard.cpp): Board-Fassade und Steuerungs-Arbitration
-  - [`InputBindingManager.*`](/mnt/c/Users/mgabr/Desktop/GitProjekte/TinkerThinkerBL/main/InputBindingManager.cpp): Controller-Mapping
-  - [`WebServerManager.*`](/mnt/c/Users/mgabr/Desktop/GitProjekte/TinkerThinkerBL/main/WebServerManager.cpp): Web-UI, WebSocket, Konfigurationsrouten
-  - [`ConfigManager.*`](/mnt/c/Users/mgabr/Desktop/GitProjekte/TinkerThinkerBL/main/ConfigManager.cpp): persistente Konfiguration in LittleFS
-- [`data/`](/mnt/c/Users/mgabr/Desktop/GitProjekte/TinkerThinkerBL/data): Web-App-Dateien in LittleFS
-- [`PCB/`](/mnt/c/Users/mgabr/Desktop/GitProjekte/TinkerThinkerBL/PCB): Platinen-Dateien und Exporte
-- [`CAD/`](/mnt/c/Users/mgabr/Desktop/GitProjekte/TinkerThinkerBL/CAD): mechanische Modelle
+- [`main/`](main/)
+  - [`sketch.cpp`](main/sketch.cpp): Arduino-Setup/Loop, Funkmodi, Bluepad32-Verarbeitung
+  - [`main.c`](main/main.c): ESP-IDF-Einstiegspunkt und Bluepad32-Glue
+  - [`TinkerThinkerBoard.*`](main/TinkerThinkerBoard.cpp): Board-Fassade und Steuerungs-Arbitration
+  - [`InputBindingManager.*`](main/InputBindingManager.cpp): Controller-Mapping
+  - [`WebServerManager.*`](main/WebServerManager.cpp): Web-UI, WebSocket, Konfigurationsrouten
+  - [`ConfigManager.*`](main/ConfigManager.cpp): persistente Konfiguration in LittleFS
+- [`data/`](data/): Web-App-Dateien in LittleFS
+- [`PCB/`](PCB/): Platinen-Dateien und Exporte
+- [`CAD/`](CAD/): mechanische Modelle und Sumo-Bausatz-Dateien
+- [`tools/`](tools/): automatische Flasher-Skripte, WebSerial-Installer und CI-Hilfsmittel
 
 ## Schnellstart (PlatformIO)
 
@@ -236,7 +237,7 @@ Die Firmware verwendet dafuer ein Last-Writer-Wins-Modell:
 - die letzte nicht-neutrale Eingabequelle wird Besitzer der Steuerung
 - eine neutrale Eingabe einer anderen Quelle hebt den aktiven Besitzer nicht auf
 
-Dieses Verhalten ist in [`main/TinkerThinkerBoard.cpp`](/mnt/c/Users/mgabr/Desktop/GitProjekte/TinkerThinkerBL/main/TinkerThinkerBoard.cpp) implementiert.
+Dieses Verhalten ist in [`main/TinkerThinkerBoard.cpp`](main/TinkerThinkerBoard.cpp) implementiert.
 
 ## Releases und Flashen
 
@@ -249,13 +250,32 @@ Der Haupt-CI-Workflow baut:
 
 Bei erfolgreichen Pushes auf `main` erstellt GitHub Actions ein Release mit einem Tag wie `main-YYYYMMDD-HHMM-<shortsha>`.
 
-Release-Artefakte koennen automatisch geflasht werden mit:
+### Flashen mit dem Auto-Flasher
 
-```bash
-python tools/auto_flasher.py
-```
+Release-Artefakte koennen automatisch mit den Skripten in `tools/` geflasht werden:
 
-Das Skript laedt das neueste Release herunter, berechnet die Offsets aus [`platformio.ini`](/mnt/c/Users/mgabr/Desktop/GitProjekte/TinkerThinkerBL/platformio.ini) und der Partitions-CSV und schreibt die richtigen Images.
+- **Windows (Ein-Klick-Start):** Starte [`tools/start_flasher.bat`](tools/start_flasher.bat). Das Skript prueft automatisch auf `uv` (empfohlen) oder Python mit `.venv`, installiert Abhaengigkeiten (`esptool`, `pyserial`) und startet den Flasher.
+- **Python / CLI:**
+  ```bash
+  python tools/auto_flasher.py
+  ```
+  Oder mit `uv`:
+  ```bash
+  uv run --with-requirements tools/requirements.txt python tools/auto_flasher.py
+  ```
+
+Funktionen des Auto-Flashers:
+- Laedt automatisch das neueste Release von GitHub Actions herunter.
+- Berechnet Offsets dynamisch aus [`platformio.ini`](platformio.ini) und der Partitions-CSV.
+- Ueberwacht serielle Ports fortlaufend: Sobald eine ESP32-Platine angesteckt wird, wird sie geflasht.
+- Merkt sich geflashte Platinen per MAC in `tools/blacklist.txt` bezogen auf den Release-Tag. Bereits aktuelle Platinen werden uebersprungen; sobald ein neuerer Release-Tag verfuegbar ist, werden sie aktualisiert.
+- Befehlszeilen-Optionen:
+  - `--once` oder `-1`: Nur eine einzelne Platine flashen und beenden.
+  - `--clear-blacklist` oder `-c`: Blacklist leeren, um Platinen erneut zu flashen.
+
+### WebSerial-Installer (Browser)
+
+Alternativ koennen Firmware und Konfigurationen direkt im Browser (Google Chrome oder Edge) ueber den WebSerial-Installer unter [`tools/webserial_installer.html`](tools/webserial_installer.html) geflasht werden.
 
 ## Konfigurationsreferenz
 
@@ -273,7 +293,7 @@ Wichtige Konfigurationsgruppen:
 - Fahrprofil und Motorkurve
 - `control_bindings`
 
-Die HTTP- und WebSocket-API ist in [`API.md`](/mnt/c/Users/mgabr/Desktop/GitProjekte/TinkerThinkerBL/API.md) dokumentiert.
+Die HTTP- und WebSocket-API ist in [`API.md`](API.md) dokumentiert.
 
 ## Fehlersuche
 
@@ -286,7 +306,7 @@ Die HTTP- und WebSocket-API ist in [`API.md`](/mnt/c/Users/mgabr/Desktop/GitProj
 - Die Platine zeigt weisses Licht, aber der Controller verbindet sich nicht:
   - versetze den Controller erneut in den Pairing-Modus
   - schalte falls noetig in den Bluetooth-Scan-Modus, damit die LED blau wird
-- **PS3 / DualShock 3 Clone-Controller** (guenstige No-Name-Clones mit MAC-Prefix `A0:5A:5F`) werden mit spezieller Behandlung unterstuetzt:
+- **PS3 / DualShock 3 Clone-Controller** (guenstige No-Name-Clones mit MAC-Prefix `A0:5A:5E` oder `A0:5A:5F`) werden mit spezieller Behandlung unterstuetzt:
   - die Firmware ueberspringt den Bluetooth-Name-Request (Clones antworten nicht darauf und verursachen einen 15-Sekunden-Timeout)
   - GAP Security Level 2 und Wii-PIN-Logik werden fuer diese Geraete deaktiviert
   - falls dein Clone einen anderen MAC-OUI hat und sich trotzdem nicht verbindet, erstelle ein Issue mit den ersten 3 Bytes der MAC-Adresse
