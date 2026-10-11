@@ -123,8 +123,12 @@ def download_release_assets() -> str:
         eprint("requests package not available. Skipping download.")
         return 'offline'
 
+    headers = {
+        'Accept': 'application/vnd.github+json',
+        'User-Agent': 'TinkerThinker-AutoFlasher/1.0',
+    }
     try:
-        r = requests.get(GITHUB_API_URL, timeout=15)
+        r = requests.get(GITHUB_API_URL, headers=headers, timeout=15)
         r.raise_for_status()
         data = r.json()
         tag_name = data.get('tag_name', 'latest')
@@ -137,10 +141,12 @@ def download_release_assets() -> str:
             return tag_name
 
         for asset in assets:
-            url = asset.get('browser_download_url')
+            api_url = asset.get('url')
+            browser_url = asset.get('browser_download_url')
+            dl_url = api_url or browser_url
             name = asset.get('name')
             size = int(asset.get('size', 0))
-            if not url or not name:
+            if not dl_url or not name:
                 continue
 
             dest_path = os.path.join(SCRIPT_DIR, name)
@@ -149,17 +155,31 @@ def download_release_assets() -> str:
                 continue
 
             print(f"  Downloading {name} ({size / 1024:.1f} KB)...")
-            with requests.get(url, stream=True, timeout=60) as resp:
-                resp.raise_for_status()
-                bar = tqdm(total=size, unit='iB', unit_scale=True, unit_divisor=1024, desc=name) if tqdm else None
-                with open(dest_path, 'wb') as f:
-                    for chunk in resp.iter_content(chunk_size=64 * 1024):
-                        if chunk:
-                            f.write(chunk)
-                            if bar:
-                                bar.update(len(chunk))
-                if bar:
-                    bar.close()
+            tmp_path = dest_path + '.part'
+            dl_headers = {
+                'Accept': 'application/octet-stream' if api_url else '*/*',
+                'User-Agent': 'Mozilla/5.0 TinkerThinker-AutoFlasher/1.0',
+            }
+            for attempt in range(3):
+                try:
+                    with requests.get(dl_url, headers=dl_headers, stream=True, timeout=60) as resp:
+                        resp.raise_for_status()
+                        bar = tqdm(total=size, unit='iB', unit_scale=True, unit_divisor=1024, desc=name) if tqdm else None
+                        with open(tmp_path, 'wb') as f:
+                            for chunk in resp.iter_content(chunk_size=64 * 1024):
+                                if chunk:
+                                    f.write(chunk)
+                                    if bar:
+                                        bar.update(len(chunk))
+                        if bar:
+                            bar.close()
+                    os.replace(tmp_path, dest_path)
+                    break
+                except Exception as dl_err:
+                    if attempt == 2:
+                        raise dl_err
+                    eprint(f"  Retry {attempt + 1}/2 for {name} after error: {dl_err}")
+                    time.sleep(1.0)
 
         with open(os.path.join(SCRIPT_DIR, 'latest_tag.txt'), 'w', encoding='utf-8') as f:
             f.write(tag_name)
