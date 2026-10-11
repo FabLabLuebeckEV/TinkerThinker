@@ -1,13 +1,34 @@
 #include "SystemMonitor.h"
 
-SystemMonitor::SystemMonitor(int xcurrentPin1, int xcurrentPin2) {
+SystemMonitor::SystemMonitor(int xcurrentPin1, int xcurrentPin2, int xfaultPin1) {
     currentPin1 = xcurrentPin1;
     currentPin2 = xcurrentPin2;
+    fault1Pin = xfaultPin1;
 }
 
 void SystemMonitor::init() {
+    if (fault1Pin >= 0) {
+        pinMode(fault1Pin, INPUT);
+    }
     pinMode(currentPin1, INPUT);
     pinMode(currentPin2, INPUT);
+}
+
+void SystemMonitor::checkMotorDriverFault() {
+    if (fault1Pin < 0) return;
+    #ifdef DEBUG_OUTPUT
+    int fault1 = digitalRead(fault1Pin);
+    if (fault1 == HIGH) {
+        Serial.println("Motor Driver Fault");
+    } else {
+        Serial.println("Motor Drivers OK");
+    }
+    #endif
+}
+
+bool SystemMonitor::isMotorInFault() {
+    if (fault1Pin < 0) return false;
+    return digitalRead(fault1Pin) == HIGH;
 }
 
 // Funktion zur Mittelung der ADC-Werte

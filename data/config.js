@@ -173,7 +173,7 @@ async function handleWifiDisableClick() {
     }
   } catch (error) {
     console.error('Fehler beim Deaktivieren des WLAN:', error);
-    notice.textContent = 'Verbindung getrennt – vermutlich wurde WLAN deaktiviert.';
+    notice.textContent = 'Verbindung getrennt - vermutlich wurde WLAN deaktiviert.';
   }
 }
 
@@ -281,6 +281,16 @@ async function loadConfig() {
     let data = await res.json();
     applyDeviceName(data);
 
+    // GUI Mode & Legacy Board
+    const guiModeEl = document.getElementById('gui_mode');
+    if (guiModeEl) {
+      guiModeEl.value = data.gui_mode || 'basic';
+    }
+    const legacyBoardEl = document.getElementById('legacy_board');
+    if (legacyBoardEl) {
+      legacyBoardEl.checked = !!data.legacy_board;
+    }
+
     // WiFi
     document.getElementById('wifi_mode').value = data.wifi_mode;
     toggleWifiFields();
@@ -291,6 +301,15 @@ async function loadConfig() {
     updateWifiDisableUI(!!data.wifi_disabled_until_restart);
 
     // Motoren
+    if (document.getElementById('motor_left_gui')) {
+      document.getElementById('motor_left_gui').value = String(data.motor_left_gui !== undefined ? data.motor_left_gui : 2);
+    }
+    if (document.getElementById('motor_right_gui')) {
+      document.getElementById('motor_right_gui').value = String(data.motor_right_gui !== undefined ? data.motor_right_gui : 3);
+    }
+    if (document.getElementById('motor_gripper_gui')) {
+      document.getElementById('motor_gripper_gui').value = String(data.motor_gripper_gui !== undefined ? data.motor_gripper_gui : 0);
+    }
     document.getElementById('motor_swap').checked = data.motor_swap;
     const motorsDiv = document.getElementById('motors');
     motorsDiv.innerHTML = '';
@@ -512,7 +531,7 @@ function closePopup() {
   document.getElementById('restartPopup').style.display = 'none';
 }
 
-// ── Bluetooth Whitelist UI ────────────────────────────────────────────────────
+// -- Bluetooth Whitelist UI ----------------------------------------------------
 
 let btWhitelistAddresses = [];
 
@@ -537,7 +556,7 @@ async function btLoadWhitelist() {
 function btRenderWhitelistEntries() {
   const div = document.getElementById('bt-whitelist-entries');
   if (btWhitelistAddresses.length === 0) {
-    div.innerHTML = '<p style="color:#888; font-style:italic;">Keine Einträge – alle Controller können verbinden (solange Whitelist deaktiviert).</p>';
+    div.innerHTML = '<p style="color:#888; font-style:italic;">Keine Einträge - alle Controller können verbinden (solange Whitelist deaktiviert).</p>';
     return;
   }
   let html = '<table style="border-collapse:collapse; width:100%; max-width:480px;">';
@@ -584,7 +603,7 @@ function btWhitelistAddManual() {
 
 async function btWhitelistSave() {
   const status = document.getElementById('bt-whitelist-status');
-  status.textContent = 'Speichern…';
+  status.textContent = 'Speichern...';
   status.style.color = '#333';
   try {
     const body = {
@@ -646,7 +665,62 @@ function btAddFromController(mac) {
   }
 }
 
-// ── Init ──────────────────────────────────────────────────────────────────────
+function setupGuiModeControl() {
+  const sel = document.getElementById('gui_mode');
+  const statusEl = document.getElementById('gui_mode_status');
+  if (sel) {
+    sel.addEventListener('change', async () => {
+      const mode = sel.value;
+      if (statusEl) {
+        statusEl.textContent = 'Speichern...';
+        statusEl.style.color = '#555';
+      }
+      try {
+        const res = await fetch(`/setGuiMode?mode=${encodeURIComponent(mode)}`);
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        if (statusEl) {
+          statusEl.textContent = 'Gespeichert';
+          statusEl.style.color = '#2e7d32';
+          setTimeout(() => { statusEl.textContent = ''; }, 3000);
+        }
+      } catch (e) {
+        if (statusEl) {
+          statusEl.textContent = 'Fehler beim Speichern';
+          statusEl.style.color = '#c62828';
+        }
+      }
+    });
+  }
+
+  const legacyChk = document.getElementById('legacy_board');
+  const legacyStatus = document.getElementById('legacy_board_status');
+  if (legacyChk) {
+    legacyChk.addEventListener('change', async () => {
+      const enabled = legacyChk.checked ? '1' : '0';
+      if (legacyStatus) {
+        legacyStatus.textContent = 'Speichern...';
+        legacyStatus.style.color = '#555';
+      }
+      try {
+        const res = await fetch(`/setLegacyBoard?enabled=${enabled}`);
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        await loadConfig();
+        if (legacyStatus) {
+          legacyStatus.textContent = 'Gespeichert';
+          legacyStatus.style.color = '#2e7d32';
+          setTimeout(() => { legacyStatus.textContent = ''; }, 3000);
+        }
+      } catch (e) {
+        if (legacyStatus) {
+          legacyStatus.textContent = 'Fehler beim Speichern';
+          legacyStatus.style.color = '#c62828';
+        }
+      }
+    });
+  }
+}
+
+// -- Init ----------------------------------------------------------------------
 
 // Initialisieren der WebSocket-Verbindung und Collapsibles beim Laden der Seite
 window.onload = function() {
@@ -654,6 +728,7 @@ window.onload = function() {
   setupCollapsibles();
   setupWifiDisableButton();
   setupDriveProfileControls();
+  setupGuiModeControl();
   loadConfig();
   btLoadWhitelist();
   btLoadControllers();

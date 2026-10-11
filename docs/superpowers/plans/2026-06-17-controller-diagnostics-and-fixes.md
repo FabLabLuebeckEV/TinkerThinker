@@ -1,4 +1,4 @@
-# Controller-Diagnose, Persistenz-, LED- & Servo/Motor-Verbesserungen — Implementierungsplan
+# Controller-Diagnose, Persistenz-, LED- & Servo/Motor-Verbesserungen - Implementierungsplan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -18,14 +18,14 @@ Dieses Projekt hat **keine** automatisierte Test-Suite. Verifikation pro Task:
 - **Frontend-Dateien:** `pio run -e esp32dev -t buildfs` baut das LittleFS-Image aus `data/`.
 - **Manueller Hardware-Test (durch den Nutzer):** Flashen mit `pio run -e esp32dev -t upload`
   (Firmware) bzw. `pio run -e esp32dev -t uploadfs` (Web-Dateien), dann Verhalten prüfen.
-  Der Assistent kann **nicht** flashen — manuelle Schritte sind klar markiert.
+  Der Assistent kann **nicht** flashen - manuelle Schritte sind klar markiert.
 
 Commit-Konvention: Conventional Commits, am Ende jeder Commit-Message:
 `Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>`
 
 ---
 
-## Task 1: Persistenz – Overflow in saveConfig/loadConfig erkennen (A2)
+## Task 1: Persistenz - Overflow in saveConfig/loadConfig erkennen (A2)
 
 **Files:**
 - Modify: `main/ConfigManager.cpp` (`saveConfig`, `loadConfig`)
@@ -77,7 +77,7 @@ ersetzen durch:
 
 ```cpp
     if (doc.overflowed()) {
-        Serial.println("saveConfig: JSON-Dokument zu klein (overflow) – NICHT gespeichert");
+        Serial.println("saveConfig: JSON-Dokument zu klein (overflow) - NICHT gespeichert");
         return false;
     }
 
@@ -109,7 +109,7 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 
 ---
 
-## Task 2: Persistenz – Chunked POST-Handler für Bindings (A1)
+## Task 2: Persistenz - Chunked POST-Handler für Bindings (A1)
 
 **Files:**
 - Modify: `main/WebServerManager.cpp` (`registerBindingsRoutes`, Route `POST /control_bindings`)
@@ -147,7 +147,7 @@ vollständig ersetzen durch:
 ```cpp
     server.on("/control_bindings", HTTP_POST,
         [config](AsyncWebServerRequest* request){
-            // Antwort erst nach vollständigem Body (siehe Body-Handler) – hier nur Fallback.
+            // Antwort erst nach vollständigem Body (siehe Body-Handler) - hier nur Fallback.
             if (!request->_tempObject) {
                 request->send(400, "text/plain", "no body");
             }
@@ -420,7 +420,7 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 - Modify: `main/TinkerThinkerBoard.h` (Methoden)
 - Modify: `main/TinkerThinkerBoard.cpp` (Boot-Default, Apply-Brightness, Delegations)
 - Modify: `main/WebServerManager.cpp` (WS-Befehle `led_brightness`/`led_gamma`, Endpoint `/saveLedSettings`)
-- Modify: `main/WebServerManager.h` (falls Hilfsdeklaration nötig – hier keine)
+- Modify: `main/WebServerManager.h` (falls Hilfsdeklaration nötig - hier keine)
 
 - [ ] **Step 1: Board-Methoden deklarieren**
 
@@ -918,7 +918,7 @@ In `data/controls.html` direkt vor `<script src="/controls.js"></script>` ergän
 ```html
   <div class="controls" style="margin-top:16px;">
     <h2>Live-Werkzeuge (Test)</h2>
-    <p class="hint" style="color:#a00;">Achtung: Aktionen werden sofort ausgeführt – Roboter ggf. aufbocken!</p>
+    <p class="hint" style="color:#a00;">Achtung: Aktionen werden sofort ausgeführt - Roboter ggf. aufbocken!</p>
 
     <h3 style="margin:10px 0 4px;">LED-Test</h3>
     <div class="frow">
@@ -1034,7 +1034,7 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 
 ---
 
-## Task 13: Erweiterte Binding-Aktionen – Firmware (E2)
+## Task 13: Erweiterte Binding-Aktionen - Firmware (E2)
 
 Neue Aktionstypen: `servo_sweep` (Pendeln zwischen zwei Winkeln) und `motor_ramp` (weiches
 Anfahren auf Ziel-PWM). Beide laufen über die bestehende `tick()`-Schleife.
@@ -1203,7 +1203,7 @@ ersetzen durch:
 In `data/controls.js` im Action-Editor (Render-Funktion, die je nach `t` die Felder in
 `fieldsDiv` baut) direkt **vor** dem Zweig `} else if (t === 'led_set') {` ergänzen. Verwende
 die im File vorhandenen Helfer `mkNum(min, max, value, width)`, `el(...)`, `frow(...)`,
-`hint(...)` und `fieldsDiv.append(...)` — exakt wie in den benachbarten Zweigen:
+`hint(...)` und `fieldsDiv.append(...)` - exakt wie in den benachbarten Zweigen:
 
 ```javascript
       } else if (t === 'servo_sweep') {
@@ -1288,5 +1288,5 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 Empfohlene Reihenfolge = Task-Nummerierung. Abhängigkeiten:
 - Task 12 nutzt die `liveSend`/`liveWS`-Hilfen aus Task 11 → Task 11 zuerst.
 - Task 14 setzt Task 13 (Firmware-Aktionen) voraus.
-- Tasks 4–6 (LED) hängen aneinander (Config → Controller → Board/WS).
-- Tasks 1–3 sind unabhängig und können zuerst erledigt werden (reine Bugfixes).
+- Tasks 4-6 (LED) hängen aneinander (Config → Controller → Board/WS).
+- Tasks 1-3 sind unabhängig und können zuerst erledigt werden (reine Bugfixes).

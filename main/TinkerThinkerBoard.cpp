@@ -4,6 +4,7 @@
 // Pins wie gehabt
 #define POWER_ON_PIN 26
 #define MODE_BUTTON_PIN 39
+#define GPIO_FAULT_1 39
 #define GPIO_CURRENT_1 34
 #define GPIO_CURRENT_2 36
 #define BATTERY_PIN 35
@@ -23,6 +24,10 @@ TinkerThinkerBoard::TinkerThinkerBoard(ConfigManager* configManager)
     servos[4] = {18, 12, 180, 500, 2500};
     servos[5] = {19, 13, 180, 500, 2500};
     servos[6] = {5,  14, 180, 500, 2500};
+}
+
+size_t TinkerThinkerBoard::getActiveServoCount() const {
+    return (config && config->isLegacyBoard()) ? 3 : SERVO_COUNT;
 }
 
 void TinkerThinkerBoard::reApplyConfig() {
@@ -54,8 +59,12 @@ void TinkerThinkerBoard::reApplyConfig() {
     motorRightGUI = config->getMotorRightGUI();
     motorController->init();
 
-    servoController = new ServoController(servos, SERVO_COUNT);
-    for (int i = 0; i < SERVO_COUNT; i++) {
+    size_t activeServos = getActiveServoCount();
+    for (size_t i = activeServos; i < SERVO_COUNT; i++) {
+        ledcDetach(servos[i].pin);
+    }
+    servoController = new ServoController(servos, activeServos);
+    for (size_t i = 0; i < activeServos; i++) {
         servoController->setPulseWidthRange(i, config->getServoMinPulsewidth(i), config->getServoMaxPulsewidth(i));
     }
     servoController->init();
@@ -65,14 +74,15 @@ void TinkerThinkerBoard::reApplyConfig() {
     ledController->setGamma(config->getLedGamma());
     FastLED.setBrightness(config->getLedBrightness());
     for (int i = 0; i < config->getLedCount(); i++) {
-        ledController->setPixelColor(i, 0, 0, 0); // Boot-Default: aus (nicht „weiß")
+        ledController->setPixelColor(i, 0, 0, 0); // Boot-Default: aus
     }
     FastLED.show();
 
     batteryMonitor = new BatteryMonitor(BATTERY_PIN);
     batteryMonitor->init();
 
-    systemMonitor = new SystemMonitor(GPIO_CURRENT_1, GPIO_CURRENT_2);
+    int faultPin = config->isLegacyBoard() ? GPIO_FAULT_1 : -1;
+    systemMonitor = new SystemMonitor(GPIO_CURRENT_1, GPIO_CURRENT_2, faultPin);
     systemMonitor->init();
     return;
 }
@@ -170,6 +180,14 @@ float TinkerThinkerBoard::getBatteryVoltage() {
 
 float TinkerThinkerBoard::getBatteryPercentage() {
     return batteryMonitor->readPercentage();
+}
+
+void TinkerThinkerBoard::checkFaults() {
+    if (systemMonitor) systemMonitor->checkMotorDriverFault();
+}
+
+bool TinkerThinkerBoard::isMotorInFault() {
+    return systemMonitor ? systemMonitor->isMotorInFault() : false;
 }
 
 float TinkerThinkerBoard::getHBridgeAmps(int motorIndex) {
@@ -290,7 +308,7 @@ void TinkerThinkerBoard::applyDriveOther(int axisX, int axisY, bool swapSides) {
 void TinkerThinkerBoard::requestDriveFromBT(int axisX, int axisY, bool swapSides) {
     bool active = !isNeutralAxes(axisX, axisY);
     if (shouldAccept(ControlSource::Bluetooth, active)) {
-        // Eigene BT-Controller-Einstellungen – unabhängig von der Website.
+        // Eigene BT-Controller-Einstellungen - unabhängig von der Website.
         // bt_swap_axes = "Achsen tauschen": vertauscht Gas/Lenkung (= Joystick 90° drehen).
         if (config->getBtSwapAxes()) { int t = axisX; axisX = axisY; axisY = t; }
         if (config->getBtInvertX()) axisX = -axisX;
@@ -302,7 +320,7 @@ void TinkerThinkerBoard::requestDriveFromBT(int axisX, int axisY, bool swapSides
 void TinkerThinkerBoard::requestDriveFromWS(int axisX, int axisY, bool swapSides) {
     bool active = !isNeutralAxes(axisX, axisY);
     if (shouldAccept(ControlSource::WebSocket, active)) {
-        // Eigene Website-Einstellungen – unabhängig von den BT-Controller-Bindings.
+        // Eigene Website-Einstellungen - unabhängig von den BT-Controller-Bindings.
         // ws_swap_sides = "Achsen tauschen": vertauscht Gas/Lenkung (= Joystick 90° drehen).
         if (config->getWsSwapSides()) { int t = axisX; axisX = axisY; axisY = t; }
         if (config->getWsInvertX()) axisX = -axisX;
@@ -324,7 +342,7 @@ void TinkerThinkerBoard::requestDriveOtherFromBT(int axisX, int axisY, bool swap
 void TinkerThinkerBoard::requestDriveOtherFromWS(int axisX, int axisY, bool swapSides) {
     bool active = !isNeutralAxes(axisX, axisY);
     if (shouldAccept(ControlSource::WebSocket, active)) {
-        // Eigene Website-Einstellungen – unabhängig von den BT-Controller-Bindings.
+        // Eigene Website-Einstellungen - unabhängig von den BT-Controller-Bindings.
         if (config->getWsSwapSides()) { int t = axisX; axisX = axisY; axisY = t; }
         if (config->getWsInvertX()) axisX = -axisX;
         if (config->getWsInvertY()) axisY = -axisY;

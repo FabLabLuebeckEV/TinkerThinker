@@ -36,6 +36,7 @@
                 <p>Motor B speed: <span id="motor1PWM">0</span>, Current: <span id="motor1Current">0</span>mA</p>
                 <p>Motor C speed: <span id="motor2PWM">0</span></p>
                 <p>Motor D speed: <span id="motor3PWM">0</span></p>
+                <p id="motorFaultRow" style="display:none;">Motortreiber-Status (v1): <span id="motor0Fault">OK</span></p>
             </div>
             <h3>WS2812 LED</h3>
             <p>Erste LED Farbe: <span id="firstLEDR">0</span>, <span id="firstLEDG">0</span>, <span id="firstLEDB">0</span></p>
@@ -89,7 +90,7 @@
                     <input type="range" id="ledRangeStart" min="0" max="29" value="0">
                     <input type="range" id="ledRangeEnd" min="0" max="29" value="0">
                 </div>
-                <span class="range-values"><span id="ledRangeStartVal">0</span>–<span id="ledRangeEndVal">0</span></span>
+                <span class="range-values"><span id="ledRangeStartVal">0</span>-<span id="ledRangeEndVal">0</span></span>
             </div>
         </div>
     </div>

@@ -12,6 +12,11 @@
       false
    ],
    "motor_swap":false,
+   "motor_left_gui":2,
+   "motor_right_gui":3,
+   "motor_gripper_gui":0,
+   "gui_mode":"basic",
+   "legacy_board":false,
    "motor_deadband":[
       50,
       50,
@@ -38,6 +43,22 @@
    "bt_scan_on_ap_ms":100,
    "bt_scan_off_ap_ms":1900,
    "servo_settings":[
+      {
+         "min_pulsewidth":500,
+         "max_pulsewidth":2500
+      },
+      {
+         "min_pulsewidth":500,
+         "max_pulsewidth":2500
+      },
+      {
+         "min_pulsewidth":500,
+         "max_pulsewidth":2500
+      },
+      {
+         "min_pulsewidth":500,
+         "max_pulsewidth":2500
+      },
       {
          "min_pulsewidth":500,
          "max_pulsewidth":2500

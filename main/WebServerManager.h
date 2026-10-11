@@ -7,6 +7,8 @@
 #include <WiFi.h>
 #include <ArduinoJson.h>
 #include <Update.h>
+#include <ESPmDNS.h>
+#include <AsyncUDP.h>
 #include <functional>
 
 class TinkerThinkerBoard; 
@@ -37,6 +39,10 @@ private:
     ConfigManager* config;
     AsyncWebServer server;
     AsyncWebSocket ws;
+    AsyncUDP localDnsUdp;
+    String mdnsHostname = "tinkerthinker";
+    uint32_t portalUnlockedUntilMs = 0;
+    int lastApStaCount = 0;
     SemaphoreHandle_t wsMutex = xSemaphoreCreateMutex();
     //Timeout als millisekunden seit dem letzten paket
     unsigned long lastPacketTime = 0;
@@ -51,6 +57,10 @@ private:
     void setupRoutes();
     void setupWebSocket();
     void startWifi();
+    void startMdnsAndLocalDns();
+    void stopMdnsAndLocalDns();
+    void handleLocalDnsPacket(AsyncUDPPacket& pkt);
+    bool isPortalUnlocked() const;
     void handleConfig(AsyncWebServerRequest* request);
     void disableWifiUntilRestart();
     void disableWifiInternal(bool permanent);

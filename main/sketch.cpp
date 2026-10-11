@@ -119,6 +119,10 @@ static void fillSerialConfig(JsonDocument& doc) {
     doc["motor_swap"] = configManager.getMotorSwap();
     doc["motor_left_gui"] = configManager.getMotorLeftGUI();
     doc["motor_right_gui"] = configManager.getMotorRightGUI();
+    doc["motor_gripper_gui"] = configManager.getMotorGripperGUI();
+    doc["gui_mode"] = configManager.getGuiMode();
+    doc["legacy_board"] = configManager.isLegacyBoard();
+    doc["servo_count"] = configManager.getActiveServoCount();
 
     JsonArray dbArr = doc["motor_deadband"].to<JsonArray>();
     for (int i = 0; i < 4; i++) dbArr.add(configManager.getMotorDeadband(i));
@@ -369,6 +373,20 @@ static void handleSerialCommandLine(const char* rawLine) {
         }
         if (!cfg["motor_right_gui"].isNull()) {
             configManager.setMotorRightGUI(constrain(cfg["motor_right_gui"].as<int>(), 0, 3));
+            touched = true;
+            reapplyHardware = true;
+        }
+        if (!cfg["motor_gripper_gui"].isNull()) {
+            configManager.setMotorGripperGUI(constrain(cfg["motor_gripper_gui"].as<int>(), 0, 3));
+            touched = true;
+            reapplyHardware = true;
+        }
+        if (!cfg["gui_mode"].isNull()) {
+            configManager.setGuiMode(String((const char*)(cfg["gui_mode"] | "basic")));
+            touched = true;
+        }
+        if (!cfg["legacy_board"].isNull()) {
+            configManager.setLegacyBoard(cfg["legacy_board"].as<bool>());
             touched = true;
             reapplyHardware = true;
         }
@@ -662,10 +680,13 @@ void setup() {
     board.begin();
     boardReady = true;
     // GPIO39 is input-only on ESP32 and has no internal pull-up.
-    // The board uses external pull-up with active-low button wiring.
+    // On v2 boards: external pull-up with active-low MODE button.
+    // On legacy v1 boards: GPIO39 is the H-Bridge motor fault signal (LOW = OK, HIGH = Fault).
     pinMode(MODE_BUTTON_PIN, INPUT);
-    if (handleStartupReset()) {
-        return;
+    if (!configManager.isLegacyBoard()) {
+        if (handleStartupReset()) {
+            return;
+        }
     }
 
     board.startServices();
@@ -684,7 +705,7 @@ void setup() {
     Console.printf("BD Addr: %2X:%2X:%2X:%2X:%2X:%2X\n", addr[0], addr[1], addr[2], addr[3], addr[4], addr[5]);
 
     // forgetBluetoothKeys() wird nur beim Factory-Reset (handleStartupReset) aufgerufen,
-    // nicht bei jedem normalen Boot – sonst schlägt die Re-Auth aller gepairten Controller fehl.
+    // nicht bei jedem normalen Boot - sonst schlägt die Re-Auth aller gepairten Controller fehl.
     // BP32.forgetBluetoothKeys(); // Removed: Causes pairing issues with clones
 
     // Load input bindings from config
@@ -708,6 +729,7 @@ static uint32_t nextToggleAt = 0;
 static uint32_t curOnMs = SCAN_ON_MS_NORMAL;
 static uint32_t curOffMs = SCAN_OFF_MS_NORMAL;
 static enum { PHASE_ON, PHASE_OFF } phase = PHASE_OFF;
+static bool modeButtonSeenReleased = false;
 
 static void setStatusLed(uint8_t r, uint8_t g, uint8_t b) {
     if (!boardReady) return;
@@ -750,9 +772,23 @@ static bool handleStartupReset() {
         Serial.println("Config reset failed!");
     }
     BP32.forgetBluetoothKeys();
-    delay(200);
-    ESP.restart();
-    return true;
+
+    // Wait up to 2.5s for button release. If GPIO39 stays permanently LOW
+    // (e.g. unconfigured legacy v1 board where GPIO39 is Motor Fault = LOW when OK),
+    // continue normal boot instead of entering an infinite ESP.restart() loop.
+    uint32_t releaseWaitStart = millis();
+    while ((millis() - releaseWaitStart) < 2500) {
+        if (!isModePressedStable()) {
+            delay(100);
+            ESP.restart();
+            return true;
+        }
+        delay(50);
+    }
+
+    Serial.println("GPIO39 stayed LOW after reset window - continuing boot (possible legacy v1 board).");
+    board.reApplyConfig();
+    return false;
 }
 
 static bool isModePressedStable() {
@@ -814,29 +850,38 @@ void loop() {
     SCAN_ON_MS_AP_ACTIVE    = configManager.getBtScanOnAp();
     SCAN_OFF_MS_AP_ACTIVE   = configManager.getBtScanOffAp();
 
-    // Mode button handling (active-low, hold-to-switch for noise immunity)
-    bool modeNow = (digitalRead(MODE_BUTTON_PIN) == LOW);
-    uint32_t nowMs = millis();
-    if (modeNow) {
-        if (modeButtonPressStartMs == 0) {
-            modeButtonPressStartMs = nowMs;
-            modeButtonLongPressHandled = false;
-        } else if (!modeButtonLongPressHandled && (nowMs - modeButtonPressStartMs) >= modeButtonHoldToSwitchMs) {
-            modeStep = (modeStep + 1) % 4;
-            if (modeStep == 0) radioMode = RadioMode::Normal;
-            else if (modeStep == 1) radioMode = RadioMode::WifiOnly;
-            else if (modeStep == 2) radioMode = RadioMode::BluetoothOnly;
-            else radioMode = RadioMode::WifiOnly;
-            modeButtonLongPressHandled = true;
-        }
+    if (configManager.isLegacyBoard()) {
+        // Legacy board v1: GPIO39 is Motor Driver Fault (not MODE button)
+        board.checkFaults();
+        radioMode = RadioMode::Normal;
     } else {
-        modeButtonPressStartMs = 0;
-        modeButtonLongPressHandled = false;
+        // Mode button handling (active-low, hold-to-switch for noise immunity)
+        bool modeNow = (digitalRead(MODE_BUTTON_PIN) == LOW);
+        if (!modeNow) {
+            modeButtonSeenReleased = true;
+        }
+        uint32_t nowMs = millis();
+        if (modeNow && modeButtonSeenReleased) {
+            if (modeButtonPressStartMs == 0) {
+                modeButtonPressStartMs = nowMs;
+                modeButtonLongPressHandled = false;
+            } else if (!modeButtonLongPressHandled && (nowMs - modeButtonPressStartMs) >= modeButtonHoldToSwitchMs) {
+                modeStep = (modeStep + 1) % 4;
+                if (modeStep == 0) radioMode = RadioMode::Normal;
+                else if (modeStep == 1) radioMode = RadioMode::WifiOnly;
+                else if (modeStep == 2) radioMode = RadioMode::BluetoothOnly;
+                else radioMode = RadioMode::WifiOnly;
+                modeButtonLongPressHandled = true;
+            }
+        } else {
+            modeButtonPressStartMs = 0;
+            modeButtonLongPressHandled = false;
+        }
     }
     applyRadioMode(radioMode);
 
     // Temporary WiFi pause to boost BT during connect (only in Normal mode)
-    // Kein enableNewBluetoothConnections(true) wenn Controller bereits verbunden –
+    // Kein enableNewBluetoothConnections(true) wenn Controller bereits verbunden -
     // das Toggling stört BTstack und kann den PS3/DS3 zum Disconnect bringen.
     bool anyControllerNow = false;
     for (int i = 0; i < BP32_MAX_GAMEPADS; i++) {
@@ -960,7 +1005,7 @@ void loop() {
     }
     //board.updateWebClients();
 
-    // Heartbeat alle 5s – zeigt dass der ESP läuft
+    // Heartbeat alle 5s - zeigt dass der ESP läuft
     uint32_t nowHb = millis();
     if (nowHb - lastHeartbeatMs >= 5000) {
         lastHeartbeatMs = nowHb;

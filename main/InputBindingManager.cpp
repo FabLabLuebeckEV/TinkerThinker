@@ -121,7 +121,8 @@ void InputBindingManager::applyMotorHold(JsonObject action, uint32_t tickMs) {
 
 void InputBindingManager::startServoSweep(JsonObject action) {
     int idx = action["servo"] | 0;
-    if (idx < 0 || idx >= 7) return;
+    int maxServos = config ? config->getActiveServoCount() : 7;
+    if (idx < 0 || idx >= maxServos) return;
     int from = action["from"] | 0;
     int to   = action["to"]   | 180;
     int step = action["step"] | 2;
@@ -152,7 +153,8 @@ void InputBindingManager::startMotorRamp(JsonObject action) {
 
 void InputBindingManager::tickSweepsAndRamps(uint32_t now) {
     // Servo-Sweeps (alle 20 ms ein Schritt)
-    for (int i = 0; i < 7; i++) {
+    int maxServos = config ? config->getActiveServoCount() : 7;
+    for (int i = 0; i < maxServos; i++) {
         if (!sweepActive[i]) continue;
         if (now < sweepNextMs[i]) continue;
         sweepNextMs[i] = now + 20;
@@ -221,7 +223,7 @@ void InputBindingManager::process(ControllerPtr ctl, int idx) {
             if (!strcmp(actType, "drive_pair")) {
                 const char* target = action["target"] | "gui";
                 // Richtung/Drehung wird zentral über die BT-Joystick-Richtung gesetzt
-                // (Config bt_swap_axes/bt_invert_x/bt_invert_y) – NICHT mehr pro Binding,
+                // (Config bt_swap_axes/bt_invert_x/bt_invert_y) - NICHT mehr pro Binding,
                 // damit es keine Doppel-Anwendung gibt.
                 static uint32_t lastPrint = 0;
                 if ((abs(x) > dead || abs(y) > dead) && (millis() - lastPrint > 500)) {

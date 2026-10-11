@@ -1,6 +1,6 @@
-# RescueBot – Greifroboter Beispielprojekt
+# RescueBot - Greifroboter Beispielprojekt
 
-Dieses Repository enthält alle notwendigen Dateien und Anleitungen für den Aufbau des RescueBot, einem Beispielprojekt von TinkerThinker. Der RescueBot ist ein Greifroboter, der mit einem vorn montierten Greifer ausgestattet ist. Mit ihm lassen sich Objekte greifen und vertikal (hoch und runter) bewegen – ideal für Demonstrationen und Experimente im Bereich Robotik.
+Dieses Repository enthält alle notwendigen Dateien und Anleitungen für den Aufbau des RescueBot, einem Beispielprojekt von TinkerThinker. Der RescueBot ist ein Greifroboter, der mit einem vorn montierten Greifer ausgestattet ist. Mit ihm lassen sich Objekte greifen und vertikal (hoch und runter) bewegen - ideal für Demonstrationen und Experimente im Bereich Robotik.
 
 ![RescueBot](RescueBot.jpg)
 
@@ -10,9 +10,9 @@ Der RescueBot nutzt Kettenantrieb und eine Kombination aus verschiedenen Motoren
 
 ## Hardware-Komponenten
 
-- **Kleiner Getriebemotor mit M4-Gewinde** – verantwortlich für den Greifer
-- **1 Servo** – steuert die Greifbewegung
-- **2 Blaue Getriebemotoren** – sorgen für den Antrieb
+- **Kleiner Getriebemotor mit M4-Gewinde** - verantwortlich für den Greifer
+- **1 Servo** - steuert die Greifbewegung
+- **2 Blaue Getriebemotoren** - sorgen für den Antrieb
 - **Materialien:**
   - 3 mm MDF-Platten (laser geschnitten)
   - 3D-gedruckter PLA
@@ -48,7 +48,7 @@ Der RescueBot nutzt Kettenantrieb und eine Kombination aus verschiedenen Motoren
    - Nutze die vorgesehenen Mutternhalter, um die Platine fest zu fixieren.
 
 4. **Räder montieren:**
-   - Stecke die Räder auf die Motoren. Achte darauf, dass sie nicht zu fest sitzen – halte sie gegebenenfalls beim Anbringen etwas gegen.
+   - Stecke die Räder auf die Motoren. Achte darauf, dass sie nicht zu fest sitzen - halte sie gegebenenfalls beim Anbringen etwas gegen.
    - Setze die Achse in den Achsenhalter und montiere die Räder. Sollte die Passung zu eng sein, bohre die Achse leicht auf.
    - Die TPU-Abstandshalter helfen dabei, die Räder in Position zu halten.
 

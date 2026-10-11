@@ -48,6 +48,7 @@ public:
     // Servo-Steuerung
     void setServoAngle(int servoIndex, int angle);
     int getServoAngle(int servoIndex);
+    size_t getActiveServoCount() const;
 
     // LED-Steuerung
     void setLED(int led, uint8_t r, uint8_t g, uint8_t b);
@@ -60,6 +61,8 @@ public:
     float getBatteryVoltage();
     float getBatteryPercentage();
 
+    void checkFaults();
+    bool isMotorInFault();
     float getHBridgeAmps(int motorIndex);
 
     // Webserver-Update

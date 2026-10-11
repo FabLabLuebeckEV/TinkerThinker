@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>TinkerThinker Start</title>
+    <style>
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body {
+            margin: 0;
+            padding: 16px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(145deg, #f0f7ff 0%, #e2eefc 100%);
+            color: #1e293b;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        .card {
+            width: 100%;
+            max-width: 380px;
+            background: #ffffff;
+            border: 1px solid #dbeafe;
+            border-radius: 20px;
+            padding: 20px 18px 16px;
+            box-shadow: 0 12px 32px rgba(15, 23, 42, 0.08);
+        }
+
+        /* Kopfbereich mit Gerät & schlankem Countdown */
+        .top-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+        .device-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #0369a1;
+            background: #e0f2fe;
+            padding: 4px 10px;
+            border-radius: 999px;
+        }
+        .timer-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 0.78rem;
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
+            color: #b45309;
+            background: #fef3c7;
+            padding: 4px 10px;
+            border-radius: 999px;
+            transition: all 0.25s ease;
+        }
+        .timer-pill.urgent {
+            color: #b91c1c;
+            background: #fee2e2;
+        }
+        .timer-pill.unlocked {
+            color: #15803d;
+            background: #dcfce7;
+        }
+
+        .progress-track {
+            width: 100%;
+            height: 4px;
+            background: #f1f5f9;
+            border-radius: 999px;
+            overflow: hidden;
+            margin-bottom: 16px;
+        }
+        .progress-fill {
+            height: 100%;
+            width: 100%;
+            background: #f59e0b;
+            transition: width 1s linear, background 0.3s ease;
+        }
+        .progress-fill.urgent { background: #ef4444; }
+        .progress-fill.unlocked { background: #22c55e; width: 100% !important; }
+
+        h1 {
+            font-size: 1.35rem;
+            font-weight: 800;
+            color: #0f172a;
+            margin: 0 0 4px 0;
+            text-align: center;
+        }
+        .subtitle {
+            font-size: 0.86rem;
+            color: #64748b;
+            text-align: center;
+            margin: 0 0 16px 0;
+            line-height: 1.35;
+        }
+
+        /* Kompakte Adress-Anzeige */
+        .address-pill {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #f8fafc;
+            border: 1.5px solid #cbd5e1;
+            border-radius: 12px;
+            padding: 10px 12px;
+            margin-bottom: 12px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 1.05rem;
+            font-weight: 700;
+            color: #0284c7;
+            user-select: all;
+            -webkit-user-select: all;
+        }
+
+        /* Haupt-Button */
+        .btn-main {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            width: 100%;
+            padding: 14px 16px;
+            border: none;
+            border-radius: 12px;
+            background: linear-gradient(180deg, #0ea5e9 0%, #0284c7 100%);
+            color: #ffffff;
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+            text-decoration: none;
+            box-shadow: 0 4px 14px rgba(2, 132, 199, 0.28);
+            transition: transform 0.1s ease, background 0.2s ease;
+            margin-bottom: 14px;
+        }
+        .btn-main:active { transform: scale(0.98); }
+        .btn-main.copied {
+            background: linear-gradient(180deg, #22c55e 0%, #16a34a 100%);
+            box-shadow: 0 4px 14px rgba(22, 163, 74, 0.28);
+        }
+
+        /* Kurze 2-Schritt-Hilfe */
+        .steps-box {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 12px 14px;
+            margin-bottom: 12px;
+        }
+        .step-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            font-size: 0.85rem;
+            color: #334155;
+            line-height: 1.4;
+        }
+        .step-row + .step-row {
+            margin-top: 8px;
+        }
+        .step-num {
+            flex: 0 0 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #e0f2fe;
+            color: #0369a1;
+            font-size: 0.75rem;
+            font-weight: 800;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-top: 1px;
+        }
+        .step-row strong { color: #0f172a; }
+
+        .direct-link {
+            display: block;
+            text-align: center;
+            font-size: 0.8rem;
+            color: #64748b;
+            text-decoration: none;
+            padding: 4px;
+        }
+        .direct-link:hover { color: #0284c7; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="top-bar">
+            <span class="device-tag" id="deviceTag">📱 Verbunden</span>
+            <span class="timer-pill" id="timerPill">⏱ <span id="timerSec">90s</span></span>
+        </div>
+        <div class="progress-track">
+            <div class="progress-fill" id="progressFill"></div>
+        </div>
+
+        <h1 id="robotTitle">TinkerThinker</h1>
+        <p class="subtitle" id="subTitle">Für dauerhafte Steuerung kurz in den normalen Browser wechseln:</p>
+
+        <div class="address-pill" id="addressDisplay">http://tinker.local</div>
+
+        <button type="button" class="btn-main" id="mainBtn">
+            📋 Adresse kopieren
+        </button>
+
+        <div class="steps-box" id="stepsBox">
+            <div class="step-row">
+                <span class="step-num">1</span>
+                <span id="step1Text">Oben rechts auf <strong>Fertig</strong> tippen</span>
+            </div>
+            <div class="step-row">
+                <span class="step-num">2</span>
+                <span id="step2Text">In <strong>Safari</strong> einfügen &amp; starten</span>
+            </div>
+        </div>
+
+        <a href="/" class="direct-link" id="directLink">Direkt hier im Fenster öffnen →</a>
+    </div>
+
+    <script>
+    (function() {
+        const ua = navigator.userAgent || '';
+        const isIOS = /iPhone|iPad|iPod/i.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+        const isMac = /Macintosh|Mac OS X/i.test(ua) && !isIOS;
+        const isApple = isIOS || isMac;
+        const isAndroid = /Android/i.test(ua);
+        const isSamsung = /Samsung|SM-|GT-/i.test(ua);
+        const isXiaomi = /Xiaomi|Mi |Redmi|POCO/i.test(ua);
+
+        const deviceTag = document.getElementById('deviceTag');
+        const subTitle = document.getElementById('subTitle');
+        const addressDisplay = document.getElementById('addressDisplay');
+        const mainBtn = document.getElementById('mainBtn');
+        const stepsBox = document.getElementById('stepsBox');
+        const step1Text = document.getElementById('step1Text');
+        const step2Text = document.getElementById('step2Text');
+        const robotTitle = document.getElementById('robotTitle');
+
+        let mdnsUrl = 'http://tinker.local';
+        const ipUrl = 'http://192.168.4.1';
+
+        // Nur die jeweils passende Adresse für das erkannte Gerät verwenden
+        let activeUrl = isApple ? mdnsUrl : ipUrl;
+
+        fetch('/getConfig')
+            .then(r => r.json())
+            .then(cfg => {
+                if (cfg.hotspot_ssid) {
+                    robotTitle.textContent = cfg.hotspot_ssid.trim();
+                }
+                if (cfg.mdns_host) {
+                    mdnsUrl = 'http://' + cfg.mdns_host + '.local';
+                    if (isApple) {
+                        activeUrl = mdnsUrl;
+                        addressDisplay.textContent = activeUrl;
+                    }
+                }
+            })
+            .catch(() => {});
+
+        if (isIOS) {
+            const isIPad = /iPad/i.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+            deviceTag.textContent = isIPad ? '🍎 Apple iPad' : '🍎 Apple iPhone';
+            addressDisplay.textContent = mdnsUrl;
+            mainBtn.textContent = '📋 Adresse kopieren';
+            step1Text.innerHTML = 'Oben rechts auf <strong>Fertig</strong> tippen <em>(Ohne Internet verwenden)</em>';
+            step2Text.innerHTML = '<strong>Safari</strong> öffnen und Adresse einfügen';
+        } else if (isMac) {
+            deviceTag.textContent = '🍎 Apple Mac';
+            addressDisplay.textContent = mdnsUrl;
+            mainBtn.textContent = '🚀 Steuerung öffnen';
+            step1Text.innerHTML = 'Klicke oben auf <strong>Steuerung öffnen</strong>';
+            step2Text.innerHTML = 'Oder öffne <strong>' + mdnsUrl + '</strong> in Safari';
+        } else if (isAndroid) {
+            deviceTag.textContent = isSamsung ? '📱 Samsung' : (isXiaomi ? '📱 Xiaomi' : '🤖 Android');
+            addressDisplay.textContent = ipUrl;
+            mainBtn.textContent = '🚀 In Chrome öffnen';
+            step1Text.innerHTML = 'Button antippen <em>(kopiert die Adresse &amp; startet Chrome)</em>';
+            step2Text.innerHTML = 'Falls dieses Fenster bleibt: oben rechts <strong>⋮</strong> → <strong>Im Browser öffnen</strong>';
+        } else {
+            deviceTag.textContent = '💻 Browser';
+            addressDisplay.textContent = ipUrl;
+            subTitle.textContent = 'WLAN-Verbindung steht.';
+            mainBtn.textContent = '🚀 Direkt zur Steuerung';
+            stepsBox.style.display = 'none';
+        }
+
+        function copyText(text) {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                return navigator.clipboard.writeText(text).catch(() => fallbackCopy(text));
+            }
+            return Promise.resolve(fallbackCopy(text));
+        }
+
+        function fallbackCopy(text) {
+            const ta = document.createElement('textarea');
+            ta.value = text;
+            ta.style.position = 'fixed';
+            ta.style.opacity = '0';
+            document.body.appendChild(ta);
+            ta.focus();
+            ta.select();
+            try { document.execCommand('copy'); } catch (_) {}
+            document.body.removeChild(ta);
+        }
+
+        let isUnlocked = false;
+        function unlockPortal() {
+            isUnlocked = true;
+            const pill = document.getElementById('timerPill');
+            const fill = document.getElementById('progressFill');
+            if (pill) {
+                pill.classList.remove('urgent');
+                pill.classList.add('unlocked');
+                pill.innerHTML = '✓ WLAN aktiv';
+            }
+            if (fill) {
+                fill.classList.remove('urgent');
+                fill.classList.add('unlocked');
+            }
+            return fetch('/portal/unlock', { method: 'POST' }).catch(() => {});
+        }
+
+        mainBtn.addEventListener('click', () => {
+            copyText(activeUrl).then(() => {
+                mainBtn.classList.add('copied');
+                mainBtn.textContent = '✓ Kopiert! Jetzt Browser öffnen';
+            });
+            unlockPortal();
+
+            if (isAndroid) {
+                setTimeout(() => {
+                    window.location.href = 'intent://192.168.4.1/#Intent;scheme=http;action=android.intent.action.VIEW;end';
+                }, 150);
+            } else if (!isIOS) {
+                setTimeout(() => {
+                    window.location.href = '/';
+                }, 150);
+            }
+        });
+
+        const TOTAL_SEC = 90;
+        let remainingSec = TOTAL_SEC;
+        const timerSecEl = document.getElementById('timerSec');
+        const timerPillEl = document.getElementById('timerPill');
+        const fillEl = document.getElementById('progressFill');
+
+        const timerId = setInterval(() => {
+            if (isUnlocked) {
+                clearInterval(timerId);
+                return;
+            }
+            remainingSec = Math.max(0, remainingSec - 1);
+            if (timerSecEl) timerSecEl.textContent = remainingSec + 's';
+            if (fillEl) fillEl.style.width = ((remainingSec / TOTAL_SEC) * 100).toFixed(1) + '%';
+            if (remainingSec <= 25) {
+                if (timerPillEl) timerPillEl.classList.add('urgent');
+                if (fillEl) fillEl.classList.add('urgent');
+            }
+            if (remainingSec <= 5 && !isUnlocked) {
+                unlockPortal();
+            }
+        }, 1000);
+    })();
+    </script>
+</body>
+</html>

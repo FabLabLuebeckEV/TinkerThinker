@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>TinkerThinker Roboter-Arm</title>
+    <link rel="stylesheet" href="/styles.css">
+</head>
+<body class="arm-body">
+    <nav>
+        <ul>
+            <li><a href="/">Steuerung</a></li>
+            <li><a href="/config">Konfiguration</a></li>
+            <li><a href="/setup">Setup</a></li>
+            <li><a href="/controls">Steuerungs-Editor</a></li>
+        </ul>
+    </nav>
+
+    <div class="controls arm-shell">
+        <!-- Kompakter Top-Header: Titel + LED -->
+        <div class="arm-header-row">
+            <h1 class="arm-title"><span id="deviceName">TinkerThinker</span> Arm</h1>
+            <div class="arm-led-mini" title="Board-LED Farbe">
+                <label for="armLedPicker">LED</label>
+                <input type="color" id="armLedPicker" value="#00ff00">
+            </div>
+        </div>
+
+        <div class="basic-top-bar arm-status-bar">
+            <!-- Akku -->
+            <div class="basic-status-item" title="Akkustand">
+                <div class="battery-icon" aria-label="Akkustand">
+                    <div id="batteryBarFill" class="battery-fill" style="width: 0%;"></div>
+                </div>
+                <span id="batteryPercentage" class="basic-status-text">--%</span>
+            </div>
+
+            <!-- Funksignal -->
+            <div class="basic-status-item" id="signalWidget" title="WLAN-Signalstärke">
+                <div class="signal-bars" id="signalBars" aria-label="Signalstärke">
+                    <span class="signal-bar bar-1"></span>
+                    <span class="signal-bar bar-2"></span>
+                    <span class="signal-bar bar-3"></span>
+                    <span class="signal-bar bar-4"></span>
+                </div>
+                <span id="signalText" class="basic-status-text">Verbunden</span>
+            </div>
+
+            <!-- Live Strommessung der 2 Hardware-Stromsensoren (Motor A & Motor B) -->
+            <div class="basic-status-item arm-current-pill" id="currentPill" title="2 Hardware-Stromsensoren (S1: Motor B, S2: Motor A)">
+                <span class="curr-dot" id="currDot"></span>
+                <span id="currentReadout" class="basic-status-text">S1:0.00A S2:0.00A</span>
+            </div>
+        </div>
+
+        <!-- Live CAD Kinematik-Animation (Seitenansicht + 360° Basis-Radar) -->
+        <div class="arm-visualizer-card">
+            <div class="arm-canvas-wrap">
+                <canvas id="armCanvas" width="420" height="300"></canvas>
+                <!-- Homing / Status Banner über der Animation -->
+                <div id="armStatusOverlay" class="arm-status-overlay" style="display: none;">
+                    <span id="armStatusText">Homing läuft...</span>
+                </div>
+            </div>
+
+            <!-- Schnellaktions-Leiste direkt unter der Animation -->
+            <div class="arm-quick-actions">
+                <button type="button" id="btnHomeAll" class="arm-action-btn arm-btn-home" title="Fährt die 3 Armteile nacheinander in ihren Home-Endanschlag (Min/Max)">
+                    ⌂ Arm Homen
+                </button>
+                <button type="button" id="btnSetZero" class="arm-action-btn arm-btn-zero" title="Setzt die geschätzte Anzeige ohne Motorfahrt auf die Home-Position zurück">
+                    ✓ Als Home setzen
+                </button>
+                <button type="button" id="btnStopAll" class="arm-action-btn arm-btn-stop" title="Stoppt sofort alle Motoren">
+                    ■ STOP
+                </button>
+            </div>
+        </div>
+
+        <!-- Geschwindigkeits-Regler & Bedienmodus-Umschalter -->
+        <div class="arm-mode-bar">
+            <div class="arm-mode-tabs" role="tablist">
+                <button type="button" id="tabPadMode" class="arm-tab-btn active">Gelenk-Tasten</button>
+                <button type="button" id="tabJoyMode" class="arm-tab-btn">Dual-Joystick</button>
+                <button type="button" id="tabCalibMode" class="arm-tab-btn">Sensoren &amp; Setup</button>
+            </div>
+            <div class="arm-speed-row">
+                <label for="armSpeedSlider">Tempo: <strong id="armSpeedVal">80%</strong></label>
+                <input type="range" id="armSpeedSlider" min="30" max="100" step="5" value="80">
+            </div>
+        </div>
+
+        <!-- ANSICHT 1: Mobile Gelenk-Tasten (von oben = Greifer bis unten = Rotierende Basis) -->
+        <div id="panelPadMode" class="arm-mode-panel active">
+            <!-- 1. Greifer (Servo) - Slider oben, 2 große Buttons darunter (kein Überstehen auf dem Handy!) -->
+            <div class="arm-joint-card arm-card-gripper">
+                <div class="arm-joint-header">
+                    <div class="arm-joint-title">
+                        <span class="joint-badge badge-servo">SERVO</span>
+                        <strong>Greifer (Backen)</strong>
+                    </div>
+                    <span id="gripperAngleLabel" class="arm-angle-readout">90°</span>
+                </div>
+                <div class="arm-gripper-slider-row">
+                    <span class="limit-lbl">Auf</span>
+                    <input type="range" id="gripperServoSlider" min="10" max="170" value="90" class="arm-servo-slider">
+                    <span class="limit-lbl">Zu</span>
+                </div>
+                <div class="arm-pad-row">
+                    <button type="button" id="btnGripOpen" class="arm-hold-btn arm-grip-btn">◄ Greifer AUF</button>
+                    <button type="button" id="btnGripClose" class="arm-hold-btn arm-grip-btn">Greifer ZU ►</button>
+                </div>
+            </div>
+
+            <!-- 2. Armteil 3: Handgelenk / Oberarm (-90° bis +90° = 180°, OHNE Stromsensor) -->
+            <div class="arm-joint-card" id="cardArm3">
+                <div class="arm-joint-header">
+                    <div class="arm-joint-title">
+                        <span class="joint-badge badge-arm3">ARM 3</span>
+                        <strong>Handgelenk (180°)</strong>
+                    </div>
+                    <div class="arm-joint-meta">
+                        <span id="currArm3" class="joint-curr-tag tag-nofault">Zeit-Modus</span>
+                        <span id="angleArm3" class="arm-angle-readout">+90°</span>
+                        <button type="button" class="arm-mini-home-btn" data-joint="arm3" title="Arm 3 an Endanschlag homen">⌂</button>
+                    </div>
+                </div>
+                <div class="arm-limit-bar">
+                    <span class="limit-lbl" id="minLblArm3">-90°</span>
+                    <div class="limit-track">
+                        <div id="barArm3" class="limit-fill fill-arm3" style="width: 100%;"></div>
+                    </div>
+                    <span class="limit-lbl" id="maxLblArm3">+90° (Home)</span>
+                </div>
+                <div class="arm-pad-row">
+                    <button type="button" class="arm-hold-btn" data-joint="arm3" data-dir="-1">▼ Neigen (-)</button>
+                    <button type="button" class="arm-hold-btn" data-joint="arm3" data-dir="1">▲ Aufrichten (+)</button>
+                </div>
+            </div>
+
+            <!-- 3. Armteil 2: Mittelarm / Ellbogen (-90° bis +90° = 180°, MIT Stromsensor 1) -->
+            <div class="arm-joint-card" id="cardArm2">
+                <div class="arm-joint-header">
+                    <div class="arm-joint-title">
+                        <span class="joint-badge badge-arm2">ARM 2</span>
+                        <strong>Mittelarm (180°)</strong>
+                    </div>
+                    <div class="arm-joint-meta">
+                        <span id="currArm2" class="joint-curr-tag">S1: 0.00 A</span>
+                        <span id="angleArm2" class="arm-angle-readout">0°</span>
+                        <button type="button" class="arm-mini-home-btn" data-joint="arm2" title="Arm 2 über Stromsensor homen">⌂</button>
+                    </div>
+                </div>
+                <div class="arm-limit-bar">
+                    <span class="limit-lbl" id="minLblArm2">-90°</span>
+                    <div class="limit-track">
+                        <div id="barArm2" class="limit-fill fill-arm2" style="width: 50%;"></div>
+                    </div>
+                    <span class="limit-lbl" id="maxLblArm2">+90° (Home)</span>
+                </div>
+                <div class="arm-pad-row">
+                    <button type="button" class="arm-hold-btn" data-joint="arm2" data-dir="-1">▼ Senken (-)</button>
+                    <button type="button" class="arm-hold-btn" data-joint="arm2" data-dir="1">▲ Heben (+)</button>
+                </div>
+            </div>
+
+            <!-- 4. Armteil 1: Unterarm / Schulter (-90° bis +90° = 180°, MIT Stromsensor 2) -->
+            <div class="arm-joint-card" id="cardArm1">
+                <div class="arm-joint-header">
+                    <div class="arm-joint-title">
+                        <span class="joint-badge badge-arm1">ARM 1</span>
+                        <strong>Unterarm (180°)</strong>
+                    </div>
+                    <div class="arm-joint-meta">
+                        <span id="currArm1" class="joint-curr-tag">S2: 0.00 A</span>
+                        <span id="angleArm1" class="arm-angle-readout">0°</span>
+                        <button type="button" class="arm-mini-home-btn" data-joint="arm1" title="Arm 1 über Stromsensor homen">⌂</button>
+                    </div>
+                </div>
+                <div class="arm-limit-bar">
+                    <span class="limit-lbl" id="minLblArm1">-90°</span>
+                    <div class="limit-track">
+                        <div id="barArm1" class="limit-fill fill-arm1" style="width: 50%;"></div>
+                    </div>
+                    <span class="limit-lbl" id="maxLblArm1">+90° (Home)</span>
+                </div>
+                <div class="arm-pad-row">
+                    <button type="button" class="arm-hold-btn" data-joint="arm1" data-dir="-1">◄ Vor (-)</button>
+                    <button type="button" class="arm-hold-btn" data-joint="arm1" data-dir="1">Zurück (+) ►</button>
+                </div>
+            </div>
+
+            <!-- 5. Rotierende Basis (360° endlos, OHNE Begrenzung & OHNE Stromsensor) -->
+            <div class="arm-joint-card arm-card-base" id="cardBase">
+                <div class="arm-joint-header">
+                    <div class="arm-joint-title">
+                        <span class="joint-badge badge-base">BASIS</span>
+                        <strong>Drehkranz (360° frei)</strong>
+                    </div>
+                    <div class="arm-joint-meta">
+                        <span class="joint-curr-tag tag-nofault">Ohne Sensor / Limit</span>
+                        <span id="angleBase" class="arm-angle-readout">0°</span>
+                    </div>
+                </div>
+                <div class="arm-pad-row">
+                    <button type="button" class="arm-hold-btn arm-base-btn" data-joint="base" data-dir="-1">↺ Links drehen</button>
+                    <button type="button" class="arm-hold-btn arm-base-btn" data-joint="base" data-dir="1">↻ Rechts drehen</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ANSICHT 2: Dual-Joystick (2-Daumen Handy-Cockpit) -->
+        <div id="panelJoyMode" class="arm-mode-panel">
+            <div class="arm-dual-joy-grid">
+                <div class="arm-joy-box">
+                    <div class="arm-joy-title">Links: Basis (X) &amp; Arm 1 (Y)</div>
+                    <div class="joy-compass-mini">
+                        <span class="joy-lbl-top">Arm 1 +</span>
+                        <div class="joy-mid">
+                            <span class="joy-lbl-side">↺</span>
+                            <canvas id="joyLeftCanvas" width="150" height="150"></canvas>
+                            <span class="joy-lbl-side">↻</span>
+                        </div>
+                        <span class="joy-lbl-bot">Arm 1 -</span>
+                    </div>
+                </div>
+
+                <div class="arm-joy-box">
+                    <div class="arm-joy-title">Rechts: Arm 3 (X) &amp; Arm 2 (Y)</div>
+                    <div class="joy-compass-mini">
+                        <span class="joy-lbl-top">Arm 2 +</span>
+                        <div class="joy-mid">
+                            <span class="joy-lbl-side">A3 -</span>
+                            <canvas id="joyRightCanvas" width="150" height="150"></canvas>
+                            <span class="joy-lbl-side">A3 +</span>
+                        </div>
+                        <span class="joy-lbl-bot">Arm 2 -</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="arm-pad-row">
+                <button type="button" id="btnJoyGripOpen" class="arm-hold-btn arm-grip-btn">◄ Greifer AUF</button>
+                <button type="button" id="btnJoyGripClose" class="arm-hold-btn arm-grip-btn">Greifer ZU ►</button>
+            </div>
+        </div>
+
+        <!-- ANSICHT 3: Stromsensoren (nur 2 vorhanden!), Endanschlag-Homing & Motor-Zuordnung -->
+        <div id="panelCalibMode" class="arm-mode-panel">
+            <div class="arm-calib-card">
+                <h3>Stromsensoren (2x) &amp; Endanschlag-Homing</h3>
+                <p class="arm-calib-hint">
+                    Das Board besitzt <strong>2 Stromsensoren</strong> (Sensor 1 an Motor B, Sensor 2 an Motor A). Deshalb haben <strong>2 Motoren einen Stromsensor</strong> (Arm 1 &amp; Arm 2, schalten bei Stall/Maximalstrom am Anschlag ab) und <strong>2 Motoren keinen Stromsensor</strong> (Basis komplett frei, Arm 3 homt über die Laufzeit in den Endanschlag). Da es kein Positions-Feedback gibt, liegt <strong>Home direkt im Min- oder Max-Endanschlag</strong>.
+                </p>
+
+                <div class="arm-calib-grid">
+                    <!-- Basis (Kein Sensor, kein Limit) -->
+                    <div class="arm-calib-row">
+                        <div class="arm-calib-head">
+                            <span class="joint-badge badge-base">BASIS</span>
+                            <strong>Rotierende Basis (Ohne Sensor, 360° frei)</strong>
+                        </div>
+                        <div class="arm-calib-fields">
+                            <label>Motor:
+                                <select id="cfgMotor_base">
+                                    <option value="0">Motor A (M0)</option>
+                                    <option value="1">Motor B (M1)</option>
+                                    <option value="2" selected>Motor C (M2)</option>
+                                    <option value="3">Motor D (M3)</option>
+                                </select>
+                            </label>
+                            <label>90°-Drehzeit (s):
+                                <input type="number" id="cfgTime90_base" min="0.5" max="15.0" step="0.5" value="3.0">
+                            </label>
+                            <label class="arm-chk-lbl">
+                                <input type="checkbox" id="cfgInv_base"> Drehrichtung umkehren
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Arm 1 (MIT Stromsensor 2) -->
+                    <div class="arm-calib-row">
+                        <div class="arm-calib-head">
+                            <span class="joint-badge badge-arm1">ARM 1</span>
+                            <strong>Unterarm (-90° bis +90°, MIT Stromsensor)</strong>
+                        </div>
+                        <div class="arm-calib-fields">
+                            <label>Motor:
+                                <select id="cfgMotor_arm1">
+                                    <option value="0" selected>Motor A (M0 - Sensor 2)</option>
+                                    <option value="1">Motor B (M1 - Sensor 1)</option>
+                                    <option value="2">Motor C (M2 - ohne Sensor)</option>
+                                    <option value="3">Motor D (M3 - ohne Sensor)</option>
+                                </select>
+                            </label>
+                            <label>Stromsensor:
+                                <select id="cfgSensor_arm1">
+                                    <option value="1" selected>Sensor 2 (Motor A / GPIO36)</option>
+                                    <option value="0">Sensor 1 (Motor B / GPIO34)</option>
+                                    <option value="none">Kein Sensor (nur Zeit-Anschlag)</option>
+                                </select>
+                            </label>
+                            <label>Home-Endanschlag:
+                                <select id="cfgHomeEnd_arm1">
+                                    <option value="max" selected>Max-Anschlag (+90°)</option>
+                                    <option value="min">Min-Anschlag (-90°)</option>
+                                </select>
+                            </label>
+                            <label>Stall-Strom (A):
+                                <input type="number" id="cfgStall_arm1" min="0.3" max="3.5" step="0.05" value="1.10">
+                            </label>
+                            <label>90°-Laufzeit (s):
+                                <input type="number" id="cfgTime90_arm1" min="0.5" max="15.0" step="0.5" value="3.5">
+                            </label>
+                            <label class="arm-chk-lbl">
+                                <input type="checkbox" id="cfgInv_arm1"> Richtung umkehren
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Arm 2 (MIT Stromsensor 1) -->
+                    <div class="arm-calib-row">
+                        <div class="arm-calib-head">
+                            <span class="joint-badge badge-arm2">ARM 2</span>
+                            <strong>Mittelarm (-90° bis +90°, MIT Stromsensor)</strong>
+                        </div>
+                        <div class="arm-calib-fields">
+                            <label>Motor:
+                                <select id="cfgMotor_arm2">
+                                    <option value="0">Motor A (M0 - Sensor 2)</option>
+                                    <option value="1" selected>Motor B (M1 - Sensor 1)</option>
+                                    <option value="2">Motor C (M2 - ohne Sensor)</option>
+                                    <option value="3">Motor D (M3 - ohne Sensor)</option>
+                                </select>
+                            </label>
+                            <label>Stromsensor:
+                                <select id="cfgSensor_arm2">
+                                    <option value="0" selected>Sensor 1 (Motor B / GPIO34)</option>
+                                    <option value="1">Sensor 2 (Motor A / GPIO36)</option>
+                                    <option value="none">Kein Sensor (nur Zeit-Anschlag)</option>
+                                </select>
+                            </label>
+                            <label>Home-Endanschlag:
+                                <select id="cfgHomeEnd_arm2">
+                                    <option value="max" selected>Max-Anschlag (+90° Oben)</option>
+                                    <option value="min">Min-Anschlag (-90° Unten)</option>
+                                </select>
+                            </label>
+                            <label>Stall-Strom (A):
+                                <input type="number" id="cfgStall_arm2" min="0.3" max="3.5" step="0.05" value="1.05">
+                            </label>
+                            <label>90°-Laufzeit (s):
+                                <input type="number" id="cfgTime90_arm2" min="0.5" max="15.0" step="0.5" value="3.2">
+                            </label>
+                            <label class="arm-chk-lbl">
+                                <input type="checkbox" id="cfgInv_arm2"> Richtung umkehren
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Arm 3 (OHNE Stromsensor -> Zeit-Anschlag in Min/Max) -->
+                    <div class="arm-calib-row">
+                        <div class="arm-calib-head">
+                            <span class="joint-badge badge-arm3">ARM 3</span>
+                            <strong>Handgelenk (-90° bis +90°, OHNE Stromsensor)</strong>
+                        </div>
+                        <div class="arm-calib-fields">
+                            <label>Motor:
+                                <select id="cfgMotor_arm3">
+                                    <option value="0">Motor A (M0 - Sensor 2)</option>
+                                    <option value="1">Motor B (M1 - Sensor 1)</option>
+                                    <option value="2">Motor C (M2 - ohne Sensor)</option>
+                                    <option value="3" selected>Motor D (M3 - ohne Sensor)</option>
+                                </select>
+                            </label>
+                            <label>Stromsensor:
+                                <select id="cfgSensor_arm3">
+                                    <option value="none" selected>Kein Sensor (Zeit-Anschlag)</option>
+                                    <option value="0">Sensor 1 (Motor B / GPIO34)</option>
+                                    <option value="1">Sensor 2 (Motor A / GPIO36)</option>
+                                </select>
+                            </label>
+                            <label>Home-Endanschlag:
+                                <select id="cfgHomeEnd_arm3">
+                                    <option value="max" selected>Max-Anschlag (+90° Aufrecht)</option>
+                                    <option value="min">Min-Anschlag (-90° Unten)</option>
+                                </select>
+                            </label>
+                            <label>Stall-Strom (falls Sensor):
+                                <input type="number" id="cfgStall_arm3" min="0.3" max="3.5" step="0.05" value="0.95">
+                            </label>
+                            <label>90°-Laufzeit (s):
+                                <input type="number" id="cfgTime90_arm3" min="0.5" max="15.0" step="0.5" value="2.2">
+                            </label>
+                            <label class="arm-chk-lbl">
+                                <input type="checkbox" id="cfgInv_arm3"> Richtung umkehren
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Greifer Servo -->
+                    <div class="arm-calib-row">
+                        <div class="arm-calib-head">
+                            <span class="joint-badge badge-servo">SERVO</span>
+                            <strong>Greifer-Servo</strong>
+                        </div>
+                        <div class="arm-calib-fields">
+                            <label>Servo-Kanal:
+                                <select id="cfgServo_gripper">
+                                    <option value="0" selected>Servo 1 (Pin 13)</option>
+                                    <option value="1">Servo 2 (Pin 33)</option>
+                                    <option value="2">Servo 3 (Pin 17)</option>
+                                </select>
+                            </label>
+                            <label>Winkel AUF (°):
+                                <input type="number" id="cfgGripOpenDeg" min="0" max="180" value="35">
+                            </label>
+                            <label>Winkel ZU (°):
+                                <input type="number" id="cfgGripCloseDeg" min="0" max="180" value="145">
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="arm-calib-actions">
+                    <button type="button" id="btnSaveArmConfig" class="control-button">Einstellungen speichern</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/arm.js"></script>
+</body>
+</html>

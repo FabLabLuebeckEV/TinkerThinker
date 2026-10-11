@@ -19,6 +19,16 @@ from typing import Optional, Tuple, Dict, Set
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 os.chdir(SCRIPT_DIR)
 
+# Force UTF-8 so esptool v5 Unicode progress bars never fail on Windows cp1252 consoles
+os.environ["PYTHONIOENCODING"] = "utf-8"
+os.environ["PYTHONUTF8"] = "1"
+for _s in (sys.stdout, sys.stderr):
+    if hasattr(_s, "reconfigure"):
+        try:
+            _s.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
+
 try:
     import serial.tools.list_ports  # type: ignore
 except Exception:
@@ -313,7 +323,7 @@ def program(port: str, release_tag: str, blacklist: Dict[str, str]) -> bool:
         '--baud', '921600',
         '--before', 'default_reset',
         '--after', 'hard_reset',
-        'write_flash',
+        'write_flash', '-z',
         '--flash_mode', 'dio',
         '--flash_size', flash_size,
         '--flash_freq', '40m',

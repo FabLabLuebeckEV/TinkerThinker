@@ -519,3 +519,816 @@ button:hover, input[type="submit"]:hover, .action-buttons button:hover, .test-bu
 .slider-container input[type="range"] {
     width: 100%;
 }
+
+/* Basic Workshop-Roboter UI */
+.basic-card {
+    max-width: 480px;
+    padding: 16px;
+}
+
+.basic-title {
+    font-size: 22px;
+    margin-bottom: 12px;
+}
+
+.basic-top-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 10px 14px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+}
+
+.basic-status-item {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+}
+
+.basic-status-text {
+    font-size: 13px;
+    font-weight: 600;
+    color: #334155;
+    font-variant-numeric: tabular-nums;
+}
+
+.battery-icon {
+    width: 38px;
+    height: 18px;
+    border: 2px solid #334155;
+    border-radius: 4px;
+    padding: 2px;
+    position: relative;
+    display: flex;
+    align-items: center;
+    background: #fff;
+    margin-right: 3px;
+}
+
+.battery-icon::after {
+    content: "";
+    width: 3px;
+    height: 8px;
+    background: #334155;
+    position: absolute;
+    right: -5px;
+    top: 3px;
+    border-radius: 0 2px 2px 0;
+}
+
+.battery-fill {
+    height: 100%;
+    border-radius: 1.5px;
+    background-color: #22c55e;
+    transition: width 0.3s ease, background-color 0.3s ease;
+}
+
+.battery-fill.level-high {
+    background-color: #22c55e;
+}
+
+.battery-fill.level-med {
+    background-color: #f59e0b;
+}
+
+.battery-fill.level-low {
+    background-color: #ef4444;
+}
+
+.signal-bars {
+    display: inline-flex;
+    align-items: flex-end;
+    gap: 3px;
+    height: 18px;
+}
+
+.signal-bar {
+    width: 4px;
+    background-color: #cbd5e1;
+    border-radius: 1.5px;
+    transition: background-color 0.2s ease;
+}
+
+.signal-bar.bar-1 { height: 5px; }
+.signal-bar.bar-2 { height: 9px; }
+.signal-bar.bar-3 { height: 13px; }
+.signal-bar.bar-4 { height: 18px; }
+
+.signal-bar.active {
+    background-color: #16a34a;
+}
+
+.signal-bar.disconnected {
+    background-color: #fca5a5;
+}
+
+.basic-led-picker {
+    gap: 6px;
+}
+
+.basic-led-label {
+    width: auto !important;
+    margin-bottom: 0 !important;
+    font-size: 13px;
+    font-weight: 600;
+    color: #334155;
+}
+
+.basic-led-picker input[type="color"] {
+    width: 34px;
+    height: 28px;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    background: #fff;
+    padding: 1px;
+    cursor: pointer;
+}
+
+.joystick-compass {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    margin: 8px 0 18px;
+}
+
+.joy-middle-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+}
+
+.joy-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #475569;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    text-align: center;
+}
+
+.joy-label-left,
+.joy-label-right {
+    min-width: 44px;
+}
+
+.basic-gripper-row {
+    display: flex;
+    justify-content: center;
+    gap: 14px;
+    margin-top: 6px;
+}
+
+.basic-gripper-btn {
+    flex: 1;
+    max-width: 190px;
+    padding: 15px 12px;
+    font-size: 16px;
+    font-weight: 600;
+    border-radius: 8px;
+}
+
+@media (max-width: 400px) {
+    .basic-card #touchCanvas {
+        width: 220px;
+        height: 220px;
+    }
+    .joy-label-left,
+    .joy-label-right {
+        min-width: 36px;
+        font-size: 11px;
+    }
+}
+
+/* Signal-Bars data-bars Attribut-Unterstützung */
+.signal-bars[data-bars="4"] .signal-bar { background-color: #22c55e; }
+.signal-bars[data-bars="3"] .bar-1,
+.signal-bars[data-bars="3"] .bar-2,
+.signal-bars[data-bars="3"] .bar-3 { background-color: #22c55e; }
+.signal-bars[data-bars="2"] .bar-1,
+.signal-bars[data-bars="2"] .bar-2 { background-color: #f59e0b; }
+.signal-bars[data-bars="1"] .bar-1 { background-color: #ef4444; }
+
+/* --- Roboter-Arm Mobile UI (arm.html) --- */
+.arm-body {
+    background-color: #0f172a;
+    color: #f1f5f9;
+    touch-action: manipulation;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.arm-shell {
+    max-width: 500px;
+    margin: 0 auto;
+    padding: 12px;
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 14px;
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+    color: #f1f5f9;
+}
+
+.arm-header-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+}
+
+.arm-title {
+    font-size: 20px;
+    margin: 0;
+    color: #f8fafc;
+}
+
+.arm-led-mini {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.arm-led-mini label {
+    width: auto !important;
+    margin: 0 !important;
+    font-size: 12px;
+    font-weight: 700;
+    color: #cbd5e1;
+}
+
+.arm-led-mini input[type="color"] {
+    width: 32px;
+    height: 26px;
+    border: 1px solid #475569;
+    border-radius: 6px;
+    background: #0f172a;
+    padding: 1px;
+    cursor: pointer;
+}
+
+.arm-status-bar {
+    display: grid !important;
+    grid-template-columns: auto auto 1fr;
+    align-items: center;
+    gap: 6px;
+    background: #0f172a;
+    border-color: #334155;
+    padding: 7px 10px;
+    margin-bottom: 10px;
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+.arm-status-bar .basic-status-item {
+    gap: 5px;
+    min-width: 0;
+}
+
+.arm-status-bar .basic-status-text {
+    color: #cbd5e1;
+    font-size: 11.5px;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.arm-status-bar #batteryPercentage {
+    display: inline-block;
+    min-width: 32px;
+    text-align: right;
+}
+
+.arm-status-bar #signalText {
+    display: inline-block;
+    min-width: 48px;
+}
+
+.arm-status-bar .battery-icon {
+    width: 32px;
+    height: 16px;
+    border-color: #94a3b8;
+    background: #1e293b;
+}
+
+.arm-status-bar .battery-icon::after {
+    background: #94a3b8;
+    top: 2px;
+}
+
+.arm-current-pill {
+    justify-self: end;
+    background: #1e293b;
+    padding: 3px 7px;
+    border-radius: 999px;
+    border: 1px solid #334155;
+    min-width: 128px;
+    justify-content: center;
+}
+
+.arm-current-pill #currentReadout {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+}
+
+.curr-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #22c55e;
+    display: inline-block;
+    flex-shrink: 0;
+}
+
+/* Kinematik-Visualizer Card */
+.arm-visualizer-card {
+    background: #0f172a;
+    border: 1px solid #334155;
+    border-radius: 12px;
+    padding: 8px;
+    margin-bottom: 10px;
+}
+
+.arm-canvas-wrap {
+    position: relative;
+    width: 100%;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid #1e293b;
+}
+
+#armCanvas {
+    display: block;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 420 / 300;
+}
+
+.arm-status-overlay {
+    position: absolute;
+    left: 8px;
+    right: 8px;
+    bottom: 8px;
+    background: rgba(15, 23, 42, 0.92);
+    border: 1px solid #38bdf8;
+    color: #f8fafc;
+    padding: 6px 10px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+}
+
+.arm-quick-actions {
+    display: grid;
+    grid-template-columns: 1.15fr 1.15fr 0.85fr;
+    gap: 6px;
+    margin-top: 8px;
+}
+
+.arm-action-btn {
+    margin: 0 !important;
+    padding: 10px 6px !important;
+    font-size: 12.5px !important;
+    font-weight: 700 !important;
+    border-radius: 8px !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+    white-space: nowrap;
+}
+
+.arm-btn-home {
+    background: #0284c7 !important;
+}
+.arm-btn-home:hover {
+    background: #0369a1 !important;
+}
+
+.arm-btn-zero {
+    background: #475569 !important;
+}
+.arm-btn-zero:hover {
+    background: #334155 !important;
+}
+
+.arm-btn-stop {
+    background: #dc2626 !important;
+}
+.arm-btn-stop:hover {
+    background: #b91c1c !important;
+}
+
+/* Modus-Tabs & Tempo */
+.arm-mode-bar {
+    margin-bottom: 10px;
+}
+
+.arm-mode-tabs {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 5px;
+    background: #0f172a;
+    padding: 4px;
+    border-radius: 10px;
+    border: 1px solid #334155;
+    margin-bottom: 8px;
+}
+
+.arm-tab-btn {
+    margin: 0 !important;
+    padding: 8px 4px !important;
+    font-size: 12px !important;
+    font-weight: 600 !important;
+    background: transparent !important;
+    color: #94a3b8 !important;
+    border-radius: 7px !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+}
+
+.arm-tab-btn.active {
+    background: #2563eb !important;
+    color: #ffffff !important;
+}
+
+.arm-speed-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: #0f172a;
+    padding: 6px 12px;
+    border-radius: 8px;
+    border: 1px solid #334155;
+}
+
+.arm-speed-row label {
+    width: auto !important;
+    margin: 0 !important;
+    font-size: 13px;
+    color: #cbd5e1;
+    white-space: nowrap;
+}
+
+.arm-speed-row input[type="range"] {
+    flex: 1;
+    min-width: 0;
+    margin: 0;
+    accent-color: #38bdf8;
+}
+
+.arm-mode-panel {
+    display: none;
+}
+.arm-mode-panel.active {
+    display: block;
+}
+
+/* Gelenk-Karten */
+.arm-joint-card {
+    background: #0f172a;
+    border: 1px solid #334155;
+    border-radius: 10px;
+    padding: 9px 10px;
+    margin-bottom: 8px;
+    box-sizing: border-box;
+    overflow: hidden;
+}
+
+.arm-joint-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 6px;
+    gap: 6px;
+}
+
+.arm-joint-title {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 14px;
+    color: #f8fafc;
+    min-width: 0;
+}
+
+.joint-badge {
+    font-size: 10px;
+    font-weight: 800;
+    padding: 2px 6px;
+    border-radius: 4px;
+    letter-spacing: 0.04em;
+    color: #0f172a;
+    flex-shrink: 0;
+}
+
+.badge-servo { background: #a78bfa; }
+.badge-arm3  { background: #fb923c; }
+.badge-arm2  { background: #94a3b8; }
+.badge-arm1  { background: #fbbf24; }
+.badge-base  { background: #38bdf8; }
+
+.arm-joint-meta {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    flex-shrink: 0;
+}
+
+.joint-curr-tag {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 10.5px;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: #1e293b;
+    color: #38bdf8;
+    border: 1px solid #334155;
+    font-variant-numeric: tabular-nums;
+    min-width: 70px;
+    text-align: center;
+    white-space: nowrap;
+}
+
+.joint-curr-tag.tag-warn {
+    background: rgba(245, 158, 11, 0.2);
+    color: #fbbf24;
+    border-color: #f59e0b;
+}
+
+.joint-curr-tag.tag-stall {
+    background: rgba(239, 68, 68, 0.25);
+    color: #fca5a5;
+    border-color: #ef4444;
+}
+
+.joint-curr-tag.tag-nofault {
+    color: #94a3b8;
+}
+
+.arm-angle-readout {
+    font-size: 13px;
+    font-weight: 700;
+    color: #f8fafc;
+    min-width: 36px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.arm-mini-home-btn {
+    margin: 0 !important;
+    padding: 3px 8px !important;
+    font-size: 13px !important;
+    background: #334155 !important;
+    border-radius: 6px !important;
+    width: auto !important;
+}
+.arm-mini-home-btn:hover {
+    background: #0284c7 !important;
+}
+
+.arm-limit-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 7px;
+}
+
+.limit-lbl {
+    font-size: 10px;
+    color: #94a3b8;
+    min-width: 28px;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.limit-track {
+    flex: 1;
+    height: 6px;
+    background: #1e293b;
+    border-radius: 999px;
+    overflow: hidden;
+}
+
+.limit-fill {
+    height: 100%;
+    border-radius: 999px;
+    transition: width 0.08s linear;
+}
+
+.fill-arm3 { background: #fb923c; }
+.fill-arm2 { background: #94a3b8; }
+.fill-arm1 { background: #fbbf24; }
+
+.arm-pad-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.arm-hold-btn {
+    margin: 0 !important;
+    padding: 13px 8px !important;
+    font-size: 14.5px !important;
+    font-weight: 700 !important;
+    border-radius: 8px !important;
+    background: #1e3a8a !important;
+    border: 1px solid #3b82f6 !important;
+    color: #ffffff !important;
+    touch-action: none;
+    user-select: none;
+    width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+    white-space: nowrap;
+}
+
+.arm-hold-btn.active,
+.arm-hold-btn:active {
+    background: #0284c7 !important;
+    border-color: #7dd3fc !important;
+    transform: scale(0.98);
+}
+
+.arm-base-btn {
+    background: #0f3d5e !important;
+    border-color: #38bdf8 !important;
+}
+
+.arm-gripper-slider-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.arm-grip-btn {
+    background: #4c1d95 !important;
+    border-color: #8b5cf6 !important;
+}
+
+.arm-servo-slider {
+    flex: 1;
+    min-width: 0;
+    margin: 0;
+    accent-color: #a78bfa;
+}
+
+/* Dual-Joystick Panel */
+.arm-dual-joy-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.arm-joy-box {
+    background: #0f172a;
+    border: 1px solid #334155;
+    border-radius: 10px;
+    padding: 8px 4px;
+    text-align: center;
+}
+
+.arm-joy-title {
+    font-size: 11px;
+    font-weight: 700;
+    color: #cbd5e1;
+    margin-bottom: 6px;
+}
+
+.joy-compass-mini {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+}
+
+.joy-compass-mini .joy-mid {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+}
+
+.joy-lbl-top, .joy-lbl-bot, .joy-lbl-side {
+    font-size: 10px;
+    color: #94a3b8;
+    font-weight: 600;
+}
+
+.arm-joy-box canvas {
+    width: 128px;
+    height: 128px;
+    touch-action: none;
+}
+
+/* Kalibrierungs- & Zuordnungs-Panel */
+.arm-calib-card {
+    background: #0f172a;
+    border: 1px solid #334155;
+    border-radius: 10px;
+    padding: 12px;
+}
+
+.arm-calib-card h3 {
+    margin: 0 0 6px;
+    font-size: 16px;
+    color: #f8fafc;
+}
+
+.arm-calib-hint {
+    font-size: 12px;
+    color: #94a3b8;
+    margin: 0 0 12px;
+    line-height: 1.4;
+}
+
+.arm-calib-row {
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 8px;
+    padding: 10px;
+    margin-bottom: 8px;
+}
+
+.arm-calib-head {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    margin-bottom: 8px;
+    font-size: 13px;
+}
+
+.arm-calib-fields {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+
+.arm-calib-fields label {
+    width: 100% !important;
+    margin: 0 !important;
+    font-size: 11px;
+    color: #cbd5e1;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.arm-calib-fields select,
+.arm-calib-fields input[type="number"] {
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 6px;
+    border-radius: 6px;
+    border: 1px solid #475569;
+    background: #0f172a;
+    color: #f8fafc;
+    font-size: 12px;
+}
+
+.arm-chk-lbl {
+    flex-direction: row !important;
+    align-items: center;
+    gap: 6px !important;
+    grid-column: 1 / -1;
+    padding-top: 2px;
+}
+
+.arm-calib-actions {
+    margin-top: 10px;
+    text-align: center;
+}
+
+.arm-calib-actions button {
+    width: 100%;
+    padding: 12px;
+    font-weight: 700;
+}
+
+@media (max-width: 420px) {
+    .arm-dual-joy-grid {
+        grid-template-columns: 1fr;
+    }
+    .arm-calib-fields {
+        grid-template-columns: 1fr;
+    }
+}
+
+

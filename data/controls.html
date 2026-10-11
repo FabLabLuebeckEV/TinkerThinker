@@ -31,42 +31,258 @@
     .example-card .etag { font-size:12px; background:#e8f0fe; border-radius:4px; padding:2px 7px; font-family:monospace; }
     .example-card > button { padding:6px 14px; font-size:13px; }
 
-    /* ── Controller ─────────────────────────────────────── */
-    .controller-wrap { flex:0 0 auto; }
-    .ctrl-shoulders { display:flex; justify-content:space-between; width:230px; margin-bottom:4px; gap:8px; }
-    .ctrl-left-sh, .ctrl-right-sh { display:flex; flex-direction:column; gap:3px; }
-    .ctrl-body { display:flex; align-items:flex-start; gap:6px; width:230px; }
-    .ctrl-left, .ctrl-right { display:flex; flex-direction:column; align-items:center; gap:8px; }
-    .ctrl-center { display:flex; flex-direction:column; align-items:center; justify-content:flex-start; gap:6px; padding-top:14px; font-size:10px; color:#999; flex:1; }
+    /* ── Controller Graphic (Gamepad Silhouette + Interactive Controls) ── */
+    .controller-wrap {
+      flex: 0 0 auto;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      background: linear-gradient(145deg, #f8fafc, #eef2f7);
+      border: 1px solid #cbd5e1;
+      border-radius: 14px;
+      padding: 14px 14px 12px;
+      box-shadow: 0 4px 14px rgba(15, 23, 42, 0.06);
+      max-width: 100%;
+    }
+    .gamepad-stage {
+      position: relative;
+      width: 348px;
+      max-width: 100%;
+      aspect-ratio: 348 / 252;
+      user-select: none;
+    }
+    .gamepad-svg {
+      width: 100%;
+      height: 100%;
+      display: block;
+      filter: drop-shadow(0 8px 16px rgba(15, 23, 42, 0.28));
+    }
+    .gamepad-lightbar {
+      transition: fill 0.25s ease, filter 0.25s ease;
+    }
+    .gamepad-stage.live-connected .gamepad-lightbar {
+      fill: #22c55e;
+      filter: drop-shadow(0 0 6px #22c55e);
+    }
 
-    /* DPAD grid */
-    .ctrl-dpad { display:grid; grid-template-areas:". up ." "left mid right" ". dn ."; grid-template-columns:34px 34px 34px; grid-template-rows:34px 34px 34px; gap:2px; }
-    .dpad-up  { grid-area:up; }
-    .dpad-dn  { grid-area:dn; }
-    .dpad-lft { grid-area:left; }
-    .dpad-rgt { grid-area:right; }
-    .dpad-mid { grid-area:mid; background:#ccc; border-radius:3px; }
+    /* Base interactive controller button */
+    .ctrl-btn {
+      position: relative;
+      border: 2px solid #64748b;
+      background: linear-gradient(180deg, #334155 0%, #1e293b 100%);
+      color: #f1f5f9;
+      cursor: pointer;
+      font-weight: 700;
+      padding: 0;
+      line-height: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+      transition: transform 0.12s ease, background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+    .ctrl-btn:hover {
+      border-color: #cbd5e1;
+      background: linear-gradient(180deg, #475569 0%, #334155 100%);
+    }
+    .ctrl-btn.s-none {
+      background: linear-gradient(180deg, #334155 0%, #1e293b 100%);
+      border-color: #64748b;
+      color: #e2e8f0;
+    }
+    .ctrl-btn.s-one {
+      background: linear-gradient(180deg, #3b82f6 0%, #1d4ed8 100%);
+      border-color: #93c5fd;
+      color: #ffffff;
+    }
+    .ctrl-btn.s-multi {
+      background: linear-gradient(180deg, #f59e0b 0%, #b45309 100%);
+      border-color: #fde68a;
+      color: #ffffff;
+    }
+    .ctrl-btn.s-sel {
+      outline: 3px solid #22c55e;
+      outline-offset: 2px;
+      box-shadow: 0 0 12px rgba(34, 197, 94, 0.65), 0 2px 5px rgba(0, 0, 0, 0.45);
+      z-index: 5;
+    }
+    .ctrl-btn.live-pressed {
+      background: linear-gradient(180deg, #ef4444 0%, #b91c1c 100%) !important;
+      border-color: #fecaca !important;
+      color: #fff !important;
+      box-shadow: 0 0 14px rgba(239, 68, 68, 0.85) !important;
+      transform: scale(0.94);
+    }
+    /* Binding count mini-badge */
+    .ctrl-btn[data-count]:not([data-count=""])::after {
+      content: attr(data-count);
+      position: absolute;
+      top: -6px;
+      right: -6px;
+      min-width: 15px;
+      height: 15px;
+      padding: 0 3px;
+      border-radius: 999px;
+      background: #0f172a;
+      border: 1.5px solid #e2e8f0;
+      color: #fff;
+      font-size: 9px;
+      font-weight: 800;
+      line-height: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+    }
 
-    /* Face-button grid */
-    .ctrl-face { display:grid; grid-template-areas:". tri ." "sq . ci" ". cr ."; grid-template-columns:34px 34px 34px; grid-template-rows:34px 34px 34px; gap:2px; }
-    .face-tri { grid-area:tri; }
-    .face-sq  { grid-area:sq; }
-    .face-ci  { grid-area:ci; }
-    .face-cr  { grid-area:cr; }
+    /* Shoulder triggers & bumpers (L2/L1, R2/R1) */
+    .gp-shoulder-group {
+      position: absolute;
+      top: 1%;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      width: 68px;
+    }
+    .gp-shoulder-group.left  { left: 11%; }
+    .gp-shoulder-group.right { right: 11%; }
+    .ctrl-btn.trigger {
+      width: 100%;
+      height: 20px;
+      border-radius: 9px 9px 4px 4px;
+      font-size: 11px;
+      letter-spacing: 0.5px;
+    }
+    .ctrl-btn.bumper {
+      width: 100%;
+      height: 20px;
+      border-radius: 5px;
+      font-size: 11px;
+      letter-spacing: 0.5px;
+    }
 
-    /* Controller buttons */
-    .ctrl-btn { width:34px; height:34px; border:2px solid #aaa; border-radius:6px; background:#ddd; color:#333; cursor:pointer; font-size:13px; font-weight:bold; padding:0; line-height:1; transition:background 0.15s, border-color 0.15s; }
-    .ctrl-btn:hover { border-color:#555; background:#ccc; }
-    .ctrl-btn.s-none  { background:#ddd; border-color:#aaa; color:#333; }
-    .ctrl-btn.s-one   { background:#4a90e2; border-color:#2c6fad; color:#fff; }
-    .ctrl-btn.s-multi { background:#e2944a; border-color:#ad6c2c; color:#fff; }
-    .ctrl-btn.s-sel   { outline:3px solid #2ecc71; outline-offset:2px; }
-    .ctrl-btn.live-pressed { box-shadow:0 0 0 3px #e74c3c inset; background:#ffd9d4 !important; }
-    .live-status { margin:8px 0; font-size:13px; }
-    .live-status .dot { display:inline-block; width:10px; height:10px; border-radius:50%; background:#bbb; margin-right:6px; vertical-align:middle; }
-    .live-status.on .dot { background:#2ecc71; }
-    .ctrl-btn.shoulder { width:52px; font-size:12px; }
-    .ctrl-btn.stick    { width:44px; height:44px; border-radius:50%; font-size:11px; }
+    /* D-Pad cross on left wing */
+    .gp-dpad {
+      position: absolute;
+      left: 8.5%;
+      top: 26%;
+      display: grid;
+      grid-template-areas:
+        ". up ."
+        "left mid right"
+        ". dn .";
+      grid-template-columns: 29px 29px 29px;
+      grid-template-rows: 29px 29px 29px;
+      gap: 1px;
+    }
+    .dpad-up  { grid-area: up;    border-radius: 6px 6px 2px 2px; font-size: 13px; }
+    .dpad-dn  { grid-area: dn;    border-radius: 2px 2px 6px 6px; font-size: 13px; }
+    .dpad-lft { grid-area: left;  border-radius: 6px 2px 2px 6px; font-size: 13px; }
+    .dpad-rgt { grid-area: right; border-radius: 2px 6px 6px 2px; font-size: 13px; }
+    .dpad-mid {
+      grid-area: mid;
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 2px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .dpad-mid::after {
+      content: "";
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #0f172a;
+      box-shadow: inset 0 1px 2px rgba(0,0,0,0.8);
+    }
+
+    /* Face buttons diamond on right wing */
+    .gp-face {
+      position: absolute;
+      right: 8.5%;
+      top: 26%;
+      display: grid;
+      grid-template-areas:
+        ". tri ."
+        "sq . ci"
+        ". cr .";
+      grid-template-columns: 30px 30px 30px;
+      grid-template-rows: 30px 30px 30px;
+      gap: 1px;
+    }
+    .gp-face .ctrl-btn {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      font-size: 15px;
+    }
+    .face-tri { grid-area: tri; }
+    .face-sq  { grid-area: sq; }
+    .face-ci  { grid-area: ci; }
+    .face-cr  { grid-area: cr; }
+    .face-tri.s-none { color: #4ade80; }
+    .face-ci.s-none  { color: #f87171; }
+    .face-cr.s-none  { color: #60a5fa; }
+    .face-sq.s-none  { color: #f472b6; }
+
+    /* Analog thumbsticks (L-Stick & R-Stick) */
+    .gp-stick-well {
+      position: absolute;
+      top: 52%;
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 50% 50%, #090d16 0%, #1e293b 78%, #334155 100%);
+      border: 2px solid #475569;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: inset 0 4px 8px rgba(0, 0, 0, 0.85);
+    }
+    .gp-stick-well.left  { left: 26.5%; }
+    .gp-stick-well.right { right: 26.5%; }
+    .ctrl-btn.stick {
+      width: 46px;
+      height: 46px;
+      border-radius: 50%;
+      font-size: 10px;
+      flex-direction: column;
+      gap: 1px;
+      background: radial-gradient(circle at 38% 35%, #475569 0%, #1e293b 70%, #0f172a 100%);
+      border: 2px solid #94a3b8;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.65), inset 0 1px 2px rgba(255, 255, 255, 0.25);
+    }
+    .ctrl-btn.stick.s-one {
+      background: radial-gradient(circle at 38% 35%, #60a5fa 0%, #2563eb 70%, #1e3a8a 100%);
+      border-color: #bfdbfe;
+    }
+    .ctrl-btn.stick.s-multi {
+      background: radial-gradient(circle at 38% 35%, #fbbf24 0%, #d97706 70%, #78350f 100%);
+      border-color: #fde68a;
+    }
+    .stick-sub {
+      font-size: 8px;
+      font-weight: 600;
+      opacity: 0.85;
+      letter-spacing: -0.2px;
+    }
+
+    /* Stick-click buttons (L3 / R3) below the analog sticks */
+    .ctrl-btn.stick-click {
+      position: absolute;
+      top: 78.5%;
+      width: 48px;
+      height: 19px;
+      border-radius: 999px;
+      font-size: 10px;
+    }
+    .ctrl-btn.stick-click.left  { left: 28.2%; }
+    .ctrl-btn.stick-click.right { right: 28.2%; }
+
+    .live-status { margin: 8px 0 2px; font-size: 13px; font-weight: 600; color: #334155; }
+    .live-status .dot { display:inline-block; width:10px; height:10px; border-radius:50%; background:#94a3b8; margin-right:6px; vertical-align:middle; }
+    .live-status.on .dot { background:#22c55e; box-shadow: 0 0 6px #22c55e; }
 
     /* ── Binding Panel ──────────────────────────────────── */
     .binding-panel { flex:1 1 300px; min-width:280px; max-width:520px; background:#f8f8f8; border:1px solid #ddd; border-radius:8px; padding:14px; }
@@ -85,7 +301,7 @@
     .list-row > button { padding:3px 10px; font-size:12px; }
 
     /* Legend */
-    .ctrl-legend { display:flex; gap:12px; flex-wrap:wrap; margin-top:8px; font-size:11px; color:#555; }
+    .ctrl-legend { display:flex; gap:12px; flex-wrap:wrap; margin-top:10px; font-size:11px; color:#475569; justify-content:center; }
     .ctrl-legend span { display:flex; align-items:center; gap:4px; }
     .leg-dot { width:12px; height:12px; border-radius:3px; display:inline-block; }
   </style>
@@ -110,7 +326,7 @@
       <table>
         <tr><td>Input</td><td>Was du drückst: <strong>button</strong> (Taste) · <strong>dpad</strong> (Steuerkreuz) · <strong>axis_pair</strong> (Joystick-Achsen analog)</td></tr>
         <tr><td>Auslöser</td><td><code>press</code> einmalig beim Drücken &nbsp;·&nbsp; <code>release</code> beim Loslassen &nbsp;·&nbsp; <code>hold</code> dauerhaft solange gehalten</td></tr>
-        <tr><td>PWM</td><td>Motorstärke <strong>−255 bis 255</strong> &nbsp;·&nbsp; positiv = vorwärts &nbsp;·&nbsp; negativ = rückwärts &nbsp;·&nbsp; 0 = stop</td></tr>
+        <tr><td>PWM</td><td>Motorstärke <strong>-255 bis 255</strong> &nbsp;·&nbsp; positiv = vorwärts &nbsp;·&nbsp; negativ = rückwärts &nbsp;·&nbsp; 0 = stop</td></tr>
         <tr><td>motor_direct</td><td>Setzt Motor auf festen PWM-Wert. Mit <code>hold</code>: läuft solange Taste gehalten, danach automatisch stop.</td></tr>
         <tr><td>drive_pair</td><td>Joystick (axis_pair) steuert Fahrwerk über zwei Motoren. Ziel <code>gui</code> = Haupt-Fahrwerk (Motor A+B).</td></tr>
         <tr><td>servo_nudge</td><td>Verschiebt Servo um Delta-Grad pro Druck. Negatives Delta = andere Richtung. Mit <code>hold</code>: kontinuierlich.</td></tr>
@@ -147,59 +363,138 @@
   <div class="editor-wrap">
     <div class="editor-main">
 
-      <!-- Controller View -->
+      <!-- Controller Graphic View -->
       <div class="controller-wrap">
-        <!-- Schultertasten -->
-        <div class="ctrl-shoulders">
-          <div class="ctrl-left-sh">
-            <button class="ctrl-btn shoulder s-none" data-key="button_BUTTON_L1" title="L1">L1</button>
-            <button class="ctrl-btn shoulder s-none" data-key="button_BUTTON_L2" title="L2">L2</button>
-          </div>
-          <div class="ctrl-right-sh">
-            <button class="ctrl-btn shoulder s-none" data-key="button_BUTTON_R1" title="R1">R1</button>
-            <button class="ctrl-btn shoulder s-none" data-key="button_BUTTON_R2" title="R2">R2</button>
-          </div>
-        </div>
+        <div class="gamepad-stage" id="gamepadStage">
+          <!-- SVG Gamepad Silhouette -->
+          <svg class="gamepad-svg" viewBox="0 0 348 252" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <defs>
+              <linearGradient id="gpBodyGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stop-color="#334155" />
+                <stop offset="45%" stop-color="#1e293b" />
+                <stop offset="100%" stop-color="#0f172a" />
+              </linearGradient>
+              <linearGradient id="gpGripGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#1e293b" />
+                <stop offset="100%" stop-color="#090d16" />
+              </linearGradient>
+              <linearGradient id="gpTouchpadGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stop-color="#0f172a" />
+                <stop offset="100%" stop-color="#1e293b" />
+              </linearGradient>
+            </defs>
 
-        <!-- Body -->
-        <div class="ctrl-body">
-          <!-- Links: DPAD + L-Stick -->
-          <div class="ctrl-left">
-            <div class="ctrl-dpad">
-              <button class="ctrl-btn dpad-up  s-none" data-key="dpad_UP"    title="DPAD Oben">↑</button>
-              <button class="ctrl-btn dpad-lft s-none" data-key="dpad_LEFT"  title="DPAD Links">←</button>
-              <div class="dpad-mid"></div>
-              <button class="ctrl-btn dpad-rgt s-none" data-key="dpad_RIGHT" title="DPAD Rechts">→</button>
-              <button class="ctrl-btn dpad-dn  s-none" data-key="dpad_DOWN"  title="DPAD Unten">↓</button>
-            </div>
-            <button class="ctrl-btn stick s-none" data-key="axis_LStick" title="Linker Stick · Achsen X / Y">L3</button>
+            <!-- Shoulder housings -->
+            <path d="M 38 48 Q 42 26 72 26 L 106 26 Q 116 26 120 46 Z" fill="#1e293b" stroke="#475569" stroke-width="1.5" />
+            <path d="M 310 48 Q 306 26 276 26 L 242 26 Q 232 26 228 46 Z" fill="#1e293b" stroke="#475569" stroke-width="1.5" />
+
+            <!-- Main Gamepad Chassis with ergonomic grips -->
+            <path d="
+              M 74 44
+              L 124 44
+              Q 174 49 224 44
+              L 274 44
+              C 312 44, 332 72, 334 114
+              C 336 154, 326 210, 304 234
+              C 288 250, 266 244, 254 220
+              L 234 178
+              Q 226 164 210 164
+              L 138 164
+              Q 122 164 114 178
+              L 94 220
+              C 82 244, 60 250, 44 234
+              C 22 210, 12 154, 14 114
+              C 16 72, 36 44, 74 44
+              Z"
+              fill="url(#gpBodyGrad)"
+              stroke="#64748b"
+              stroke-width="2.2"
+            />
+
+            <!-- Grip texture accents -->
+            <path d="M 24 132 C 22 165, 30 205, 48 225 C 58 234, 72 230, 80 212 L 95 180 C 72 168, 48 152, 24 132 Z" fill="url(#gpGripGrad)" opacity="0.7" />
+            <path d="M 324 132 C 326 165, 318 205, 300 225 C 290 234, 276 230, 268 212 L 253 180 C 276 168, 300 152, 324 132 Z" fill="url(#gpGripGrad)" opacity="0.7" />
+
+            <!-- Left & Right circular face plates -->
+            <circle cx="74" cy="108" r="46" fill="#0f172a" opacity="0.45" stroke="#334155" stroke-width="1.2" />
+            <circle cx="274" cy="108" r="46" fill="#0f172a" opacity="0.45" stroke="#334155" stroke-width="1.2" />
+
+            <!-- Center Touchpad & Lightbar -->
+            <rect x="126" y="48" width="96" height="54" rx="8" fill="url(#gpTouchpadGrad)" stroke="#475569" stroke-width="1.5" />
+            <rect class="gamepad-lightbar" x="142" y="45" width="64" height="3.5" rx="1.75" fill="#38bdf8" />
+            <!-- Touchpad micro-dots -->
+            <circle cx="154" cy="68" r="1" fill="#475569" />
+            <circle cx="164" cy="68" r="1" fill="#475569" />
+            <circle cx="174" cy="68" r="1" fill="#475569" />
+            <circle cx="184" cy="68" r="1" fill="#475569" />
+            <circle cx="194" cy="68" r="1" fill="#475569" />
+            <circle cx="159" cy="76" r="1" fill="#475569" />
+            <circle cx="169" cy="76" r="1" fill="#475569" />
+            <circle cx="179" cy="76" r="1" fill="#475569" />
+            <circle cx="189" cy="76" r="1" fill="#475569" />
+            <text x="174" y="93" text-anchor="middle" fill="#64748b" font-size="8" font-family="sans-serif" font-weight="bold" letter-spacing="1.2">TINKERPAD</text>
+
+            <!-- Decorative SELECT / PS / START pills -->
+            <rect x="112" y="58" width="10" height="18" rx="5" fill="#334155" stroke="#475569" stroke-width="1" />
+            <rect x="226" y="58" width="10" height="18" rx="5" fill="#334155" stroke="#475569" stroke-width="1" />
+            <circle cx="174" cy="122" r="10" fill="#0f172a" stroke="#475569" stroke-width="1.5" />
+            <text x="174" y="125" text-anchor="middle" fill="#94a3b8" font-size="7" font-family="sans-serif" font-weight="bold">BT</text>
+          </svg>
+
+          <!-- Schultertasten Links (L2 / L1) -->
+          <div class="gp-shoulder-group left">
+            <button class="ctrl-btn trigger s-none" data-key="button_BUTTON_L2" title="L2 Trigger">L2</button>
+            <button class="ctrl-btn bumper  s-none" data-key="button_BUTTON_L1" title="L1 Bumper">L1</button>
           </div>
 
-          <!-- Mitte (SEL / PS / STA) -->
-          <div class="ctrl-center">
-            <span>SEL</span>
-            <span>PS</span>
-            <span>STA</span>
+          <!-- Schultertasten Rechts (R2 / R1) -->
+          <div class="gp-shoulder-group right">
+            <button class="ctrl-btn trigger s-none" data-key="button_BUTTON_R2" title="R2 Trigger">R2</button>
+            <button class="ctrl-btn bumper  s-none" data-key="button_BUTTON_R1" title="R1 Bumper">R1</button>
           </div>
 
-          <!-- Rechts: Face-Buttons + R-Stick -->
-          <div class="ctrl-right">
-            <div class="ctrl-face">
-              <button class="ctrl-btn face-tri s-none" data-key="button_BTN_Y" title="Dreieck △">△</button>
-              <button class="ctrl-btn face-sq  s-none" data-key="button_BTN_X" title="Viereck □">□</button>
-              <button class="ctrl-btn face-ci  s-none" data-key="button_BTN_B" title="Kreis ○">○</button>
-              <button class="ctrl-btn face-cr  s-none" data-key="button_BTN_A" title="Kreuz ×">×</button>
-            </div>
-            <button class="ctrl-btn stick s-none" data-key="axis_RStick" title="Rechter Stick · Achsen RX / RY">R3</button>
+          <!-- Links: Steuerkreuz (DPAD) -->
+          <div class="gp-dpad">
+            <button class="ctrl-btn dpad-up  s-none" data-key="dpad_UP"    title="DPAD Oben">▲</button>
+            <button class="ctrl-btn dpad-lft s-none" data-key="dpad_LEFT"  title="DPAD Links">◄</button>
+            <div class="dpad-mid"></div>
+            <button class="ctrl-btn dpad-rgt s-none" data-key="dpad_RIGHT" title="DPAD Rechts">►</button>
+            <button class="ctrl-btn dpad-dn  s-none" data-key="dpad_DOWN"  title="DPAD Unten">▼</button>
           </div>
+
+          <!-- Rechts: Action-Buttons (△ □ ○ ×) -->
+          <div class="gp-face">
+            <button class="ctrl-btn face-tri s-none" data-key="button_BTN_Y" title="Dreieck △">△</button>
+            <button class="ctrl-btn face-sq  s-none" data-key="button_BTN_X" title="Viereck □">□</button>
+            <button class="ctrl-btn face-ci  s-none" data-key="button_BTN_B" title="Kreis ○">○</button>
+            <button class="ctrl-btn face-cr  s-none" data-key="button_BTN_A" title="Kreuz ×">×</button>
+          </div>
+
+          <!-- Linker Analog-Stick (X / Y) + L3 Klick -->
+          <div class="gp-stick-well left">
+            <button class="ctrl-btn stick s-none" id="lStickCap" data-key="axis_LStick" title="Linker Stick · Achsen X / Y">
+              <span>L-Stick</span>
+              <span class="stick-sub">X / Y</span>
+            </button>
+          </div>
+          <button class="ctrl-btn stick-click left s-none" data-key="button_BUTTON_STICK_L" title="L3 (Linker Stick-Klick)">L3 Klick</button>
+
+          <!-- Rechter Analog-Stick (RX / RY) + R3 Klick -->
+          <div class="gp-stick-well right">
+            <button class="ctrl-btn stick s-none" id="rStickCap" data-key="axis_RStick" title="Rechter Stick · Achsen RX / RY">
+              <span>R-Stick</span>
+              <span class="stick-sub">RX / RY</span>
+            </button>
+          </div>
+          <button class="ctrl-btn stick-click right s-none" data-key="button_BUTTON_STICK_R" title="R3 (Rechter Stick-Klick)">R3 Klick</button>
         </div>
 
         <!-- Legende -->
         <div class="ctrl-legend">
-          <span><span class="leg-dot" style="background:#ddd; border:2px solid #aaa;"></span> kein Binding</span>
-          <span><span class="leg-dot" style="background:#4a90e2;"></span> 1 Binding</span>
-          <span><span class="leg-dot" style="background:#e2944a;"></span> 2+ Bindings</span>
-          <span><span class="leg-dot" style="background:#ddd; outline:3px solid #2ecc71; outline-offset:1px;"></span> ausgewählt</span>
+          <span><span class="leg-dot" style="background:#334155; border:1.5px solid #64748b;"></span> kein Binding</span>
+          <span><span class="leg-dot" style="background:#2563eb;"></span> 1 Binding</span>
+          <span><span class="leg-dot" style="background:#d97706;"></span> 2+ Bindings</span>
+          <span><span class="leg-dot" style="background:#334155; outline:2px solid #22c55e; outline-offset:1px;"></span> ausgewählt</span>
         </div>
         <div class="live-status" id="liveStatus"><span class="dot"></span><span id="liveStatusText">Kein Controller (Live)</span></div>
       </div>
@@ -241,7 +536,7 @@
 
   <div class="controls" style="margin-top:16px;">
     <h2>Live-Werkzeuge (Test)</h2>
-    <p class="hint" style="color:#a00;">Achtung: Aktionen werden sofort ausgeführt – Roboter ggf. aufbocken!</p>
+    <p class="hint" style="color:#a00;">Achtung: Aktionen werden sofort ausgeführt - Roboter ggf. aufbocken!</p>
 
     <h3 style="margin:10px 0 4px;">LED-Test</h3>
     <div class="frow">

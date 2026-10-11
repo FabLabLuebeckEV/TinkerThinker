@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TinkerThinker Steuerung</title>
+    <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+    <nav>
+        <ul>
+            <li><a href="/">Steuerung</a></li>
+            <li><a href="/config">Konfiguration</a></li>
+            <li><a href="/setup">Setup</a></li>
+            <li><a href="/controls">Steuerungs-Editor</a></li>
+        </ul>
+    </nav>
+
+    <div class="controls basic-card">
+        <h1 class="basic-title"><span id="deviceName">TinkerThinker</span></h1>
+
+        <!-- Obere Status- und LED-Zeile: Akku-Balken, Empfangsbalken, Einzel-LED Color Picker -->
+        <div class="basic-top-bar">
+            <!-- Akku-Anzeige als Balken -->
+            <div class="basic-status-item" title="Akkustand">
+                <div class="battery-icon" aria-label="Akkustand">
+                    <div id="batteryBarFill" class="battery-fill" style="width: 0%;"></div>
+                </div>
+                <span id="batteryPercentage" class="basic-status-text">--%</span>
+            </div>
+
+            <!-- Funksignalstaerke wie beim Handy -->
+            <div class="basic-status-item" id="signalWidget" title="Funksignal">
+                <div class="signal-bars" id="signalBars" aria-label="Signalstaerke">
+                    <span class="signal-bar bar-1"></span>
+                    <span class="signal-bar bar-2"></span>
+                    <span class="signal-bar bar-3"></span>
+                    <span class="signal-bar bar-4"></span>
+                </div>
+                <span id="signalText" class="basic-status-text">Verbunden</span>
+            </div>
+
+            <!-- LED Color Picker (Standard: 1 LED) -->
+            <div class="basic-status-item basic-led-picker" title="LED Farbe">
+                <label for="ledColorPicker" class="basic-led-label">LED</label>
+                <input type="color" id="ledColorPicker" value="#00ff00">
+            </div>
+        </div>
+
+        <!-- Joystick mit Richtungsbeschriftung oben/links/rechts/unten -->
+        <div class="joystick-compass">
+            <div class="joy-label joy-label-top">Vorwärts</div>
+            <div class="joy-middle-row">
+                <div class="joy-label joy-label-left">Links</div>
+                <canvas id="touchCanvas" width="260" height="260"></canvas>
+                <div class="joy-label joy-label-right">Rechts</div>
+            </div>
+            <div class="joy-label joy-label-bottom">Rückwärts</div>
+        </div>
+
+        <!-- Greifer-Steuerung: 2 Buttons -->
+        <div class="basic-gripper-row">
+            <button type="button" id="gripperOpenBtn" class="control-button basic-gripper-btn">Greifer auf</button>
+            <button type="button" id="gripperCloseBtn" class="control-button basic-gripper-btn">Greifer zu</button>
+        </div>
+    </div>
+
+    <script src="/basic.js"></script>
+</body>
+</html>

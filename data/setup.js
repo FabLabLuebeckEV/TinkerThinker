@@ -5,7 +5,7 @@ let reconnectTimer = null;
 let reconnectDelayMs = 1000;
 const maxReconnectDelayMs = 30000;
 
-// motorSettings speichert für jeden Motor: side (left/right), invert (bool), deadband (int)
+// motorSettings speichert für jeden Motor: side (left/right/gripp/none), invert (bool), deadband (int)
 let motorSettings = {
     A: {side:null, invert:false, deadband:0},
     B: {side:null, invert:false, deadband:0},
@@ -23,6 +23,75 @@ function goToStep(n) {
     document.getElementById('step'+currentStep).classList.remove('active');
     currentStep = n;
     document.getElementById('step'+n).classList.add('active');
+}
+
+function renderMotorRoleButtons(guiMode) {
+    const letters = ['A', 'B', 'C', 'D'];
+    letters.forEach(letter => {
+        const container = document.getElementById('motor' + letter + 'Question');
+        if (!container) return;
+        if (guiMode === 'arm') {
+            container.innerHTML = `
+                <p>Welches Gelenk des Roboter-Arms hat sich bewegt?</p>
+                <button onclick="motorMoved('${letter}','base')">Rotierende Basis (Drehkranz)</button>
+                <button onclick="motorMoved('${letter}','arm1')">Armteil 1 (Unterarm / Schulter)</button>
+                <button onclick="motorMoved('${letter}','arm2')">Armteil 2 (Mittelarm / Ellbogen)</button>
+                <button onclick="motorMoved('${letter}','arm3')">Armteil 3 (Handgelenk / Oberarm)</button>
+                <button onclick="motorMoved('${letter}','none')">Kein Motor</button>
+            `;
+        } else {
+            container.innerHTML = `
+                <p>Welcher Motor hat sich bewegt?</p>
+                <button onclick="motorMoved('${letter}','left')">Linker Motor</button>
+                <button onclick="motorMoved('${letter}','right')">Rechter Motor</button>
+                <button onclick="motorMoved('${letter}','gripp')">Greifer Motor</button>
+                <button onclick="motorMoved('${letter}','none')">Kein Motor</button>
+            `;
+        }
+    });
+}
+
+function updateSetupIntroByGuiMode() {
+    const sel = document.getElementById('gui_mode');
+    const intro = document.getElementById('setupIntroText');
+    if (!sel || !intro) return;
+    renderMotorRoleButtons(sel.value);
+    if (sel.value === 'arm') {
+        intro.textContent = 'Roboter-Arm ausgewählt: Wir ordnen jetzt die 4 DC-Motoren der rotierenden Basis sowie den 3 Armteilen (Unterarm, Mittelarm, Handgelenk) zu. Nicht belegte Motoren ("Kein Motor") werden automatisch übersprungen.';
+    } else if (sel.value === 'drive') {
+        intro.textContent = 'Erweiterter Fahr-Roboter ausgewählt: Wir ordnen jetzt die Fahrmotoren (Links/Rechts) und Zusatz-/Greifermotoren zu. Nicht belegte Motoren ("Kein Motor") werden automatisch übersprungen.';
+    } else {
+        intro.textContent = 'Workshop-Roboter (Basic) ausgewählt: Wir konfigurieren jetzt die 2 Kettenmotoren (Links/Rechts) und den Greifer-Motor (Auf/Zu). Nicht belegte Motoren ("Kein Motor") werden automatisch übersprungen.';
+    }
+}
+
+function updateDirectionLabels(letter, side) {
+    const titleEl = document.getElementById('dirTitle' + letter);
+    const promptEl = document.getElementById('dirPrompt' + letter);
+    const fwdBtn = document.getElementById('dirFwdBtn' + letter);
+    const bwdBtn = document.getElementById('dirBwdBtn' + letter);
+    if (side === 'gripp') {
+        if (titleEl) titleEl.textContent = `Drehrichtung Greifer (Motor ${letter})`;
+        if (promptEl) promptEl.textContent = `Öffnet oder schließt sich der Greifer beim Test von Motor ${letter}?`;
+        if (fwdBtn) fwdBtn.textContent = 'Greifer Auf (Öffnet)';
+        if (bwdBtn) bwdBtn.textContent = 'Greifer Zu (Schließt)';
+    } else if (side === 'base') {
+        if (titleEl) titleEl.textContent = `Drehrichtung Basis (Motor ${letter})`;
+        if (promptEl) promptEl.textContent = `Dreht sich die Basis beim Test im Uhrzeigersinn (Rechts ↻) oder gegen den Uhrzeigersinn (Links ↺)?`;
+        if (fwdBtn) fwdBtn.textContent = 'Rechts ↻ (+)';
+        if (bwdBtn) bwdBtn.textContent = 'Links ↺ (-)';
+    } else if (side === 'arm1' || side === 'arm2' || side === 'arm3') {
+        const names = { arm1: 'Armteil 1 (Schulter)', arm2: 'Armteil 2 (Ellbogen)', arm3: 'Armteil 3 (Handgelenk)' };
+        if (titleEl) titleEl.textContent = `Bewegungsrichtung ${names[side]} (Motor ${letter})`;
+        if (promptEl) promptEl.textContent = `Bewegt sich ${names[side]} beim Test nach oben/zurück (+) oder nach unten/vorne (-)?`;
+        if (fwdBtn) fwdBtn.textContent = 'Hoch / Zurück (+)';
+        if (bwdBtn) bwdBtn.textContent = 'Runter / Vor (-)';
+    } else {
+        if (titleEl) titleEl.textContent = `Fahrtrichtung Motor ${letter}`;
+        if (promptEl) promptEl.textContent = `Fährt der Roboter bei "Motor ${letter} vorwärts" tatsächlich vorwärts oder rückwärts?`;
+        if (fwdBtn) fwdBtn.textContent = 'Vorwärts';
+        if (bwdBtn) bwdBtn.textContent = 'Rückwärts';
+    }
 }
 
 function connectWebSocket() {
@@ -85,6 +154,12 @@ function loadConfig() {
             const el = document.getElementById('wifi_name');
             if (el) el.value = configData.hotspot_ssid;
         }
+        const guiModeEl = document.getElementById('gui_mode');
+        if (guiModeEl) {
+            guiModeEl.value = configData.gui_mode || 'basic';
+            guiModeEl.addEventListener('change', updateSetupIntroByGuiMode);
+            updateSetupIntroByGuiMode();
+        }
         initDeadbandValues();
       });
 }
@@ -107,11 +182,32 @@ function testMotor(letter) {
     },1000);
 }
 
+function nextMotorStartStep(letter) {
+    if (letter === 'A') return 6;  // Motor B Zuordnung
+    if (letter === 'B') return 9;  // Motor C Zuordnung
+    if (letter === 'C') return 12; // Motor D Zuordnung
+    return 15;                     // Fertig
+}
+
 function motorMoved(letter, side) {
     // Motor stoppen
     sendWS({["motor"+letter]:"stop"});
     motorSettings[letter].side = side;
-    // Weiter
+
+    // Wenn "Kein Motor" gewählt wurde, Richtung und Deadband für diesen Motor überspringen
+    if (side === 'none') {
+        const idx = letterToIndex(letter);
+        motorSettings[letter].invert = !!(configData.motor_invert && configData.motor_invert[idx]);
+        motorSettings[letter].deadband = (configData.motor_deadband && configData.motor_deadband[idx] !== undefined)
+            ? parseInt(configData.motor_deadband[idx], 10)
+            : 0;
+        goToStep(nextMotorStartStep(letter));
+        return;
+    }
+
+    updateDirectionLabels(letter, side);
+
+    // Weiter zur Richtungseinstellung
     if (letter==='A') goToStep(4);
     else if (letter==='B') goToStep(7);
     else if (letter==='C') goToStep(10);
@@ -149,16 +245,13 @@ function testDeadband(letter) {
 
 function confirmDeadband(letter) {
     let val = document.getElementById('db_slider_'+letter).value;
-    motorSettings[letter].deadband = parseInt(val);
+    motorSettings[letter].deadband = parseInt(val, 10);
     // Motor stoppen
     let idx = letterToIndex(letter);
-    sendWS({"motor":idx,"pwm":0});
+    sendWS({"motor_raw":{"motor":idx,"pwm":0}});
 
     // Nächster Schritt
-    if (letter==='A') goToStep(6); // Motor B Start
-    else if (letter==='B') goToStep(9); // Motor C
-    else if (letter==='C') goToStep(12); // Motor D
-    else if (letter==='D') goToStep(15); // Fertig
+    goToStep(nextMotorStartStep(letter));
 }
 
 function letterToIndex(letter) {
@@ -191,6 +284,22 @@ function resolveDrivePair() {
     return { leftIdx, rightIdx };
 }
 
+function resolveGripperMotor(drivePair) {
+    const letters = ['A', 'B', 'C', 'D'];
+    for (const letter of letters) {
+        if (motorSettings[letter].side === 'gripp') {
+            return letterToIndex(letter);
+        }
+    }
+    if (Number.isInteger(configData.motor_gripper_gui) &&
+        configData.motor_gripper_gui !== drivePair.leftIdx &&
+        configData.motor_gripper_gui !== drivePair.rightIdx) {
+        return configData.motor_gripper_gui;
+    }
+    const fallback = [0, 1, 2, 3].find(i => i !== drivePair.leftIdx && i !== drivePair.rightIdx);
+    return fallback !== undefined ? fallback : 0;
+}
+
 function finalizeSetup() {
     // POST /config mit allen Werten
     let formData = new FormData();
@@ -203,9 +312,35 @@ function finalizeSetup() {
     formData.append("hotspot_ssid", newHotspotName || configData.hotspot_ssid || "TinkerThinkerAP");
     formData.append("hotspot_password", configData.hotspot_password || "");
 
+    const guiModeEl = document.getElementById('gui_mode');
+    const guiMode = guiModeEl ? guiModeEl.value : (configData.gui_mode || "basic");
+    formData.append("gui_mode", guiMode);
+
+    if (guiMode === 'arm') {
+        try {
+            const raw = localStorage.getItem('tinkerthinker_arm_config_v1');
+            const armCfg = raw ? JSON.parse(raw) : {};
+            const letters = ['A', 'B', 'C', 'D'];
+            for (const letter of letters) {
+                const role = motorSettings[letter].side;
+                if (role === 'base' || role === 'arm1' || role === 'arm2' || role === 'arm3') {
+                    const mIdx = letterToIndex(letter);
+                    armCfg[role] = armCfg[role] || {};
+                    armCfg[role].motorIndex = mIdx;
+                    armCfg[role].invert = false; // Invert wird bereits in Firmware motor_invert_X gespeichert
+                    if (mIdx === 0) armCfg[role].sensorMode = '1'; // Motor A = Sensor 2 (GPIO36)
+                    else if (mIdx === 1) armCfg[role].sensorMode = '0'; // Motor B = Sensor 1 (GPIO34)
+                }
+            }
+            localStorage.setItem('tinkerthinker_arm_config_v1', JSON.stringify(armCfg));
+        } catch (_) {}
+    }
+
     const drivePair = resolveDrivePair();
+    const gripperIdx = resolveGripperMotor(drivePair);
     formData.append("motor_left_gui", String(drivePair.leftIdx));
     formData.append("motor_right_gui", String(drivePair.rightIdx));
+    formData.append("motor_gripper_gui", String(gripperIdx));
 
     // Motoren: invert + deadband; Frequenz beibehalten
     let letters = ['A','B','C','D'];
@@ -225,8 +360,9 @@ function finalizeSetup() {
 
     formData.append("led_count", String(configData.led_count || 30));
     if (configData.ota_enabled) formData.append("ota_enabled","on");
+    if (configData.legacy_board) formData.append("legacy_board", "on");
 
-    for (let i=0; i<3; i++){
+    for (let i=0; i<7; i++){
         const minPw = configData.servo_settings?.[i]?.min_pulsewidth ?? 500;
         const maxPw = configData.servo_settings?.[i]?.max_pulsewidth ?? 2500;
         formData.append(`servo${i}_min`, String(minPw));
@@ -260,12 +396,17 @@ function initDeadbandValues() {
     const letters = ['A','B','C','D'];
     letters.forEach((letter, i) => {
         const slider = document.getElementById('db_slider_' + letter);
-        if (!slider) return;
         const val = (configData.motor_deadband && configData.motor_deadband[i] !== undefined)
-            ? configData.motor_deadband[i]
-            : parseInt(slider.value || "0", 10);
-        slider.value = val;
-        updateDeadbandValue(letter);
+            ? parseInt(configData.motor_deadband[i], 10)
+            : (slider ? parseInt(slider.value || "0", 10) : 0);
+        motorSettings[letter].deadband = val;
+        if (configData.motor_invert && configData.motor_invert[i] !== undefined) {
+            motorSettings[letter].invert = !!configData.motor_invert[i];
+        }
+        if (slider) {
+            slider.value = val;
+            updateDeadbandValue(letter);
+        }
     });
 }
 

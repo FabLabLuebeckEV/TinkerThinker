@@ -24,8 +24,16 @@
 <div id="wizard" class="controls">
 
     <div class="step active" id="step1">
-        <h1><span id="deviceName">TinkerThinker</span> WLAN-Name festlegen</h1>
-        <p>Gib den Namen für das WLAN des Roboters ein (Hotspot/Access-Point). Du kannst ihn später auch in der Konfiguration ändern.</p>
+        <h1><span id="deviceName">TinkerThinker</span> Grundeinstellungen</h1>
+        <p>Wähle den Roboter-Typ (Steuerungs-Oberfläche) und gib den Namen für das WLAN des Roboters ein.</p>
+        <div class="form-group" style="margin-bottom: 14px;">
+            <label for="gui_mode">Roboter-Typ / Oberfläche</label>
+            <select id="gui_mode">
+                <option value="basic">Workshop-Roboter (Basic - Standard)</option>
+                <option value="drive">Fahr-Roboter (Erweitert)</option>
+                <option value="arm">Roboter-Arm</option>
+            </select>
+        </div>
         <div class="form-group">
             <label for="wifi_name">WLAN-Name (SSID)</label>
             <input type="text" id="wifi_name" placeholder="TinkerThinker">
@@ -37,7 +45,7 @@
 
     <div class="step" id="step2">
         <h1><span id="deviceName2">TinkerThinker</span> Ersteinrichtung</h1>
-        <p>In diesem Assistenten werden wir die Motoren so konfigurieren, dass die Links/Rechts- und Vorwärts/Rückwärts-Orientierung stimmt. Außerdem stellen wir den Deadband für jeden Motor ein.</p>
+        <p id="setupIntroText">In diesem Assistenten konfigurieren wir die Kettenmotoren (Links/Rechts) und den Greifer-Motor (Auf/Zu) sowie das Deadband für jeden angeschlossenen Motor. Nicht belegte Motoren ("Kein Motor") werden automatisch übersprungen.</p>
         <div class="button-bar">
             <button onclick="goToStep(3)">Setup starten</button>
         </div>
@@ -60,14 +68,14 @@
     </div>
 
     <div class="step" id="step4">
-        <h2>Fahrtrichtung Motor A</h2>
-        <p>Fährt der Roboter bei "Motor A vorwärts" tatsächlich vorwärts(Auf) oder rückwärts(Zu)?</p>
+        <h2 id="dirTitleA">Fahrtrichtung Motor A</h2>
+        <p id="dirPromptA">Fährt der Roboter bei "Motor A vorwärts" tatsächlich vorwärts (bzw. Greifer Auf) oder rückwärts (bzw. Greifer Zu)?</p>
         <div class="button-bar">
-            <button onclick="testDirection('A','forward')">Motor A vorwärts testen (1s)</button>
+            <button onclick="testDirection('A','forward')">Motor A testen (1s)</button>
         </div>
         <div class="button-bar">
-            <button onclick="directionChosen('A','forward')">Vorwärts</button>
-            <button onclick="directionChosen('A','backward')">Rückwärts</button>
+            <button id="dirFwdBtnA" onclick="directionChosen('A','forward')">Vorwärts</button>
+            <button id="dirBwdBtnA" onclick="directionChosen('A','backward')">Rückwärts</button>
         </div>
     </div>
 
@@ -99,14 +107,14 @@
     </div>
 
     <div class="step" id="step7">
-        <h2>Fahrtrichtung Motor B</h2>
-        <p>Fährt der Roboter bei "Motor B vorwärts" tatsächlich vorwärts(Auf) oder rückwärts(Zu)?</p>
+        <h2 id="dirTitleB">Fahrtrichtung Motor B</h2>
+        <p id="dirPromptB">Fährt der Roboter bei "Motor B vorwärts" tatsächlich vorwärts (bzw. Greifer Auf) oder rückwärts (bzw. Greifer Zu)?</p>
         <div class="button-bar">
-            <button onclick="testDirection('B','forward')">Motor B vorwärts testen (1s)</button>
+            <button onclick="testDirection('B','forward')">Motor B testen (1s)</button>
         </div>
         <div class="button-bar">
-            <button onclick="directionChosen('B','forward')">Vorwärts</button>
-            <button onclick="directionChosen('B','backward')">Rückwärts</button>
+            <button id="dirFwdBtnB" onclick="directionChosen('B','forward')">Vorwärts</button>
+            <button id="dirBwdBtnB" onclick="directionChosen('B','backward')">Rückwärts</button>
         </div>
     </div>
 
@@ -136,14 +144,14 @@
     </div>
 
     <div class="step" id="step10">
-        <h2>Fahrtrichtung Motor C</h2>
-        <p>Fährt der Roboter bei "Motor C vorwärts" tatsächlich vorwärts(Auf) oder rückwärts(Zu)?</p>
+        <h2 id="dirTitleC">Fahrtrichtung Motor C</h2>
+        <p id="dirPromptC">Fährt der Roboter bei "Motor C vorwärts" tatsächlich vorwärts (bzw. Greifer Auf) oder rückwärts (bzw. Greifer Zu)?</p>
         <div class="button-bar">
-            <button onclick="testDirection('C','forward')">Motor C vorwärts testen (1s)</button>
+            <button onclick="testDirection('C','forward')">Motor C testen (1s)</button>
         </div>
         <div class="button-bar">
-            <button onclick="directionChosen('C','forward')">Vorwärts</button>
-            <button onclick="directionChosen('C','backward')">Rückwärts</button>
+            <button id="dirFwdBtnC" onclick="directionChosen('C','forward')">Vorwärts</button>
+            <button id="dirBwdBtnC" onclick="directionChosen('C','backward')">Rückwärts</button>
         </div>
     </div>
 
@@ -173,14 +181,14 @@
     </div>
 
     <div class="step" id="step13">
-        <h2>Fahrtrichtung Motor D</h2>
-        <p>Fährt der Roboter bei "Motor D vorwärts" tatsächlich vorwärts(Auf) oder rückwärts(Zu)?</p>
+        <h2 id="dirTitleD">Fahrtrichtung Motor D</h2>
+        <p id="dirPromptD">Fährt der Roboter bei "Motor D vorwärts" tatsächlich vorwärts (bzw. Greifer Auf) oder rückwärts (bzw. Greifer Zu)?</p>
         <div class="button-bar">
-            <button onclick="testDirection('D','forward')">Motor D vorwärts testen (1s)</button>
+            <button onclick="testDirection('D','forward')">Motor D testen (1s)</button>
         </div>
         <div class="button-bar">
-            <button onclick="directionChosen('D','forward')">Vorwärts</button>
-            <button onclick="directionChosen('D','backward')">Rückwärts</button>
+            <button id="dirFwdBtnD" onclick="directionChosen('D','forward')">Vorwärts</button>
+            <button id="dirBwdBtnD" onclick="directionChosen('D','backward')">Rückwärts</button>
         </div>
     </div>
 
@@ -197,7 +205,7 @@
     <div class="step" id="step15">
         <h2>Fertig</h2>
         <p>Die Einstellungen werden nun gespeichert.</p>
-        <button onclick="finalizeSetup()">Speichern & Neustart</button>
+        <button onclick="finalizeSetup()">Speichern &amp; Neustart</button>
     </div>
 
     <div class="step" id="step16">

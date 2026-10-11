@@ -16,7 +16,9 @@ public:
 
 private:
     int ledCount;
-    CRGB* ledsArray; // Dynamisches Array
+    CRGB* ledsArray;      // Dynamisches Array (evtl. Gamma-korrigiert für Ausgabe)
+    CRGB* rawColorsArray; // Unverfälschte RGB-Farben je LED für Auslesen in der GUI
+    CRGB lastSetColor = CRGB(0, 0, 0); // Zuletzt gesetzte LED-Farbe
     int dataPin = 2; // Standarddatenpin, ggf. anpassen oder aus Config laden
     bool gammaEnabled = false;
 };

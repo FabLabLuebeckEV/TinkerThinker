@@ -859,43 +859,57 @@
       await runtimeWriter.write(enc.encode(payload));
     }
 
-    async function loadLatestRelease() {
-      if (bundledRelease?.assets) {
-        latestRelease = bundledRelease;
-        infoRelease.textContent = latestRelease.tag_name || "-";
-        releaseAssets.innerHTML = "";
-        let complete = true;
-        for (const item of REQUIRED_RELEASE_FILES) {
-          const asset = bundledRelease.assets[item.name];
-          const div = document.createElement("div");
-          div.innerHTML = `<strong>${item.name}</strong><br><span class="small mono">${asset ? "lokal eingebettet" : "nicht im Bundle"}</span>`;
-          releaseAssets.appendChild(div);
-          if (!asset) complete = false;
-        }
-        controls.flashReleaseBtn.disabled = !complete;
-        setPill(flashPill, complete ? "Lokales Release-Bundle bereit" : "Bundle unvollstaendig", complete ? "ok" : "bad");
-        return;
-      }
-
-      setPill(flashPill, "Release wird geladen", "warn");
-      const response = await fetch(REPO_API, { headers: { Accept: "application/vnd.github+json" } });
-      if (!response.ok) {
-        throw new Error("GitHub Release API Fehler: " + response.status);
-      }
-      latestRelease = await response.json();
+    function applyBundledReleaseFallback() {
+      if (!bundledRelease?.assets) return false;
+      latestRelease = bundledRelease;
       infoRelease.textContent = latestRelease.tag_name || "-";
-      const assetMap = new Map((latestRelease.assets || []).map((asset) => [asset.name, asset]));
       releaseAssets.innerHTML = "";
       let complete = true;
       for (const item of REQUIRED_RELEASE_FILES) {
-        const asset = assetMap.get(item.name);
+        const asset = bundledRelease.assets[item.name];
         const div = document.createElement("div");
-        div.innerHTML = `<strong>${item.name}</strong><br><span class="small mono">${asset ? asset.url : "nicht gefunden"}</span>`;
+        div.innerHTML = `<strong>${item.name}</strong><br><span class="small mono">${asset ? "lokal eingebettet (" + (latestRelease.tag_name || "Bundle") + ")" : "nicht im Bundle"}</span>`;
         releaseAssets.appendChild(div);
         if (!asset) complete = false;
       }
       controls.flashReleaseBtn.disabled = !complete;
-      setPill(flashPill, complete ? "Latest Release bereit" : "Release unvollstaendig", complete ? "ok" : "bad");
+      setPill(flashPill, complete ? "Lokales Release-Bundle bereit" : "Bundle unvollstaendig", complete ? "ok" : "bad");
+      return complete;
+    }
+
+    async function loadLatestRelease() {
+      if (window.location.protocol === "file:" && bundledRelease?.assets) {
+        applyBundledReleaseFallback();
+        return;
+      }
+
+      setPill(flashPill, "Release wird geladen", "warn");
+      try {
+        const response = await fetch(REPO_API, { headers: { Accept: "application/vnd.github+json" } });
+        if (!response.ok) {
+          throw new Error("GitHub Release API Fehler: " + response.status);
+        }
+        latestRelease = await response.json();
+        infoRelease.textContent = latestRelease.tag_name || "-";
+        const assetMap = new Map((latestRelease.assets || []).map((asset) => [asset.name, asset]));
+        releaseAssets.innerHTML = "";
+        let complete = true;
+        for (const item of REQUIRED_RELEASE_FILES) {
+          const asset = assetMap.get(item.name);
+          const div = document.createElement("div");
+          div.innerHTML = `<strong>${item.name}</strong><br><span class="small mono">${asset ? asset.url : "nicht gefunden"}</span>`;
+          releaseAssets.appendChild(div);
+          if (!asset) complete = false;
+        }
+        controls.flashReleaseBtn.disabled = !complete;
+        setPill(flashPill, complete ? "Latest Release bereit" : "Release unvollstaendig", complete ? "ok" : "bad");
+      } catch (err) {
+        if (applyBundledReleaseFallback()) {
+          appendLog("[RELEASE] Online-Abruf fehlgeschlagen (" + err.message + "), nutze lokales Bundle: " + (bundledRelease.tag_name || "-"));
+          return;
+        }
+        throw err;
+      }
     }
 
     async function fetchUint8Array(url, options = {}) {

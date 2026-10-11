@@ -137,7 +137,7 @@
         refs.motorEl = mkNum(0, 3,    action.motor ?? 0,   60);
         refs.pwmEl   = mkNum(-255, 255, action.pwm  ?? 200, 80);
         fieldsDiv.append(
-          frow([el('label',{},'Motor (0–3):'), refs.motorEl, el('label',{},'PWM:'), refs.pwmEl]),
+          frow([el('label',{},'Motor (0-3):'), refs.motorEl, el('label',{},'PWM:'), refs.pwmEl]),
           hint('Motor 0=A · 1=B · 2=C · 3=D'),
           hint('PWM −255 bis 255 · positiv = vorwärts · negativ = rückwärts · 0 = stop')
         );
@@ -151,15 +151,15 @@
         refs.idxEl = mkNum(0, 6,   action.servo ?? 0,  60);
         refs.angEl = mkNum(0, 180, action.angle ?? 90, 72);
         fieldsDiv.append(
-          frow([el('label',{},'Servo (0–6):'), refs.idxEl, el('label',{},'Winkel °:'), refs.angEl]),
-          hint('Setzt Servo direkt auf einen festen Winkel (0–180°)')
+          frow([el('label',{},'Servo (0-6):'), refs.idxEl, el('label',{},'Winkel °:'), refs.angEl]),
+          hint('Setzt Servo direkt auf einen festen Winkel (0-180°)')
         );
       } else if (t === 'servo_toggle_band') {
         refs.idxEl   = mkNum(0, 6, action.servo ?? 0, 60);
         refs.bandsEl = el('input',{type:'text', value:(action.bands||[0,90]).join(','), style:'width:140px;'});
         fieldsDiv.append(
           frow([el('label',{},'Servo:'), refs.idxEl, el('label',{},'Positionen:'), refs.bandsEl]),
-          hint('Komma-getrennte Winkel, z.B. 0,90,180 — wechselt bei jedem Tastendruck')
+          hint('Komma-getrennte Winkel, z.B. 0,90,180 - wechselt bei jedem Tastendruck')
         );
       } else if (t === 'servo_nudge') {
         refs.idxEl   = mkNum(0, 6,   action.servo ?? 0,  60);
@@ -173,7 +173,7 @@
         refs.scaleEl = el('input',{type:'number', step:'0.1', value: String(action.scale ?? 1.0), style:'width:80px;'});
         fieldsDiv.append(
           frow([el('label',{},'Servo:'), refs.idxEl, el('label',{},'Scale:'), refs.scaleEl]),
-          hint('Joystick-Achse → Servo-Winkel · Scale 1.0 = voller Bereich (0–180°)')
+          hint('Joystick-Achse → Servo-Winkel · Scale 1.0 = voller Bereich (0-180°)')
         );
       } else if (t === 'motor_axis') {
         refs.motorEl = mkNum(0, 3, action.motor ?? 0, 60);
@@ -316,7 +316,7 @@
       refs.invY   = el('input',{type:'checkbox'}); refs.invY.checked = input.invertY || false;
       root.append(
         frow([el('label',{},'Deadband:'), refs.deadEl]),
-        hint('Totzone um Null (0–512) · verhindert Drift bei losgelassenem Stick'),
+        hint('Totzone um Null (0-512) · verhindert Drift bei losgelassenem Stick'),
         frow([el('label',{},'Inv Y (nur Servo):'), refs.invY]),
         hint('Invertiert die Y-Achse nur für servo_axes. Fahrtrichtung wird über „BT-Joystick-Richtung" oben eingestellt.')
       );
@@ -459,6 +459,7 @@
       btn.classList.remove('s-none','s-one','s-multi','s-sel');
       if (key === selectedKey) btn.classList.add('s-sel');
       btn.classList.add(count === 0 ? 's-none' : count === 1 ? 's-one' : 's-multi');
+      btn.dataset.count = count > 0 ? String(count) : '';
     });
   }
 
@@ -644,15 +645,34 @@
     const rActive = Math.abs(ctrl.rx) > AXIS_DEADBAND || Math.abs(ctrl.ry) > AXIS_DEADBAND;
     setLivePressed('axis_LStick', lActive);
     setLivePressed('axis_RStick', rActive);
+
+    const lCap = document.getElementById('lStickCap');
+    const rCap = document.getElementById('rStickCap');
+    if (lCap) {
+      const lx = Math.max(-7, Math.min(7, ((ctrl.x || 0) / 512) * 7));
+      const ly = Math.max(-7, Math.min(7, ((ctrl.y || 0) / 512) * 7));
+      lCap.style.transform = `translate(${lx.toFixed(1)}px, ${ly.toFixed(1)}px)`;
+    }
+    if (rCap) {
+      const rx = Math.max(-7, Math.min(7, ((ctrl.rx || 0) / 512) * 7));
+      const ry = Math.max(-7, Math.min(7, ((ctrl.ry || 0) / 512) * 7));
+      rCap.style.transform = `translate(${rx.toFixed(1)}px, ${ry.toFixed(1)}px)`;
+    }
   }
 
   function clearLive() {
     document.querySelectorAll('.ctrl-btn.live-pressed').forEach(el => el.classList.remove('live-pressed'));
+    const lCap = document.getElementById('lStickCap');
+    const rCap = document.getElementById('rStickCap');
+    if (lCap) lCap.style.transform = '';
+    if (rCap) rCap.style.transform = '';
   }
 
   function setLiveStatus(connected) {
     const box = document.getElementById('liveStatus');
     const txt = document.getElementById('liveStatusText');
+    const stage = document.getElementById('gamepadStage');
+    if (stage) stage.classList.toggle('live-connected', connected);
     if (!box || !txt) return;
     box.classList.toggle('on', connected);
     txt.textContent = connected ? 'Controller verbunden (Live)' : 'Kein Controller (Live)';
@@ -665,6 +685,10 @@
     ws.onmessage = (event) => {
       let msg;
       try { msg = JSON.parse(event.data); } catch (_) { return; }
+      if (msg.firstLED && ledColor && document.activeElement !== ledColor) {
+        const toHex = (n) => Math.max(0, Math.min(255, Number(n) || 0)).toString(16).padStart(2, '0');
+        ledColor.value = `#${toHex(msg.firstLED.r)}${toHex(msg.firstLED.g)}${toHex(msg.firstLED.b)}`;
+      }
       const ctrls = msg.controllers;
       if (!Array.isArray(ctrls) || ctrls.length === 0) { setLiveStatus(false); return; }
       setLiveStatus(true);
@@ -738,14 +762,24 @@
   // ── Live-Werkzeuge: Servos ────────────────────────────────
   const SERVO_PINS = [13, 33, 17, 23, 18, 19, 5];
   const servoTest = document.getElementById('servoTest');
-  for (let i = 0; i < SERVO_PINS.length; i++) {
-    const lbl = document.createElement('label'); lbl.textContent = `Servo ${i} (Pin ${SERVO_PINS[i]}):`;
-    const sl = document.createElement('input');
-    sl.type = 'range'; sl.min = '0'; sl.max = '180'; sl.value = '90';
-    const val = document.createElement('span'); val.textContent = '90';
-    sl.addEventListener('input', () => { val.textContent = sl.value; liveSend({["servo"+i]: parseInt(sl.value,10)}); });
-    servoTest.append(lbl, sl, val, document.createTextNode(' '));
+  function renderServoLiveSliders(activeCount) {
+    servoTest.innerHTML = '';
+    const count = Math.min(SERVO_PINS.length, activeCount || SERVO_PINS.length);
+    for (let i = 0; i < count; i++) {
+      const lbl = document.createElement('label'); lbl.textContent = `Servo ${i} (Pin ${SERVO_PINS[i]}):`;
+      const sl = document.createElement('input');
+      sl.type = 'range'; sl.min = '0'; sl.max = '180'; sl.value = '90';
+      const val = document.createElement('span'); val.textContent = '90';
+      sl.addEventListener('input', () => { val.textContent = sl.value; liveSend({["servo"+i]: parseInt(sl.value,10)}); });
+      servoTest.append(lbl, sl, val, document.createTextNode(' '));
+    }
   }
+  renderServoLiveSliders(7);
+  fetch('/getConfig').then(r=>r.json()).then(cfg=>{
+    if (cfg && typeof cfg.servo_count === 'number') {
+      renderServoLiveSliders(cfg.servo_count);
+    }
+  }).catch(()=>{});
 
   // ── Live-Werkzeuge: Motoren (roh) ─────────────────────────
   const motorTest = document.getElementById('motorTest');

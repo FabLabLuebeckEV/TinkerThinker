@@ -1,12 +1,12 @@
 Purpose
-This file briefs future AI/code assistants on key project specifics, build/run details, and recent architectural decisions so you can work efficiently without re‑discovering context.
+This file briefs future AI/code assistants on key project specifics, build/run details, and recent architectural decisions so you can work efficiently without re-discovering context.
 
 Project Summary
 - Firmware for ESP32 robotics board combining:
   - Bluepad32 gamepad control (BTStack)
   - 4 DC motors, 3 servos, WS2812 LEDs
-  - Wi‑Fi AP/STA + Async Web UI over LittleFS
-  - Arduino‑ESP32 as an ESP‑IDF component
+  - Wi-Fi AP/STA + Async Web UI over LittleFS
+  - Arduino-ESP32 as an ESP-IDF component
 
 Build Tooling
 - Primary: PlatformIO (VS Code or CLI)
@@ -31,8 +31,8 @@ Key Modules
 - data/: LittleFS web app (index/config/setup pages + JS/CSS).
 
 Recent Changes (Important)
-1) BT/Wi‑Fi coexistence — duty‑cycled Bluetooth scanning
-   - The ESP32 shares a single 2.4 GHz radio; continuous BT inquiry/page can starve Wi‑Fi.
+1) BT/Wi-Fi coexistence - duty-cycled Bluetooth scanning
+   - The ESP32 shares a single 2.4 GHz radio; continuous BT inquiry/page can starve Wi-Fi.
    - Implementation: main/sketch.cpp toggles BP32.enableNewBluetoothConnections() via a simple scheduler.
    - Scenarios & defaults (configurable via ConfigManager and the UI):
      - Normal: 500/500 ms (on/off)
@@ -44,14 +44,14 @@ Recent Changes (Important)
      - bt_scan_on_sta_ms, bt_scan_off_sta_ms
      - bt_scan_on_ap_ms, bt_scan_off_ap_ms
 
-2) Control arbitration — last‑writer‑wins
+2) Control arbitration - last-writer-wins
    - Both BT gamepad and WebSocket can send drive commands.
    - New API in TinkerThinkerBoard:
      - requestDriveFromBT/WS(int axisX, int axisY)
      - requestMotorDirectFromBT/WS(int motorIndex, int pwm)
      - requestMotorStopFromWS(int motorIndex)
    - Rules:
-     - Non‑neutral command (axes beyond threshold or non‑zero PWM) takes ownership and applies immediately.
+     - Non-neutral command (axes beyond threshold or non-zero PWM) takes ownership and applies immediately.
      - Neutral commands apply only if they come from the current owner.
      - Prevents one source’s neutral from cancelling the other’s active command.
    - Neutral threshold: 16 (see TinkerThinkerBoard::neutralThreshold).
@@ -68,18 +68,18 @@ Recent Changes (Important)
 - Rationale: Only BT Classic via Bluepad32 and Wi-Fi AP/STA are used; IRAM was tight. Re-enable BLE/RainMaker if needed.
 
 5) MODE button + radio modes (Jan 2026) **BREAKING**
-   - The former H‑bridge fault pin is now a MODE button on GPIO39 (active‑low, pulled to GND on press).
+   - The former H-bridge fault pin is now a MODE button on GPIO39 (active-low, pulled to GND on press).
    - GPIO39 is input-only and has no internal pull-up; use external pull-up in hardware.
    - Fault monitoring was removed; any code relying on motorFaults/checkFaults must be updated.
-   - Startup factory reset (hold MODE for 10s) is checked before Wi‑Fi initialization, so reset still works even if STA cannot connect.
+   - Startup factory reset (hold MODE for 10s) is checked before Wi-Fi initialization, so reset still works even if STA cannot connect.
    - Startup default mode is `Normal`.
-   - Mode cycle: Normal → Wi‑Fi only → BT scan only → Wi‑Fi only → Normal.
-   - Status LED (LED0): Normal = dim white, Wi‑Fi = orange, BT scan = blue.
-   - On controller connect, Wi‑Fi is paused for 3000 ms to boost BT pairing.
+   - Mode cycle: Normal → Wi-Fi only → BT scan only → Wi-Fi only → Normal.
+   - Status LED (LED0): Normal = dim white, Wi-Fi = orange, BT scan = blue.
+   - On controller connect, Wi-Fi is paused for 3000 ms to boost BT pairing.
 
 6) Battery percentage curve (Jan 2026)
    - Voltage measurement reverted to the original analogRead method.
-   - Percentage now uses a Li‑ion discharge curve (non‑linear) for more realistic %.
+   - Percentage now uses a Li-ion discharge curve (non-linear) for more realistic %.
 
 7) Setup page reliability + mobile UX (Feb 2026)
    - `data/setup.html` now includes viewport meta and connection state indicator.
@@ -88,14 +88,33 @@ Recent Changes (Important)
    - `main/WebServerManager.cpp` exposes/parses `motor_left_gui` and `motor_right_gui` in `/getConfig` and `/config`.
    - `data/styles.css` adds mobile-responsive nav and full-width setup buttons for phone usability.
 
+8) Control GUI modes (`gui_mode`), Basic Workshop UI & Legacy v1 Board Support
+   - `gui_mode` in `/config.json` selects the primary control tab served at `/`:
+     - `basic` (default): `data/basic.html` + `data/basic.js` for the Workshop Robot (2 track motors + 1 gripper motor, battery bar, cellular-style signal bars, single-LED color picker in header, labeled drive joystick, hold-to-run gripper open/close buttons).
+     - `drive`: `data/index.html` + `data/script.js` (full drive & gripper control with servos, current charts, and multi-LED controls).
+     - `arm`: `data/arm.html` (dedicated Robot Arm control page).
+   - `data/setup.html` + `data/setup.js`: includes GUI mode selection, skips unconfigured motor steps (`none`), persists `gripper_motor_gui` and `gripper_inverted_gui`.
+   - `legacy_board` (`bool` in `/config.json`): restores v1 hardware compatibility:
+     - GPIO39 acts as active-low H-bridge fault input (`FAULT`, checked via `board.checkFaults()`) instead of the v2 `MODE` button, and disables the startup 10s factory-reset hold check on GPIO39.
+     - Limits active servos to 2 (`Servo 1` on GPIO32, `Servo 2` on GPIO33) and hides `Servo 3` in the Web UI.
+
+9) Automatic LittleFS Gzip Compression (`tools/gzip_littlefs.py`)
+   - Registered via `extra_scripts = pre:tools/gzip_littlefs.py` in `platformio.ini`.
+   - Automatically compresses `.html`, `.js`, `.css`, `.ico`, `.svg` from `data/` into `.pio/data_gzip/*.gz` (~63% size reduction) while keeping `config.json` and `.png` uncompressed for runtime `ConfigManager` read/write access.
+   - `ESPAsyncWebServer` transparently serves `.gz` files when present in LittleFS.
+   - Fast standalone build & flash (<1s without ESP-IDF CMake re-evaluation):
+     - `python tools/gzip_littlefs.py --build`
+     - `python tools/gzip_littlefs.py --build --flash COM19`
+
 Editing Guidelines
 - Keep changes focused; do not introduce a second Arduino core.
 - Respect the control arbiter API; route all new control surfaces through TinkerThinkerBoard request* methods.
-- When touching Wi‑Fi/BT behavior, prefer adjusting the duty‑cycle scheduler in sketch.cpp.
+- When touching Wi-Fi/BT behavior, prefer adjusting the duty-cycle scheduler in sketch.cpp.
 - UI fields: add in data/config.html and wire to data/config.js; expose via WebServerManager.
+- Always keep all source and documentation files in clean UTF-8 (without BOM) with intact German umlauts (`ä`, `ö`, `ü`, `ß`) and Unicode symbols (`°`, `↑`, `↓`, `►`, `▼`, `✓`). Never use PowerShell 5.1 `Get-Content`/`Set-Content` without explicit UTF-8 handling.
 
 Common Tasks
-- Adjust BT/Wi‑Fi timings: update defaults in ConfigManager or tweak at runtime via the config UI.
+- Adjust BT/Wi-Fi timings: update defaults in ConfigManager or tweak at runtime via the config UI.
 - Add a new control source: implement request methods in TinkerThinkerBoard and call them from the source.
 - Expand config: extend ConfigManager load/save; expose in WebServerManager; add UI inputs.
 
@@ -103,18 +122,19 @@ Pitfalls
 - Duplicate Arduino symbols: do NOT create components/arduino. Use managed_components/espressif__arduino-esp32 only.
 - Web UI 404: remember to upload the LittleFS image.
 - Windows shells: prefer PowerShell path shown above; plain `pio` may not be on PATH.
+- Windows PlatformIO upload hang (`UnicodeEncodeError`): `esptool.py` v5 outputs Unicode block characters (`█`) in its progress bar, which crashes PlatformIO's `cp1252` stdout pipe on Windows. Always set `$env:PYTHONIOENCODING = "utf-8"` before running `pio.exe run -t upload` / `uploadfs`, or invoke `esptool.py` / `python tools/gzip_littlefs.py --build --flash <PORT>` directly.
 
 Contact/Context
 - This repo is typically built in Windows with PlatformIO.
-- Prior issues included double Arduino inclusion and BT starving Wi‑Fi during association; both addressed as above.
+- Prior issues included double Arduino inclusion and BT starving Wi-Fi during association; both addressed as above.
 
 CI/Workflow Notes (Important)
 - Primary CI: .github/workflows/esp32-platformio-build-release.yml
   - Builds `env:esp32dev` via PlatformIO, creates LittleFS image, uploads artifacts.
   - On every successful push to `main`, creates a GitHub Release with tag `main-YYYYMMDD-HHMM-<shortsha>` and attaches bootloader/partitions/firmware/littlefs images.
-  - Tag‑based releases are still supported and attach the same artifacts.
+  - Tag-based releases are still supported and attach the same artifacts.
 - Removed CI: .github/workflows/esp-idf-latest.yaml
-  - Pure ESP‑IDF matrix build (esp32/s3/c3/c6/h2) removed to avoid duplication; PlatformIO CI is source of truth.
+  - Pure ESP-IDF matrix build (esp32/s3/c3/c6/h2) removed to avoid duplication; PlatformIO CI is source of truth.
 - Repo hygiene
   - `.pio/` is ignored via .gitignore; keep PlatformIO build artifacts out of Git.
   - `.github/FUNDING.yml` was removed to avoid “Sponsor this project” badge.
@@ -135,13 +155,13 @@ PlatformIO Config (Reference)
 
 FastLED Notes
 - FastLED headers live under `components/FastLED/src` (e.g., `fl/ui_impl.h`).
-- Do not change FastLED to header‑only; it has `.cpp` implementations for IDF5 (RMT v5, RGBW utils, etc.).
-- Build is driven by `components/FastLED/CMakeLists.txt` (kept as‑is from vendor).
-- If CI reports missing `fl/ui_impl.h`, verify the vendor tree is complete (e.g., .gitignore didn’t exclude it) rather than adding CI‑only include hacks.
+- Do not change FastLED to header-only; it has `.cpp` implementations for IDF5 (RMT v5, RGBW utils, etc.).
+- Build is driven by `components/FastLED/CMakeLists.txt` (kept as-is from vendor).
+- If CI reports missing `fl/ui_impl.h`, verify the vendor tree is complete (e.g., .gitignore didn’t exclude it) rather than adding CI-only include hacks.
 
 Do/Don’t Summary
-- Do: Keep Arduino‑ESP32 as managed component; no duplicate `components/arduino`.
-- Do: Use PlatformIO workflow; avoid separate ESP‑IDF CI unless necessary.
+- Do: Keep Arduino-ESP32 as managed component; no duplicate `components/arduino`.
+- Do: Use PlatformIO workflow; avoid separate ESP-IDF CI unless necessary.
 - Do: Keep `.pio/` out of Git.
 - Don’t: Modify vendor trees (FastLED/Bluepad32) to “fix” includes; fix root cause (correct vendor files/paths).
 
@@ -154,7 +174,7 @@ Tools
     - partitions: 0x8000
     - app: from `factory` or `ota_0` (current: 0x20000)
     - fs: from `spiffs`/`littlefs` (current: 0x620000, size 0x180000)
-  - Verifies `littlefs.bin` fits the FS partition; supports auto‑scan of CH340/CP210x serial adapters.
+  - Verifies `littlefs.bin` fits the FS partition; supports auto-scan of CH340/CP210x serial adapters.
 
 Partition Table (Reference)
 - File: `partitions_dual3mb_1m5spiffs.csv` (8MB flash)
@@ -181,8 +201,8 @@ Release Artifacts
 - Goal: Add a web UI to fully configure input→action mappings: map any gamepad button or stick direction/axis to actions such as driving specific motor pairs, setting servo positions or angles, changing LED colors, or toggling GPIO pins.
 
 **Scope**
-- Inputs: Gamepad buttons (A/B/X/Y, L1/L2/R1/R2, sticks pressed), D‑Pad directions, stick directions (up/down/left/right) and axes (X/Y, RX/RY) with thresholds.
-- Actions: Motor drive (pair selection and mode), Servo set (fixed angle, band toggle, axis mapping), LED set color (single, range), GPIO set/toggle (HIGH/LOW), No‑op.
+- Inputs: Gamepad buttons (A/B/X/Y, L1/L2/R1/R2, sticks pressed), D-Pad directions, stick directions (up/down/left/right) and axes (X/Y, RX/RY) with thresholds.
+- Actions: Motor drive (pair selection and mode), Servo set (fixed angle, band toggle, axis mapping), LED set color (single, range), GPIO set/toggle (HIGH/LOW), No-op.
 - Events: onPress, onRelease, onHold (repeat), continuous for axes with deadband and rate limits.
 
 **Config Schema (config.json)**
@@ -194,7 +214,7 @@ Release Artifacts
   - Button press → toggle servo band:
     - input: { type: "button", code: "BUTTON_L2", edge: "press" }
     - action: { type: "servo_toggle_band", servo: 0, bands: [0,90,180] }
-  - D‑Pad RIGHT/LEFT → servo nudge:
+  - D-Pad RIGHT/LEFT → servo nudge:
     - input: { type: "dpad", dir: "RIGHT", edge: "press" }
     - action: { type: "servo_nudge", servo: 0, delta: +10 }
   - Right stick axes → drive GUI pair (continuous):
@@ -213,23 +233,23 @@ Release Artifacts
 **Backend Design**
 - ConfigManager: extend to load/save `control_bindings` with validation and defaults; bump JSON doc capacity as needed.
 - New `InputBindingManager` (main/InputBindingManager.*):
-  - Maintains per‑controller previous states for edge detection.
+  - Maintains per-controller previous states for edge detection.
   - Evaluates button/dpad events and axis values each loop.
-  - Applies actions through TinkerThinkerBoard APIs, respecting last‑writer‑wins for drive commands.
+  - Applies actions through TinkerThinkerBoard APIs, respecting last-writer-wins for drive commands.
   - Enforces deadband, clamps, and rate limiting (e.g., 50 Hz for continuous axis actions, min interval for LED updates).
 - WebServerManager:
   - Extend `/getConfig` and `/config` to expose/accept `control_bindings`.
-  - Add `/testAction` endpoint to execute a single action payload for UI previews (optional, safe‑guarded).
+  - Add `/testAction` endpoint to execute a single action payload for UI previews (optional, safe-guarded).
 - sketch.cpp:
   - Replace hardcoded button/servo logic with calls into `InputBindingManager` using controller states from Bluepad32.
-  - Keep existing Wi‑Fi/BT scan duty cycle scheduler intact.
+  - Keep existing Wi-Fi/BT scan duty cycle scheduler intact.
 
 **UI Design (data/controls.html + data/controls.js)**
 - New Controls page (or a tab in config.html) to manage bindings:
   - Binding list with add/remove/reorder; each binding shows Input and Action editors.
   - Input editor: select type (button/dpad/stick_dir/axis_pair), specific code(s)/axis, edge (press/release/hold), thresholds/deadband.
   - Action editor: choose action type (drive_pair/servo_set/servo_toggle_band/servo_nudge/led_set/gpio_set), show relevant params with validation.
-  - Presets: button to load defaults (mirrors current behavior: right stick→GUI pair, left stick→other pair, D‑Pad nudges, R2/L2 servo bands).
+  - Presets: button to load defaults (mirrors current behavior: right stick→GUI pair, left stick→other pair, D-Pad nudges, R2/L2 servo bands).
   - Preview: optional “Test” button to POST a single action to `/testAction`.
   - Save/Reset: integrate with existing config save flow.
 
@@ -242,24 +262,24 @@ Release Artifacts
 - Validate motor indices/pairs [0..3]; for `drive_pair` allow `target: gui|other|[left,right]`.
 - Limit LED ranges to configured `led_count` and throttle updates.
 - GPIO actions whitelist pins or warn in UI; document 3V3 and current limits.
-- Protect arbitration: axis‑based drive uses existing requestDrive* methods; button actions use dedicated methods and should not steal ownership unless configured as active drive.
+- Protect arbitration: axis-based drive uses existing requestDrive* methods; button actions use dedicated methods and should not steal ownership unless configured as active drive.
 
 **Phased Implementation**
 - Phase 1: Data model + backend
   - Add schema + ConfigManager support; implement InputBindingManager for button/dpad and axis_pair; wire into sketch.cpp.
 - Phase 2: UI minimal
-  - Basic CRUD UI for bindings; JSON round‑trip; default preset.
+  - Basic CRUD UI for bindings; JSON round-trip; default preset.
 - Phase 3: UI polish + previews
   - Validation, conditional forms, color picker, action tester.
 - Phase 4: Extras
-  - Per‑controller profiles, import/export config, cloning bindings.
+  - Per-controller profiles, import/export config, cloning bindings.
 
 **Acceptance Criteria**
-- User can map R/L sticks to motor pairs and/or servos; map buttons/D‑Pad to servo angles, LED colors, and GPIO.
+- User can map R/L sticks to motor pairs and/or servos; map buttons/D-Pad to servo angles, LED colors, and GPIO.
 - Mappings persist in `/config.json` and apply at runtime without reflashing.
-- Drive arbitration remains last‑writer‑wins; Wi‑Fi/BT coexist scheduling unaffected.
+- Drive arbitration remains last-writer-wins; Wi-Fi/BT coexist scheduling unaffected.
 
 **Potential Pitfalls**
 - JSON size and ArduinoJson memory: increase document capacity and test `/config.json` size.
-- Update rate and CPU: cap continuous actions to sensible rates; avoid starving Wi‑Fi/BT.
+- Update rate and CPU: cap continuous actions to sensible rates; avoid starving Wi-Fi/BT.
 - Backwards compatibility: provide defaults and migrate safely.

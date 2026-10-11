@@ -120,8 +120,11 @@ function connectWebSocket() {
         motor2PWMElem.textContent = data.motorPWMs[2];
         motor3PWMElem.textContent = data.motorPWMs[3];
     }
-    if (data.motorFaults && motor0FaultElem) {
-        motor0FaultElem.textContent = data.motorFaults ? 'True' : 'False';
+    if (data.motorFaults !== undefined && motor0FaultElem) {
+        const faultRow = document.getElementById('motorFaultRow');
+        if (faultRow) faultRow.style.display = 'block';
+        motor0FaultElem.textContent = data.motorFaults ? 'Fehler erkannt!' : 'OK';
+        motor0FaultElem.style.color = data.motorFaults ? '#f44336' : '#4CAF50';
     }
     if (data.motorCurrents) {
         motor0CurrentElem.textContent = Math.round(data.motorCurrents[0]*1000);
@@ -131,6 +134,10 @@ function connectWebSocket() {
         firstLEDR.textContent = data.firstLED.r;
         firstLEDG.textContent = data.firstLED.g;
         firstLEDB.textContent = data.firstLED.b;
+        if (ledColorPicker && (!window._lastLedSendMs || Date.now() - window._lastLedSendMs > 500)) {
+            const toHex = (n) => Math.max(0, Math.min(255, Number(n) || 0)).toString(16).padStart(2, '0');
+            ledColorPicker.value = `#${toHex(data.firstLED.r)}${toHex(data.firstLED.g)}${toHex(data.firstLED.b)}`;
+        }
     }
 };
 

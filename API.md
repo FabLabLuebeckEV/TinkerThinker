@@ -31,16 +31,20 @@ Diese API-Doku beschreibt die aktuellen HTTP- und WebSocket-Schnittstellen der F
 - Wertebereich typischerweise `-1.0 .. 1.0`
 - Intern auf Motorantrieb gemappt (mit Arbitration gegenüber Bluetooth)
 
-### 2) Einzelmotor steuern
+### 2) Einzelmotor oder Greifer steuern
 
 ```json
 { "motorA": "forward" }
 { "motorA": "backward" }
 { "motorA": "stop" }
 { "motorA": "120" }
+{ "gripper": "open" }
+{ "gripper": "close" }
+{ "gripper": "stop" }
 ```
 
-- Gültige Keys: `motorA`, `motorB`, `motorC`, `motorD`
+- Gültige Einzelmotor-Keys: `motorA`, `motorB`, `motorC`, `motorD` (`motorA` und `motorB` steuern in der Web-UI den konfigurierten Greifer- bzw. vierten Motor)
+- `gripper`: steuert direkt den konfigurierten Greifer-Motor (`motor_gripper_gui`, `open` = vorwärts, `close` = rückwärts, `stop` = 0)
 - String-PWM wird als Integer interpretiert und auf `-255..255` begrenzt
 
 ### 3) Raw-Motor (Setup/Kalibrierung)
@@ -60,7 +64,7 @@ Diese API-Doku beschreibt die aktuellen HTTP- und WebSocket-Schnittstellen der F
 { "servo1": 45, "servo2": 120 }
 ```
 
-- `servo0..servo2`, Winkel `0..180` (intern begrenzt)
+- `servo0..servo6` (auf v2-Boards) bzw. `servo0..servo2` (auf v1-Legacy-Boards), Winkel `0..180` (intern begrenzt)
 
 ### 5) LEDs setzen
 
@@ -86,12 +90,15 @@ Typische Statusnachricht:
 {
   "batteryVoltage": 7.92,
   "batteryPercentage": 63.4,
-  "servos": [90, 90, 90],
+  "wifiRssi": -54,
+  "servos": [90, 90, 90, 90, 90, 90, 90],
   "motorPWMs": [0, 0, 0, 0],
   "motorCurrents": [0.12, 0.10],
   "firstLED": { "r": 0, "g": 255, "b": 0 }
 }
 ```
+
+- Auf alten v1-Platinen (`legacy_board: true`) enthält das Status-JSON zusätzlich `"motorFaults": false|true` (Status von `GPIO_FAULT_1` auf GPIO 39) und `servos` umfasst 3 Einträge.
 
 Zusätzlich bei WLAN-relevanter Config-Änderung:
 
@@ -101,15 +108,22 @@ Zusätzlich bei WLAN-relevanter Config-Änderung:
 
 ## HTTP API
 
+### `GET /`, `GET /basic`, `GET /drive`, `GET /arm`
+
+- `GET /` liefert je nach `gui_mode` automatisch `basic.html` (`basic`), `index.html` (`drive`) oder `arm.html` (`arm`).
+- `/basic`, `/drive` und `/arm` rufen die jeweilige Oberfläche direkt auf.
+
 ### `GET /getConfig`
 
 Liefert die komplette aktive Konfiguration als JSON, u. a.:
 
+- UI & Hardware: `gui_mode` (`"basic"`, `"drive"`, `"arm"`), `legacy_board` (`true`/`false`), `servo_count` (`3` oder `7`)
 - WLAN: `wifi_mode`, `wifi_ssid`, `hotspot_ssid`, ...
 - Motoren: `motor_invert[]`, `motor_deadband[]`, `motor_frequency[]`
-- Fahrpaar: `motor_left_gui`, `motor_right_gui`
+- Motor-Zuordnung: `motor_left_gui`, `motor_right_gui`, `motor_gripper_gui`
+- Bluetooth-Joystick-Richtung: `bt_invert_x`, `bt_invert_y`, `bt_swap_axes`
 - Servo: `servo_settings[]`
-- LEDs: `led_count`
+- LEDs: `led_count`, `led_brightness`, `led_gamma`
 - BT/Wi-Fi Scan-Timings
 - `control_bindings`
 
@@ -119,16 +133,25 @@ Speichert Konfiguration aus Formfeldern und wendet sie an.
 
 Wichtige Felder:
 
+- UI & Hardware: `gui_mode` (`basic` | `drive` | `arm`), `legacy_board` (`on` für v1-Boards)
 - WLAN: `wifi_mode`, `wifi_ssid`, `wifi_password`, `hotspot_ssid`, `hotspot_password`
-- Motor GUI-Paar: `motor_left_gui`, `motor_right_gui`
+- Motor-Zuordnung: `motor_left_gui`, `motor_right_gui`, `motor_gripper_gui`
 - Motoren: `motor_invert_0..3`, `motor_deadband_0..3`, `motor_frequency_0..3`
-- Servo: `servo0_min/max`, `servo1_min/max`, `servo2_min/max`
+- Servo: `servo0_min/max .. servo6_min/max`
 - LEDs: `led_count`
 - Fahrprofil: `drive_mixer`, `drive_turn_gain`, `drive_axis_deadband`
 - Motorkurve: `motor_curve_type`, `motor_curve_strength`
 - BT/Wi-Fi: `bt_scan_on_normal_ms`, `bt_scan_off_normal_ms`, `bt_scan_on_sta_ms`, `bt_scan_off_sta_ms`, `bt_scan_on_ap_ms`, `bt_scan_off_ap_ms`
 
 Antwort: Redirect auf `/config`.
+
+### `GET /setGuiMode?mode=basic|drive|arm`
+
+Speichert `gui_mode` direkt in `config.json`.
+
+### `GET /setLegacyBoard?enabled=0|1`
+
+Schaltet den v1-Legacy-Board-Modus (`legacy_board`) zur Laufzeit um, speichert ihn in `config.json` und wendet die Pin-/Servo-Konfiguration direkt an.
 
 ### `POST /wifi/disable`
 

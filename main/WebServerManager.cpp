@@ -1,6 +1,7 @@
 #include "WebServerManager.h"
 #include "TinkerThinkerBoard.h"
 #include "ConfigManager.h"
+#include <esp_wifi.h>
 #include <utility>
 
 WebServerManager::WebServerManager(TinkerThinkerBoard* board, ConfigManager* config)
@@ -21,6 +22,38 @@ void WebServerManager::init() {
     Serial.println("Web Server started");
 }
 
+#include <lwip/def.h>
+
+static String sanitizeMdnsHost(const String& raw) {
+    String s = raw;
+    s.trim();
+    s.toLowerCase();
+    s.replace("ä", "ae");
+    s.replace("ö", "oe");
+    s.replace("ü", "ue");
+    s.replace("ß", "ss");
+    String out;
+    out.reserve(s.length());
+    bool lastHyphen = false;
+    for (size_t i = 0; i < s.length(); i++) {
+        char c = s[i];
+        if ((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9')) {
+            out += c;
+            lastHyphen = false;
+        } else if ((c == '-' || c == '_' || c == ' ') && out.length() > 0 && !lastHyphen) {
+            out += '-';
+            lastHyphen = true;
+        }
+    }
+    while (out.endsWith("-")) {
+        out.remove(out.length() - 1);
+    }
+    if (out.length() == 0) {
+        out = "tinkerthinker";
+    }
+    return out;
+}
+
 void WebServerManager::startWifi() {
     if (config->getWifiMode() == "AP") {
         WiFi.mode(WIFI_AP);
@@ -28,6 +61,7 @@ void WebServerManager::startWifi() {
         IPAddress IP = WiFi.softAPIP();
         Serial.print("AP IP address: ");
         Serial.println(IP);
+        startMdnsAndLocalDns();
     } else {
         // Client mode
         WiFi.mode(WIFI_STA);
@@ -44,12 +78,13 @@ void WebServerManager::startWifi() {
         const uint32_t STA_TIMEOUT_MS = 10000;
         while (WiFi.status() != WL_CONNECTED) {
             if (millis() - staStart > STA_TIMEOUT_MS) {
-                Serial.println("\nSTA connect timeout – falling back to AP mode");
+                Serial.println("\nSTA connect timeout - falling back to AP mode");
                 WiFi.disconnect(true);
                 WiFi.mode(WIFI_AP);
                 WiFi.softAP(config->getHotspotSSID().c_str(), config->getHotspotPassword().c_str());
                 Serial.print("Fallback AP IP: ");
                 Serial.println(WiFi.softAPIP());
+                startMdnsAndLocalDns();
                 return;
             }
             Serial.print(".");
@@ -58,7 +93,162 @@ void WebServerManager::startWifi() {
         Serial.println();
         Serial.print("Connected IP: ");
         Serial.println(WiFi.localIP());
+        startMdnsAndLocalDns();
     }
+}
+
+void WebServerManager::startMdnsAndLocalDns() {
+    stopMdnsAndLocalDns();
+
+    mdnsHostname = sanitizeMdnsHost(config->getHotspotSSID());
+    if (MDNS.begin(mdnsHostname.c_str())) {
+        MDNS.setInstanceName(config->getHotspotSSID());
+        MDNS.addService("http", "tcp", 80);
+
+        // Falls der Roboter umbenannt wurde, zusätzlich tinkerthinker.local und tinker.local als mDNS-Alias registrieren
+        IPAddress activeIp = (WiFi.getMode() & WIFI_AP) ? WiFi.softAPIP() : WiFi.localIP();
+        mdns_ip_addr_t delegateAddr = {};
+        delegateAddr.addr.type = ESP_IPADDR_TYPE_V4;
+        delegateAddr.addr.u_addr.ip4.addr = static_cast<uint32_t>(activeIp);
+        delegateAddr.next = nullptr;
+        if (mdnsHostname != "tinkerthinker") {
+            mdns_delegate_hostname_add("tinkerthinker", &delegateAddr);
+        }
+        if (mdnsHostname != "tinker") {
+            mdns_delegate_hostname_add("tinker", &delegateAddr);
+        }
+        Serial.printf("mDNS started: http://%s.local (alias: http://tinkerthinker.local)\n", mdnsHostname.c_str());
+    } else {
+        Serial.println("mDNS start failed");
+    }
+
+    // Im Hotspot-Modus (AP) zusätzlich lokalen Unicast-DNS auf Port 53 starten:
+    // Beantwortet NUR die lokalen Roboternamen (.local / Kurzname) mit 192.168.4.1
+    // und lehnt Internet-Domains sofort sauber mit NXDOMAIN ab (verhindert Captive-Portal-Abbruch nach X Minuten).
+    if ((WiFi.getMode() & WIFI_AP) != 0) {
+        if (localDnsUdp.listen(53)) {
+            localDnsUdp.onPacket([this](AsyncUDPPacket& pkt) {
+                this->handleLocalDnsPacket(pkt);
+            });
+            Serial.println("Local Hotspot DNS (Port 53) active for .local hostnames");
+        }
+    }
+}
+
+void WebServerManager::stopMdnsAndLocalDns() {
+    localDnsUdp.close();
+    MDNS.end();
+}
+
+void WebServerManager::handleLocalDnsPacket(AsyncUDPPacket& pkt) {
+    const size_t len = pkt.length();
+    const uint8_t* data = pkt.data();
+    if (len < 17 || !data) return;
+
+    // DNS Header prüfen (QR == 0 -> Query, QDCount == 1)
+    uint16_t flags = (uint16_t(data[2]) << 8) | data[3];
+    if ((flags & 0x8000) != 0) return; // Keine Query
+    uint16_t qdCount = (uint16_t(data[4]) << 8) | data[5];
+    if (qdCount != 1) return;
+
+    // QName parsen
+    size_t pos = 12;
+    String domain;
+    domain.reserve(64);
+    while (pos < len && data[pos] != 0) {
+        uint8_t labelLen = data[pos++];
+        if ((labelLen & 0xC0) != 0 || pos + labelLen > len) return; // Komprimiert oder ungültig
+        if (domain.length() > 0) domain += '.';
+        for (uint8_t i = 0; i < labelLen; i++) {
+            char c = (char)data[pos++];
+            if (c >= 'A' && c <= 'Z') c = char(c + 32);
+            domain += c;
+        }
+    }
+    if (pos + 5 > len) return; // Nullbyte + QType(2) + QClass(2)
+    pos++; // Nullbyte überspringen
+    size_t questionEnd = pos + 4;
+    uint16_t qType = (uint16_t(data[pos]) << 8) | data[pos + 1];
+
+    if (domain.startsWith("www.")) {
+        domain.remove(0, 4);
+    }
+
+    bool isLocalMatch =
+        (domain == mdnsHostname + ".local") ||
+        (domain == mdnsHostname) ||
+        (domain == "tinkerthinker.local") ||
+        (domain == "tinkerthinker") ||
+        (domain == "tinker.local") ||
+        (domain == "tinker");
+
+    // Captive-Portal-Erkennungsdomains von Android, iOS, Samsung, Xiaomi, Huawei & Windows
+    bool isCaptiveProbe =
+        (domain == "connectivitycheck.gstatic.com") ||
+        (domain == "connectivitycheck.android.com") ||
+        (domain == "clients3.google.com") ||
+        (domain == "clients4.google.com") ||
+        (domain == "captive.apple.com") ||
+        (domain == "apple.com") ||
+        (domain == "msftconnecttest.com") ||
+        (domain == "msftncsi.com") ||
+        (domain == "detectportal.firefox.com") ||
+        (domain == "connect.rom.miui.com") ||
+        (domain == "connectivitycheck.platform.hicloud.com");
+
+    if (!isLocalMatch && !isCaptiveProbe) {
+        // Alle anderen Internet-Domains (WhatsApp, Social Media usw.) sofort mit NXDOMAIN (RCode = 3) ablehnen
+        AsyncUDPMessage rpl;
+        rpl.write(data[0]);
+        rpl.write(data[1]);
+        rpl.write(uint8_t(0x81)); // QR=1, RD=1
+        rpl.write(uint8_t(0x83)); // RA=1, RCode=3 (NXDOMAIN)
+        rpl.write(data[4]);
+        rpl.write(data[5]);
+        rpl.write(uint8_t(0)); rpl.write(uint8_t(0)); // ANCount = 0
+        rpl.write(uint8_t(0)); rpl.write(uint8_t(0)); // NSCount = 0
+        rpl.write(uint8_t(0)); rpl.write(uint8_t(0)); // ARCount = 0
+        rpl.write(data + 12, questionEnd - 12);
+        pkt.send(rpl);
+        return;
+    }
+
+    // Lokaler Treffer oder Captive-Portal-Probe: Bei A-Record (1) oder ANY (255) mit AP-IP antworten
+    IPAddress ip = WiFi.softAPIP();
+    AsyncUDPMessage rpl;
+    rpl.write(data[0]);
+    rpl.write(data[1]);
+    rpl.write(uint8_t(0x85)); // QR=1, AA=1, RD=1
+    rpl.write(uint8_t(0x80)); // RA=1, RCode=0 (NoError)
+    rpl.write(uint8_t(0)); rpl.write(uint8_t(1)); // QDCount = 1
+    if (qType == 1 || qType == 255) {
+        rpl.write(uint8_t(0)); rpl.write(uint8_t(1)); // ANCount = 1
+    } else {
+        rpl.write(uint8_t(0)); rpl.write(uint8_t(0)); // ANCount = 0
+    }
+    rpl.write(uint8_t(0)); rpl.write(uint8_t(0)); // NSCount = 0
+    rpl.write(uint8_t(0)); rpl.write(uint8_t(0)); // ARCount = 0
+    rpl.write(data + 12, questionEnd - 12);
+
+    if (qType == 1 || qType == 255) {
+        // Name pointer auf Offset 12 (0xC00C)
+        rpl.write(uint8_t(0xC0)); rpl.write(uint8_t(0x0C));
+        // Type A (0x0001), Class IN (0x0001)
+        rpl.write(uint8_t(0x00)); rpl.write(uint8_t(0x01));
+        rpl.write(uint8_t(0x00)); rpl.write(uint8_t(0x01));
+        // TTL = 15s
+        rpl.write(uint8_t(0x00)); rpl.write(uint8_t(0x00));
+        rpl.write(uint8_t(0x00)); rpl.write(uint8_t(0x0F));
+        // RDLENGTH = 4 + IPv4
+        rpl.write(uint8_t(0x00)); rpl.write(uint8_t(0x04));
+        rpl.write(ip[0]); rpl.write(ip[1]); rpl.write(ip[2]); rpl.write(ip[3]);
+    }
+    pkt.send(rpl);
+}
+
+bool WebServerManager::isPortalUnlocked() const {
+    if (portalUnlockedUntilMs == 0) return false;
+    return (int32_t)(portalUnlockedUntilMs - millis()) > 0;
 }
 
 void WebServerManager::disableWifiUntilRestart() {
@@ -111,7 +301,9 @@ void WebServerManager::disableWifiInternal(bool permanent) {
     Serial.println("Disabling WiFi...");
     delay(150);
 
-    // Close WebSocket connections but do NOT call server.end() —
+    stopMdnsAndLocalDns();
+
+    // Close WebSocket connections but do NOT call server.end() -
     // ESPAsyncWebServer does not support stop/restart; calling begin() a second
     // time after end() leaves the TCP listener in an undefined state and causes
     // the main loop to hang until the next BT disconnect.
@@ -122,7 +314,7 @@ void WebServerManager::disableWifiInternal(bool permanent) {
 
     wifi_mode_t mode = WiFi.getMode();
     if (mode == WIFI_STA || mode == WIFI_AP_STA) {
-        // eraseap=false — keep credentials so STA can reconnect later
+        // eraseap=false - keep credentials so STA can reconnect later
         WiFi.disconnect(true, false);
     }
     if (mode == WIFI_AP || mode == WIFI_AP_STA) {
@@ -130,7 +322,7 @@ void WebServerManager::disableWifiInternal(bool permanent) {
     }
 
     if (permanent) {
-        // Full de-init — no re-enable expected
+        // Full de-init - no re-enable expected
         WiFi.mode(WIFI_OFF);
     }
     // Temporary: skip WIFI_OFF to keep the netif/stack alive for re-enable
@@ -144,7 +336,7 @@ void WebServerManager::disableWifiInternal(bool permanent) {
 void WebServerManager::enableWifiInternal() {
     Serial.println("Enabling WiFi per user request...");
     startWifi();
-    // Do NOT call server.begin() here — the server was never stopped,
+    // Do NOT call server.begin() here - the server was never stopped,
     // only WiFi was disconnected. Calling begin() again would create a
     // second TCP listener and cause hangs.
     Serial.println("WiFi re-enabled, server still running.");
@@ -159,7 +351,86 @@ void WebServerManager::setupWebSocket() {
 }
 
 void WebServerManager::setupRoutes() {
-    server.serveStatic("/", LittleFS, "/").setDefaultFile("index.html");
+    server.on("/", HTTP_GET, [this](AsyncWebServerRequest *request){
+        String mode = config->getGuiMode();
+        if (mode == "drive") {
+            request->send(LittleFS, "/index.html", "text/html");
+        } else if (mode == "arm") {
+            request->send(LittleFS, "/arm.html", "text/html");
+        } else {
+            request->send(LittleFS, "/basic.html", "text/html");
+        }
+    });
+
+    server.on("/basic", HTTP_GET, [this](AsyncWebServerRequest *request){
+        request->send(LittleFS, "/basic.html", "text/html");
+    });
+
+    server.on("/drive", HTTP_GET, [this](AsyncWebServerRequest *request){
+        request->send(LittleFS, "/index.html", "text/html");
+    });
+
+    server.on("/arm", HTTP_GET, [this](AsyncWebServerRequest *request){
+        request->send(LittleFS, "/arm.html", "text/html");
+    });
+
+    // Smart Captive-Portal Launchpad (mit Countdown, Handy-Erkennung & Browser-Absprung)
+    server.on("/portal", HTTP_GET, [this](AsyncWebServerRequest *request){
+        request->send(LittleFS, "/portal.html", "text/html");
+    });
+
+    auto unlockHandler = [this](AsyncWebServerRequest *request){
+        portalUnlockedUntilMs = millis() + 3600000UL; // 1 Stunde freigeschaltet
+        request->send(200, "application/json", "{\"status\":\"unlocked\"}");
+    };
+    server.on("/portal/unlock", HTTP_POST, unlockHandler);
+    server.on("/portal/unlock", HTTP_GET, unlockHandler);
+
+    // Android / Chrome / Samsung / Xiaomi Captive-Portal-Checks
+    auto androidProbeHandler = [this](AsyncWebServerRequest *request){
+        if (isPortalUnlocked()) {
+            request->send(204);
+        } else {
+            request->redirect("http://192.168.4.1/portal");
+        }
+    };
+    server.on("/generate_204", HTTP_GET, androidProbeHandler);
+    server.on("/gen_204", HTTP_GET, androidProbeHandler);
+
+    // Apple iOS / iPadOS / macOS Captive-Portal-Checks
+    auto appleProbeHandler = [this](AsyncWebServerRequest *request){
+        if (isPortalUnlocked()) {
+            request->send(200, "text/html", "<HTML><HEAD><TITLE>Success</TITLE></HEAD><BODY>Success</BODY></HTML>");
+        } else {
+            request->redirect("http://192.168.4.1/portal");
+        }
+    };
+    server.on("/hotspot-detect.html", HTTP_GET, appleProbeHandler);
+    server.on("/library/test/success.html", HTTP_GET, appleProbeHandler);
+
+    // Windows / Firefox Captive-Portal-Checks
+    server.on("/connecttest.txt", HTTP_GET, [this](AsyncWebServerRequest *request){
+        if (isPortalUnlocked()) {
+            request->send(200, "text/plain", "Microsoft Connect Test");
+        } else {
+            request->redirect("http://192.168.4.1/portal");
+        }
+    });
+    server.on("/ncsi.txt", HTTP_GET, [this](AsyncWebServerRequest *request){
+        if (isPortalUnlocked()) {
+            request->send(200, "text/plain", "Microsoft NCSI");
+        } else {
+            request->redirect("http://192.168.4.1/portal");
+        }
+    });
+    server.on("/redirect", HTTP_GET, [this](AsyncWebServerRequest *request){
+        request->redirect("http://192.168.4.1/portal");
+    });
+    server.on("/canonical.html", HTTP_GET, [this](AsyncWebServerRequest *request){
+        request->redirect("http://192.168.4.1/portal");
+    });
+
+    server.serveStatic("/", LittleFS, "/");
 
     server.on("/config", HTTP_GET, [this](AsyncWebServerRequest *request){
         request->send(LittleFS, "/config.html", "text/html");
@@ -181,7 +452,7 @@ void WebServerManager::setupRoutes() {
         request->send(LittleFS, "/setup.html", "text/html");
     });
 
-    // ── OTA Update ────────────────────────────────────────────────────────────
+    // OTA Update
     server.on("/ota", HTTP_GET, [this](AsyncWebServerRequest *request){
         if (!config->getOTAEnabled()) {
             request->send(403, "text/plain", "OTA ist in der Konfiguration deaktiviert.");
@@ -307,6 +578,7 @@ document.getElementById('f').onsubmit=function(e){
         doc["wifi_password"] = config->getWifiPassword();
         doc["hotspot_ssid"] = config->getHotspotSSID();
         doc["hotspot_password"] = config->getHotspotPassword();
+        doc["mdns_host"] = mdnsHostname;
         doc["wifi_disabled_until_restart"] = wifiDisabledUntilRestart || (WiFi.getMode() == WIFI_OFF);
 
         JsonArray invArr = doc["motor_invert"].to<JsonArray>();
@@ -315,6 +587,10 @@ document.getElementById('f').onsubmit=function(e){
         doc["motor_swap"] = config->getMotorSwap();
         doc["motor_left_gui"] = config->getMotorLeftGUI();
         doc["motor_right_gui"] = config->getMotorRightGUI();
+        doc["motor_gripper_gui"] = config->getMotorGripperGUI();
+        doc["gui_mode"] = config->getGuiMode();
+        doc["legacy_board"] = config->isLegacyBoard();
+        doc["servo_count"] = config->getActiveServoCount();
 
         JsonArray dbArr = doc["motor_deadband"].to<JsonArray>();
         for (int i=0; i<4; i++) dbArr.add(config->getMotorDeadband(i));
@@ -347,8 +623,9 @@ document.getElementById('f').onsubmit=function(e){
         doc["bt_scan_on_ap_ms"]      = config->getBtScanOnAp();
         doc["bt_scan_off_ap_ms"]     = config->getBtScanOffAp();
 
+        int activeServos = config->getActiveServoCount();
         JsonArray servoArr = doc["servo_settings"].to<JsonArray>();
-        for (int i=0; i<3; i++) {
+        for (int i=0; i<activeServos; i++) {
             JsonObject sObj = servoArr.add<JsonObject>();
             sObj["min_pulsewidth"] = config->getServoMinPulsewidth(i);
             sObj["max_pulsewidth"] = config->getServoMaxPulsewidth(i);
@@ -466,7 +743,7 @@ document.getElementById('f').onsubmit=function(e){
         request->send(ok ? 200 : 500, "text/plain", ok ? "OK" : "save failed");
     });
 
-    // BT-Controller-Joystick-Richtung (unabhängig von der Website) dauerhaft speichern
+    // BT-Controller-Joystick-Richtung (unabhaengig von der Website) dauerhaft speichern
     server.on("/setBtDrive", HTTP_GET, [this](AsyncWebServerRequest* request){
         if (request->hasParam("x"))    config->setBtInvertX(request->getParam("x")->value() == "1");
         if (request->hasParam("y"))    config->setBtInvertY(request->getParam("y")->value() == "1");
@@ -474,11 +751,42 @@ document.getElementById('f').onsubmit=function(e){
         bool ok = config->saveConfig();
         request->send(ok ? 200 : 500, "text/plain", ok ? "OK" : "save failed");
     });
+
+    // GUI-Modus direkt umschalten und speichern
+    server.on("/setGuiMode", HTTP_GET, [this](AsyncWebServerRequest* request){
+        if (request->hasParam("mode")) {
+            config->setGuiMode(request->getParam("mode")->value());
+        }
+        bool ok = config->saveConfig();
+        request->send(ok ? 200 : 500, "text/plain", ok ? "OK" : "save failed");
+    });
+
+    // Legacy-Board-Modus (v1: Motor-Fault an Pin 39 statt MODE-Button, 3 Servos) direkt umschalten
+    server.on("/setLegacyBoard", HTTP_GET, [this](AsyncWebServerRequest* request){
+        if (request->hasParam("enabled")) {
+            String val = request->getParam("enabled")->value();
+            config->setLegacyBoard(val == "1" || val == "true" || val == "on");
+        }
+        bool ok = config->saveConfig();
+        board->reApplyConfig();
+        request->send(ok ? 200 : 500, "text/plain", ok ? "OK" : "save failed");
+    });
 }
 
 
 void WebServerManager::handleConfig(AsyncWebServerRequest* request) {
     bool wifiChanged = false;
+
+    if (request->hasParam("gui_mode", true)) {
+        config->setGuiMode(request->getParam("gui_mode", true)->value());
+    }
+
+    if (request->hasParam("legacy_board", true)) {
+        String v = request->getParam("legacy_board", true)->value();
+        config->setLegacyBoard(v == "on" || v == "1" || v == "true");
+    } else {
+        config->setLegacyBoard(false);
+    }
 
     // WLAN- und Hotspot-Settings
     if (request->hasParam("wifi_mode", true)) {
@@ -522,6 +830,11 @@ void WebServerManager::handleConfig(AsyncWebServerRequest* request) {
         int right = request->getParam("motor_right_gui", true)->value().toInt();
         right = constrain(right, 0, 3);
         config->setMotorRightGUI(right);
+    }
+    if (request->hasParam("motor_gripper_gui", true)) {
+        int grip = request->getParam("motor_gripper_gui", true)->value().toInt();
+        grip = constrain(grip, 0, 3);
+        config->setMotorGripperGUI(grip);
     }
 
     // Motoren (invert, deadband, frequency)
@@ -584,8 +897,8 @@ void WebServerManager::handleConfig(AsyncWebServerRequest* request) {
     setIntIf("bt_scan_on_ap_ms",      [](ConfigManager* c,int v){ c->setBtScanOnAp(v); });
     setIntIf("bt_scan_off_ap_ms",     [](ConfigManager* c,int v){ c->setBtScanOffAp(v); });
 
-    // Servos
-    for (int i = 0; i < 3; i++) {
+    // Servos (alle bis zu 7 speichern, falls uebergeben)
+    for (int i = 0; i < 7; i++) {
         String minField = "servo" + String(i) + "_min";
         String maxField = "servo" + String(i) + "_max";
         int min_pw = config->getServoMinPulsewidth(i);
@@ -634,7 +947,7 @@ void WebServerManager::handleConfig(AsyncWebServerRequest* request) {
     board->reApplyConfig();
 
     if (wifiChanged) {
-        // Sende eine Nachricht über WebSocket, dass ein Neustart erfolgt
+        // Sende eine Nachricht ueber WebSocket, dass ein Neustart erfolgt
         JsonDocument doc;
         doc["restart"] = true;
         String json;
@@ -676,7 +989,7 @@ void registerBindingsRoutes(AsyncWebServer& server, ConfigManager* config) {
         request->send(200, "application/json", binds);
     });
     server.on("/control_bindings", HTTP_POST,
-        // onRequest läuft NACH dem Body-Handler: hier parsen, speichern und antworten.
+        // onRequest laeuft NACH dem Body-Handler: hier parsen, speichern und antworten.
         [config](AsyncWebServerRequest* request){
             char* body = reinterpret_cast<char*>(request->_tempObject);
             if (!body) {
@@ -688,7 +1001,7 @@ void registerBindingsRoutes(AsyncWebServer& server, ConfigManager* config) {
             // const char* erzwingt Kopie der Strings ins Dokument (kein Zero-Copy),
             // damit der Puffer direkt danach freigegeben werden darf.
             DeserializationError err = deserializeJson(bd, (const char*)body);
-            // Puffer freigeben (free, da mit malloc angelegt – passt zum Framework-Destruktor).
+            // Puffer freigeben (free, da mit malloc angelegt - passt zum Framework-Destruktor).
             free(body);
             request->_tempObject = nullptr;
             if (err) {
@@ -733,7 +1046,7 @@ void WebServerManager::onWebSocketEvent(AsyncWebSocket *server, AsyncWebSocketCl
         JsonDocument doc;
         DeserializationError error = deserializeJson(doc, message);
         if (!error) {
-            // Vorhandene Steuerung für Joystick & Servo
+            // Vorhandene Steuerung fuer Joystick & Servo
             if (!doc["x"].isNull() && !doc["y"].isNull()) {
                 float x = doc["x"].as<float>();
                 float y = doc["y"].as<float>();
@@ -743,6 +1056,19 @@ void WebServerManager::onWebSocketEvent(AsyncWebSocket *server, AsyncWebSocketCl
                 float rotatedY = x;
 
                 board->requestDriveFromWS((int)(rotatedX * 512), (int)(rotatedY * 512));
+            }
+
+            // Greifer-Steuerung ueber konfigurierten motor_gripper_gui
+            if (!doc["gripper"].isNull()) {
+                String cmd = doc["gripper"].as<String>();
+                int gripIdx = constrain(config->getMotorGripperGUI(), 0, 3);
+                if (cmd == "open" || cmd == "forward") {
+                    board->requestMotorDirectFromWS(gripIdx, 255);
+                } else if (cmd == "close" || cmd == "backward") {
+                    board->requestMotorDirectFromWS(gripIdx, -255);
+                } else if (cmd == "stop") {
+                    board->requestMotorStopFromWS(gripIdx);
+                }
             }
 
             // Bestehende Motor Steuerung (A, B, C, D)
@@ -833,9 +1159,22 @@ void WebServerManager::onWebSocketEvent(AsyncWebSocket *server, AsyncWebSocketCl
 
 
 void WebServerManager::sendStatusUpdate() {
-    // Nicht auf den WebSocket/Netz-Stack zugreifen, während WiFi pausiert/abgeschaltet
-    // wird – sonst Spinlock-Crash beim gleichzeitigen Teardown (v. a. bei 10 Hz Telemetrie).
+    // Nicht auf den WebSocket/Netz-Stack zugreifen, waehrend WiFi pausiert/abgeschaltet
+    // wird - sonst Spinlock-Crash beim gleichzeitigen Teardown (v. a. bei 10 Hz Telemetrie).
     if (isWifiDisabled() || wifiShutdownInProgress) return;
+
+    // Im AP-Modus prüfen, ob sich ein neues Handy mit dem Hotspot verbunden hat -> Portal-Popup wieder scharfschalten
+    if ((WiFi.getMode() & WIFI_AP) != 0) {
+        wifi_sta_list_t staList;
+        if (esp_wifi_ap_get_sta_list(&staList) == ESP_OK) {
+            if (staList.num != lastApStaCount) {
+                if (staList.num > lastApStaCount || staList.num == 0) {
+                    portalUnlockedUntilMs = 0;
+                }
+                lastApStaCount = staList.num;
+            }
+        }
+    }
 
     if (millis() - lastPacketTime > 5000) {
         // Kein Paket seit 1 Sekunde, stoppe alle Motoren
@@ -850,9 +1189,32 @@ void WebServerManager::sendStatusUpdate() {
             doc["batteryVoltage"] = board->getBatteryVoltage();
             doc["batteryPercentage"] = board->getBatteryPercentage();
 
+            // WLAN-Signalstaerke (RSSI in dBm) ermitteln (STA oder AP-Clients)
+            int rssi = 0;
+            wifi_mode_t mode = WiFi.getMode();
+            if (mode == WIFI_STA) {
+                rssi = WiFi.RSSI();
+            } else if (mode == WIFI_AP || mode == WIFI_AP_STA) {
+                wifi_sta_list_t staList;
+                if (esp_wifi_ap_get_sta_list(&staList) == ESP_OK && staList.num > 0) {
+                    rssi = staList.sta[0].rssi;
+                    for (int i = 1; i < staList.num; i++) {
+                        if (staList.sta[i].rssi > rssi) {
+                            rssi = staList.sta[i].rssi;
+                        }
+                    }
+                }
+            }
+            doc["wifiRssi"] = rssi;
+
+            int activeServos = config->getActiveServoCount();
             JsonArray servos = doc["servos"].to<JsonArray>();
-            for (int i = 0; i < 3; i++) {
+            for (int i = 0; i < activeServos; i++) {
                 servos.add(board->getServoAngle(i));
+            }
+
+            if (config->isLegacyBoard()) {
+                doc["motorFaults"] = board->isMotorInFault();
             }
 
             JsonArray motorPWMs = doc["motorPWMs"].to<JsonArray>();

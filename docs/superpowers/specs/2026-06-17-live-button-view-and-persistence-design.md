@@ -14,10 +14,10 @@
 Über die Weboberfläche (`controls.html`) lassen sich Controller-Buttons mit Aktionen
 belegen. Beim Test traten mehrere Probleme auf:
 
-1. **Bindings werden nicht gespeichert** — nach Reload sind die Einstellungen weg.
-2. **A/B/X/Y vertauscht** — Buttons wie Kreuz/Viereck lösen die falsche Aktion aus.
-3. **Keine Sichtbarkeit** — man sieht nicht, welcher physische Button welcher ist.
-4. **LED-Farben „eher weiß"** — gewählte Farben passen nicht zum LED-Bild.
+1. **Bindings werden nicht gespeichert** - nach Reload sind die Einstellungen weg.
+2. **A/B/X/Y vertauscht** - Buttons wie Kreuz/Viereck lösen die falsche Aktion aus.
+3. **Keine Sichtbarkeit** - man sieht nicht, welcher physische Button welcher ist.
+4. **LED-Farben „eher weiß"** - gewählte Farben passen nicht zum LED-Bild.
 
 Zusätzlich soll die Servo-/Motor-Steuerung komfortabler werden.
 
@@ -31,9 +31,9 @@ Die Firmware verarbeitet in `WebServerManager::onWebSocketEvent()` **bereits** L
 
 Die Live-Test- und Live-LED-Funktionen (D, E) sind daher überwiegend **Frontend-Arbeit**.
 
-## Teil A — Persistenz-Fix (Bindings speichern)
+## Teil A - Persistenz-Fix (Bindings speichern)
 
-Gewählter Ansatz: **Minimal-Fix** — Bindings bleiben in `config.json` eingebettet,
+Gewählter Ansatz: **Minimal-Fix** - Bindings bleiben in `config.json` eingebettet,
 aber die zwei Fehlerquellen werden robust gemacht.
 
 ### A1. Chunked-POST-Handler robust machen
@@ -64,7 +64,7 @@ Ergebnis per `Serial.println` loggen (A3).
 **Fix (minimal):**
 - `StaticJsonDocument<8192>` → `DynamicJsonDocument(16384)` für Save und Load.
 - Vor dem Schreiben prüfen: `if (doc.overflowed()) { Serial.println(...); return false; }`
-  — niemals stillschweigend eine abgeschnittene Datei schreiben.
+  - niemals stillschweigend eine abgeschnittene Datei schreiben.
 - Parse-Fehler in `loadConfig()` klar als Fehler loggen (Logging existiert bereits).
 
 ### A3. Verifizierbarkeit
@@ -73,12 +73,12 @@ Serial-Logs an den entscheidenden Stellen (POST empfangen/Bytes, Parse-OK/-Fehle
 Save-OK/Overflow, Load-OK/Fehler). Nutzer flasht und verifiziert über Serial-Monitor +
 Reload-Test (Flashen kann der Assistent nicht selbst).
 
-## Teil B — Live-Button-Ansicht im Steuerungs-Editor
+## Teil B - Live-Button-Ansicht im Steuerungs-Editor
 
 Anzeige in `controls.html`: das gedrückte Element wird im Controller-Layout hervorgehoben.
-Aktionen laufen dabei **normal weiter** (kein Testmodus — bewusst einfachste Variante).
+Aktionen laufen dabei **normal weiter** (kein Testmodus - bewusst einfachste Variante).
 
-### B1. Firmware — Input-Snapshot im Board
+### B1. Firmware - Input-Snapshot im Board
 
 **Dateien:** `main/TinkerThinkerBoard.h/.cpp`, `main/sketch.cpp`.
 
@@ -98,7 +98,7 @@ ControllerInputSnapshot latestInput[BP32_MAX_GAMEPADS];
 - Disconnect → `latestInput[idx].connected = false`.
 - Getter für `sendStatusUpdate()`.
 
-### B2. Firmware — Telemetrie erweitern
+### B2. Firmware - Telemetrie erweitern
 
 **Datei:** `main/WebServerManager.cpp`, `sendStatusUpdate()`.
 - `StaticJsonDocument<512>` → `<1024>`.
@@ -106,7 +106,7 @@ ControllerInputSnapshot latestInput[BP32_MAX_GAMEPADS];
 - **Cadence:** WebClientTask-Delay in `TinkerThinkerBoard.cpp::startServices()` von `1000 ms`
   auf `100 ms` (10 Hz) senken.
 
-### B3. Frontend — controls.js / controls.html
+### B3. Frontend - controls.js / controls.html
 
 **Dateien:** `data/controls.js`, `data/controls.html`, `data/styles.css`.
 - WebSocket zu `ws://<host>/ws` (Muster aus `script.js`/`setup.js`), mit Auto-Reconnect.
@@ -115,7 +115,7 @@ ControllerInputSnapshot latestInput[BP32_MAX_GAMEPADS];
 - Gesetzte Bits → Element im Layout mit CSS-Klasse `.live-pressed` hervorheben.
 - Achsen/Sticks visualisieren; „verbunden/getrennt"-Status (mit Timeout).
 
-## Teil C — A/B/X/Y-Masken-Fix
+## Teil C - A/B/X/Y-Masken-Fix
 
 **Datei:** `main/InputBindingManager.cpp`, `buttonMaskFromString()`.
 
@@ -130,32 +130,32 @@ Falsche Bit-Werte gegenüber Bluepad32 (`components/bluepad32/include/controller
 
 A↔B und X↔Y sind paarweise vertauscht; L1/R1/L2/R2/Stick und D-Pad sind korrekt.
 **Fix:** Werte auf `A=1,B=2,X=4,Y=8` korrigieren. Nach dem Fix stimmen Live-Ansicht (B)
-und Binding-Engine überein — direkt mit der Live-View verifizierbar.
+und Binding-Engine überein - direkt mit der Live-View verifizierbar.
 
-## Teil D — LED-Farben: „orange zu hell / alles zu weiß"
+## Teil D - LED-Farben: „orange zu hell / alles zu weiß"
 
 **Hardware bestätigt:** WS2812 (RGB) → Treiber-Konfiguration `WS2812, GRB` in
 `LEDController.cpp:10` ist korrekt. Eine falsche Reihenfolge gäbe falsche *Töne*
-(Rot↔Grün), nicht Weiß — daher **nicht** die Hauptursache.
+(Rot↔Grün), nicht Weiß - daher **nicht** die Hauptursache.
 
 **Symptome:** Orange wirkt viel zu hell; jede gewählte Farbe wirkt zu weiß/entsättigt
 („falsches Farbschema").
 
 **Ursachen-Hypothesen (auf HW zu verifizieren, da Assistent nicht flashen kann):**
-1. **Helligkeit = Maximum (255)** — wahrscheinlichste Ursache. `FastLED.setBrightness()`
+1. **Helligkeit = Maximum (255)** - wahrscheinlichste Ursache. `FastLED.setBrightness()`
    wird **nirgends** aufgerufen (gesamtes `main/` geprüft) → Default 255. WS2812 bei
    Vollhelligkeit „blühen" optisch/auf Kamera zu Weiß aus; Mischfarben wie Orange
    (255,128,0) wirken zu hell und entsättigt. Erklärt beide Symptome zugleich.
-2. **Fehlende Gamma-Korrektur** — WS2812 sind PWM-linear, Wahrnehmung logarithmisch →
+2. **Fehlende Gamma-Korrektur** - WS2812 sind PWM-linear, Wahrnehmung logarithmisch →
    Mitteltöne (Grün-128 in Orange) wirken zu hell → Ton kippt Richtung Gelb/Weiß.
-3. **Boot-Default (60,60,60)** in `TinkerThinkerBoard.cpp:61-62` — setzt alle LEDs beim
+3. **Boot-Default (60,60,60)** in `TinkerThinkerBoard.cpp:61-62` - setzt alle LEDs beim
    Start auf blasses Weiß; ohne aktive `led_set` bleiben sie so (Teil des „alles weiß").
 
 ### D1. Globale Helligkeit setzen + konfigurierbar
 
 **Dateien:** `main/LEDController.cpp/.h`, `main/ConfigManager.*`, `main/WebServerManager.cpp`.
 - In `LEDController::init()` `FastLED.setBrightness()` mit moderatem Default (~50) aufrufen.
-- `led_brightness` (0–255) in `ConfigManager` persistieren (Getter/Setter + Save/Load).
+- `led_brightness` (0-255) in `ConfigManager` persistieren (Getter/Setter + Save/Load).
 - WS-Befehl `{"led_brightness":0-255}` → `FastLED.setBrightness()` + `show()` (Live, ohne Reboot).
 
 ### D2. Optionale Gamma-Korrektur
@@ -171,7 +171,7 @@ damit der Streifen nicht „alles weiß" startet.
 
 ### D4. Live-LED-Panel im Frontend (inkl. Diagnose-Umschalter)
 
-**Dateien:** `data/controls.html`/`controls.js` — Bereich „Live-Werkzeuge" (enthält auch
+**Dateien:** `data/controls.html`/`controls.js` - Bereich „Live-Werkzeuge" (enthält auch
 die Servo/Motor-Test-Slider aus E1), Panel „LED-Test":
 - Farbwähler (`<input type="color">`) + „auf alle anwenden" + „aus".
 - **Helligkeits-Slider** (sendet `{"led_brightness":...}`).
@@ -179,14 +179,14 @@ die Servo/Motor-Test-Slider aus E1), Panel „LED-Test":
 - **Diagnose:** Umschalter für Gamma an/aus (und optional Farbreihenfolge), damit auf der
   echten Hardware das korrekte „Farbschema" empirisch bestimmt werden kann.
 
-## Teil E — Servo/Motor-Komfort
+## Teil E - Servo/Motor-Komfort
 
 Backend (WS-Befehle) existiert bereits; Schwerpunkt Frontend + einige Binding-Aktionen.
 
 ### E1. Live-Test-Slider im Frontend
 
 **Dateien:** `data/controls.html`/`controls.js` (Panel „Servo/Motor-Test"):
-- Servo-Slider 0–180° pro Servo → `{"servoN": winkel}`.
+- Servo-Slider 0-180° pro Servo → `{"servoN": winkel}`.
 - Motor-Slider −255…255 pro Motor → `{"motor_raw":{"motor":idx,"pwm":val}}`; „Stop"-Button → 0.
 - Sicherheits-Hinweis/Not-Stop, da Aktionen real ausgeführt werden.
 

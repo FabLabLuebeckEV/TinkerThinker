@@ -23,7 +23,7 @@ Die `/controls`-Seite wird von einem rohen Binding-Listen-Editor zu einem intuit
 
 ## 1. Info-Banner
 
-Aufklappbarer `<details>`-Block ganz oben. Kein externer Style nötig – verwendet bestehendes CSS.
+Aufklappbarer `<details>`-Block ganz oben. Kein externer Style nötig - verwendet bestehendes CSS.
 
 **Inhalt:**
 
@@ -91,7 +91,7 @@ Erscheint wenn ein Controller-Element angeklickt wird.
 **Bindings-Liste für dieses Element:**
 - Jedes Binding zeigt: Edge-Selector + Action-Editor (bestehende `makeActionEditor`-Funktion)
 - Hilfstext unter PWM-Feld: „−255 bis 255 · negativ = rückwärts"
-- Hilfstext unter motor-Index: „0–3 entspricht Motor A–D"
+- Hilfstext unter motor-Index: „0-3 entspricht Motor A-D"
 - [× Entfernen]-Button pro Binding
 
 **Footer:**
@@ -108,15 +108,15 @@ Bleibt als kompakte Gesamtübersicht erhalten. Jedes Binding zeigt:
 - [Bearbeiten]-Button → scrollt zur Controller-View und selektiert das Element
 - [× Entfernen]
 
-Toolbar: [+ Neu] [Laden] [Speichern] [Standards] — wie bisher
+Toolbar: [+ Neu] [Laden] [Speichern] [Standards] - wie bisher
 
 ---
 
 ## Technische Architektur
 
 ### Dateien
-- `data/controls.html` — Struktur: Info-Banner, Controller-View, Panel, Liste
-- `data/controls.js` — Logik (alles in einem IIFE, kein Modul-System)
+- `data/controls.html` - Struktur: Info-Banner, Controller-View, Panel, Liste
+- `data/controls.js` - Logik (alles in einem IIFE, kein Modul-System)
 
 ### Datenmodell
 Bindings bleiben identisch zum bestehenden JSON-Format:
@@ -147,7 +147,7 @@ Keine Firmware-Änderung nötig.
 ---
 
 ## Was sich NICHT ändert
-- Firmware (`InputBindingManager.cpp`) — keine Änderung
-- JSON-Format der Bindings — keine Änderung  
-- Andere Seiten (`/`, `/config`, `/setup`) — keine Änderung
-- WebSocket-Kommunikation — keine Änderung
+- Firmware (`InputBindingManager.cpp`) - keine Änderung
+- JSON-Format der Bindings - keine Änderung  
+- Andere Seiten (`/`, `/config`, `/setup`) - keine Änderung
+- WebSocket-Kommunikation - keine Änderung

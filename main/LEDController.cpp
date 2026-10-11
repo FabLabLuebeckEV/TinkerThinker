@@ -4,6 +4,11 @@ LEDController::LEDController(int count)
 : ledCount(count) 
 {
     ledsArray = new CRGB[ledCount];
+    rawColorsArray = new CRGB[ledCount];
+    for (int i = 0; i < ledCount; i++) {
+        ledsArray[i] = CRGB::Black;
+        rawColorsArray[i] = CRGB::Black;
+    }
 }
 
 void LEDController::init() {
@@ -17,7 +22,11 @@ void LEDController::setPixelColor(int led, uint8_t red, uint8_t green, uint8_t b
         Serial.printf("LED index out of range: %d\n", led);
         return;
     }
-    CRGB c(red, green, blue);
+    CRGB raw(red, green, blue);
+    rawColorsArray[led] = raw;
+    lastSetColor = raw;
+
+    CRGB c = raw;
     if (gammaEnabled) napplyGamma_video(c, 2.2f); // freie FastLED-Funktion (CRGB hat keinen Member)
     ledsArray[led] = c;
 }
@@ -27,11 +36,14 @@ void LEDController::showPixels() {
 }
 
 CRGB LEDController::getLEDColor(int ledIndex) {
+    if (ledIndex == 0) {
+        return lastSetColor;
+    }
     if (ledIndex < 0 || ledIndex >= ledCount) {
         Serial.printf("LED index out of range: %d\n", ledIndex);
         return CRGB::Black;
     }
-    return ledsArray[ledIndex];
+    return rawColorsArray[ledIndex];
 }
 
 void LEDController::setBrightness(uint8_t value) {

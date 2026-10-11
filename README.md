@@ -106,59 +106,71 @@ After a factory reset:
 
 ## Web Pages
 
-### `/`
+### `/` (Control Tab - selectable via `gui_mode`)
 
-Main control dashboard with:
+The root route `/` serves the configured control interface (`gui_mode` in `/config` or `/setup`):
 
-- live battery and motor status
-- touch joystick
-- servo slider
-- motor test buttons
-- LED color control
+- **`basic` (Default - Workshop Robot, `/basic`)**:
+  - Compact top status bar with visual battery bar, 4-bar wireless signal indicator (`wifiRssi`), and single-LED color picker (LED 0)
+  - Touch joystick with directional labels (`Vorwärts`, `Links`, `Rechts`, `Rückwärts`)
+  - Dedicated `Greifer auf` and `Greifer zu` touch buttons linked to the configured gripper motor (`motor_gripper_gui`)
+- **`drive` (Full Drive Robot, `/drive`)**:
+  - Live battery, motor current, and servo status
+  - Touch joystick
+  - Servo slider
+  - Motor test buttons and gripper buttons
+  - LED color and range control
+- **`arm` (Robot Arm, `/arm`)**:
+  - Dedicated control page for robot arm setups
 
 ### `/config`
 
 Main configuration page for:
 
+- Control GUI mode (`basic`, `drive`, `arm`)
+- Legacy board hardware switch (`legacy_board` for v1 boards)
 - Wi-Fi AP/STA settings
-- hotspot name and password
-- motor inversion, deadband, and PWM frequency
+- Hotspot name and password
+- Motor inversion, deadband, and PWM frequency
+- GUI drive motor pair (`motor_left_gui`, `motor_right_gui`) and gripper motor (`motor_gripper_gui`)
 - LED count
-- servo pulse widths
+- Servo pulse widths
 - Bluetooth scan timings
-- drive profile parameters
+- Drive profile parameters
 
 ### `/controls`
 
 Binding editor for controller inputs and actions:
 
-- buttons
-- D-pad directions
-- stick axes
-- actions for motors, servos, LEDs, GPIO, and speed scaling
+- Buttons, D-pad directions, and stick axes
+- Independent Bluetooth joystick direction settings (`bt_invert_x`, `bt_invert_y`, `bt_swap_axes`)
+- Actions for motors, servos, LEDs, GPIO, and speed scaling
+- Live test sliders for LEDs, motors, and active servos (3 on v1 boards, 7 on v2 boards)
 
 ### `/setup`
 
-Guided first-time setup page for:
+Guided first-time setup wizard for:
 
-- motor assignment
-- direction correction
-- deadband tuning
-- GUI drive pair selection
+- Control GUI mode selection (`basic`, `drive`, `arm`) and hotspot name
+- Motor role assignment (`Kettenmotor Links`, `Kettenmotor Rechts`, `Greifer Motor`, `Kein Motor`)
+- Automatic step skipping: motors set to `Kein Motor` skip direction and deadband steps
+- Direction correction and deadband tuning for active motors
+- Automatic assignment of `motor_left_gui`, `motor_right_gui`, and `motor_gripper_gui`
 
 ## What This Project Includes
 
 - Bluepad32 gamepad support over Bluetooth Classic
 - 4 DC motor outputs
-- 3 servo outputs
+- Up to 7 servo outputs (7 on v2 boards, 3 on v1 legacy boards)
 - WS2812 LED control
 - Wi-Fi AP/STA support
-- Async web UI served from LittleFS
-- battery voltage and current monitoring
-- configurable control bindings
-- last-writer-wins arbitration between web control and Bluetooth control
+- Async web UI served from LittleFS (automatically `.gz` compressed) with selectable control dashboards (`basic`, `drive`, `arm`)
+- Battery voltage and current monitoring
+- Configurable control bindings
+- Runtime and compile-time support for v1 legacy boards (`legacy_board`)
+- Last-writer-wins arbitration between web control and Bluetooth control
 
-## Hardware Overview (default pins)
+## Hardware Overview (v2 default pins vs. v1 legacy boards)
 
 - Motors
   - `M0`: `pin1=16`, `pin2=25`
@@ -166,39 +178,48 @@ Guided first-time setup page for:
   - `M2`: `pin1=4`, `pin2=12`
   - `M3`: `pin1=15`, `pin2=14`
 - Servos
-  - `S0`: `pin=13`
-  - `S1`: `pin=33`
-  - `S2`: `pin=17`
+  - `S0`: `pin=13` (v1 & v2)
+  - `S1`: `pin=33` (v1 & v2)
+  - `S2`: `pin=17` (v1 & v2)
+  - `S3`: `pin=23` (v2 only)
+  - `S4`: `pin=18` (v2 only)
+  - `S5`: `pin=19` (v2 only)
+  - `S6`: `pin=5` (v2 only)
 - WS2812 LED data: `pin=2`
 - Battery ADC: `pin=35`
 - Current sense: `pin=34`, `pin=36`
-- MODE button: `pin=39`, active low
+- GPIO 39:
+  - **v2 boards (`legacy_board: false`, default)**: `MODE` button, active low (requires external pull-up)
+  - **v1 boards (`legacy_board: true`)**: H-bridge motor driver fault input (`GPIO_FAULT_1`, `LOW` = OK, `HIGH` = motor fault)
 
-Important:
+### Legacy v1 Board Support
 
-- GPIO39 is input-only and has no internal pull-up.
-- The hardware must provide an external pull-up for the MODE button.
+Older v1 boards wire GPIO 39 to the motor driver fault pin (which stays `LOW` during normal operation) instead of a `MODE` button, and provide 3 servo headers instead of 7.
+
+- **Runtime switch**: Enable **Älteres Board (v1)** in `/config` (or set `"legacy_board": true` in `data/config.json`). When enabled, GPIO 39 is monitored as `GPIO_FAULT_1`, `MODE` button polling is disabled, and only 3 servos (`13, 33, 17`) are initialized.
+- **Compile-time environment**: Build with `env:esp32dev_legacy` (`pio run -e esp32dev_legacy`) to bake `LEGACY_BOARD_DEFAULT=true` into the firmware defaults.
+- **Boot safeguard**: Even if a v1 board boots with default v2 settings (`legacy_board: false`), the startup reset check detects if GPIO 39 remains permanently `LOW` without a button release and continues normal boot instead of entering a factory-reset loop.
 
 ## Project Layout
 
 - [`main/`](main/)
-  - [`sketch.cpp`](main/sketch.cpp): Arduino setup/loop, radio-mode handling, Bluepad32 processing
+  - [`sketch.cpp`](main/sketch.cpp): Arduino setup/loop, radio-mode handling, legacy board handling, Bluepad32 processing
   - [`main.c`](main/main.c): ESP-IDF entry point and Bluepad32 glue
   - [`TinkerThinkerBoard.*`](main/TinkerThinkerBoard.cpp): board facade and control arbitration
   - [`InputBindingManager.*`](main/InputBindingManager.cpp): controller input mapping
   - [`WebServerManager.*`](main/WebServerManager.cpp): web UI, WebSocket, config routes
   - [`ConfigManager.*`](main/ConfigManager.cpp): persistent configuration in LittleFS
-- [`data/`](data/): web app files stored in LittleFS
+- [`data/`](data/): web app source files (`basic.html`, `index.html`, `arm.html`, `config.html`, `setup.html`, `controls.html`), automatically packed as `.gz` into LittleFS by [`tools/gzip_littlefs.py`](tools/gzip_littlefs.py)
 - [`PCB/`](PCB/): board files and exports
 - [`CAD/`](CAD/): mechanical models and Sumo robot kit files
-- [`tools/`](tools/): automated flashing scripts, WebSerial installer, and CI helpers
+- [`tools/`](tools/): automated flashing scripts, LittleFS gzip hook, WebSerial installer, and CI helpers
 
 ## Quick Start (PlatformIO)
 
 This repository is primarily built with PlatformIO.
 
 1. Open the project in VS Code with the PlatformIO extension.
-2. Select `env:esp32dev`.
+2. Select `env:esp32dev` (or `env:esp32dev_legacy` for v1 boards).
 3. Build the firmware.
 4. Upload the firmware.
 5. Upload the LittleFS image so the web UI is available.
@@ -206,13 +227,47 @@ This repository is primarily built with PlatformIO.
 
 Windows PowerShell examples:
 
-- Build: `& "C:\\Users\\mgabr\\.platformio\\penv\\Scripts\\pio.exe" run -e esp32dev`
-- Upload: `& "C:\\Users\\mgabr\\.platformio\\penv\\Scripts\\pio.exe" run -e esp32dev -t upload`
-- Upload FS: `& "C:\\Users\\mgabr\\.platformio\\penv\\Scripts\\pio.exe" run -e esp32dev -t uploadfs`
+- Build firmware (v2 default): `& "C:\Users\mgabr\.platformio\penv\Scripts\pio.exe" run -e esp32dev`
+- Build firmware (v1 legacy default): `& "C:\Users\mgabr\.platformio\penv\Scripts\pio.exe" run -e esp32dev_legacy`
+- Upload firmware: `$env:PYTHONIOENCODING="utf-8"; & "C:\Users\mgabr\.platformio\penv\Scripts\pio.exe" run -e esp32dev -t upload`
+- Build LittleFS (`.gz`-optimized via PlatformIO): `& "C:\Users\mgabr\.platformio\penv\Scripts\pio.exe" run -e esp32dev -t buildfs`
+- Upload LittleFS (`.gz`-optimized via PlatformIO): `$env:PYTHONIOENCODING="utf-8"; & "C:\Users\mgabr\.platformio\penv\Scripts\pio.exe" run -e esp32dev -t uploadfs`
+- Fast standalone LittleFS build & flash (<1s without CMake overhead): `python tools/gzip_littlefs.py --build --flash COM19`
+
+### Optimized `.gz` LittleFS Build (Compressed Web UI)
+
+To minimize flash usage and speed up page loads over Wi-Fi, all static web assets in [`data/`](data/) are automatically compressed with Gzip (level 9) before building `littlefs.bin`:
+
+- **How it works**:
+  - [`platformio.ini`](platformio.ini) registers `extra_scripts = pre:tools/gzip_littlefs.py`.
+  - Before LittleFS packaging, [`tools/gzip_littlefs.py`](tools/gzip_littlefs.py) stages `data/` into `.pio/data_gzip/` and compresses `.html`, `.js`, `.css`, `.ico`, and `.svg` files into `.gz` (**~63% size reduction**, from ~208 KB down to ~77 KB).
+  - `config.json` (required uncompressed for runtime read/write by `ConfigManager`) and `.png` files are copied uncompressed.
+  - `ESPAsyncWebServer` transparently detects and serves the `.gz` files from LittleFS with `Content-Encoding: gzip`.
+- **How to build and flash the optimized `.gz` filesystem**:
+  1. **Fastest method (standalone script, <1 second, skips ESP-IDF CMake re-evaluation)**:
+     ```powershell
+     # Build .gz-optimized littlefs.bin only:
+     python tools/gzip_littlefs.py --build
+
+     # Build and flash directly to the board (e.g. COM19):
+     python tools/gzip_littlefs.py --build --flash COM19
+     ```
+  2. **Via PlatformIO CLI (`buildfs` / `uploadfs`)**:
+     ```powershell
+     # Build .pio/build/esp32dev/littlefs.bin with automatic .gz compression:
+     & "C:\Users\mgabr\.platformio\penv\Scripts\pio.exe" run -e esp32dev -t buildfs
+
+     # Build and upload .gz-optimized LittleFS via PlatformIO:
+     $env:PYTHONIOENCODING="utf-8"
+     & "C:\Users\mgabr\.platformio\penv\Scripts\pio.exe" run -e esp32dev -t uploadfs
+     ```
+  3. **In VS Code (PlatformIO GUI)**:
+     - Click **Project Tasks -> esp32dev -> Platform -> Build Filesystem Image** or **Upload Filesystem Image**. The `pre:tools/gzip_littlefs.py` hook runs automatically before `mklittlefs`.
 
 Important:
 
-- The web UI will not work until the LittleFS image from `data/` has been uploaded.
+- The web UI will not work until the LittleFS image has been uploaded.
+- Keep all text files in `data/` encoded as clean UTF-8 (without BOM).
 - This project uses Arduino as a managed ESP-IDF component. Do not add a second `components/arduino`.
 
 ## Bluetooth and Wi-Fi Coexistence
@@ -283,14 +338,16 @@ Persistent configuration is stored in `/config.json` on LittleFS.
 
 Main config groups:
 
+- Control GUI mode (`gui_mode`: `"basic"`, `"drive"`, `"arm"`)
+- Legacy board v1 switch (`legacy_board`)
 - Wi-Fi mode, SSIDs, passwords
-- motor inversion and deadband
-- GUI motor pair selection
-- motor frequency
-- servo pulse width limits
-- LED count
+- Motor inversion and deadband
+- GUI drive motor pair (`motor_left_gui`, `motor_right_gui`) and gripper motor (`motor_gripper_gui`)
+- Motor frequency
+- Servo pulse width limits
+- LED count, brightness, and gamma
 - Bluetooth scan timing
-- drive profile and motor curve
+- Drive profile and motor curve
 - `control_bindings`
 
 The HTTP and WebSocket API is documented in [`API.md`](API.md).
@@ -319,7 +376,7 @@ The HTTP and WebSocket API is documented in [`API.md`](API.md).
 
 ## Credits and Support
 
-The board and software were created at FabLab Lubeck:
+The board and software were created at FabLab Lübeck:
 
 - Andre: hardware
 - Marco: software

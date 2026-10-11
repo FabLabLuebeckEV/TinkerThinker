@@ -28,6 +28,9 @@ void ConfigManager::setDefaults() {
     motor_swap = false;
     motorLeftGUI = 2;
     motorRightGUI = 3;
+    motorGripperGUI = 0;
+    gui_mode = "basic";
+    legacy_board = LEGACY_BOARD_DEFAULT;
     for (int i = 0; i < 4; i++) motor_deadband[i] = 50;
     led_count = 30;
     led_brightness = 50;
@@ -89,6 +92,9 @@ bool ConfigManager::loadConfig() {
     // Motor GUI
     motorLeftGUI = doc["motor_left_gui"] | 2;
     motorRightGUI = doc["motor_right_gui"] | 3;
+    motorGripperGUI = doc["motor_gripper_gui"] | 0;
+    setGuiMode(String((const char*)(doc["gui_mode"] | "basic")));
+    legacy_board = doc["legacy_board"] | LEGACY_BOARD_DEFAULT;
     led_count = doc["led_count"] | 30;
     led_brightness = doc["led_brightness"] | 50;
     led_gamma = doc["led_gamma"] | false;
@@ -173,9 +179,12 @@ bool ConfigManager::saveConfig() {
 
     doc["motor_swap"] = motor_swap;
 
-    // Motor GUI
+    // Motor GUI & Mode
     doc["motor_left_gui"] = motorLeftGUI;
     doc["motor_right_gui"] = motorRightGUI;
+    doc["motor_gripper_gui"] = motorGripperGUI;
+    doc["gui_mode"] = gui_mode;
+    doc["legacy_board"] = legacy_board;
 
     JsonArray dbArr = doc["motor_deadband"].to<JsonArray>();
     for (int i=0; i<4; i++) dbArr.add(motor_deadband[i]);
@@ -231,7 +240,7 @@ bool ConfigManager::saveConfig() {
     for (const auto& mac : bt_whitelist) wlArr.add(mac);
 
     if (doc.overflowed()) {
-        Serial.println("saveConfig: JSON-Dokument zu klein (overflow) – NICHT gespeichert");
+        Serial.println("saveConfig: JSON-Dokument zu klein (overflow) - NICHT gespeichert");
         return false;
     }
 
@@ -287,6 +296,7 @@ bool ConfigManager::getMotorInvert(int index) { return motor_invert[index]; }
 bool ConfigManager::getMotorSwap() { return motor_swap; }
 int ConfigManager::getMotorLeftGUI() { return motorLeftGUI; }
 int ConfigManager::getMotorRightGUI() { return motorRightGUI; }
+int ConfigManager::getMotorGripperGUI() { return motorGripperGUI; }
 int ConfigManager::getLedCount() { return led_count; }
 int ConfigManager::getLedBrightness() { return led_brightness; }
 bool ConfigManager::getLedGamma() { return led_gamma; }
@@ -320,6 +330,14 @@ void ConfigManager::setMotorInvert(int index, bool inv) { motor_invert[index] = 
 void ConfigManager::setMotorSwap(bool swap) { motor_swap = swap; }
 void ConfigManager::setMotorLeftGUI(int motorIndex){ motorLeftGUI = motorIndex; }
 void ConfigManager::setMotorRightGUI(int motorIndex){ motorRightGUI = motorIndex; }
+void ConfigManager::setMotorGripperGUI(int motorIndex){ motorGripperGUI = constrain(motorIndex, 0, 3); }
+void ConfigManager::setGuiMode(const String& mode){
+    if (mode == "drive" || mode == "arm" || mode == "basic") {
+        gui_mode = mode;
+    } else {
+        gui_mode = "basic";
+    }
+}
 void ConfigManager::setLedCount(int count){ led_count = count; }
 void ConfigManager::setLedBrightness(int value){
     if (value < 0) value = 0;

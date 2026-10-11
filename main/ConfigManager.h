@@ -6,6 +6,10 @@
 #include <LittleFS.h>
 #include <vector>
 
+#ifndef LEGACY_BOARD_DEFAULT
+#define LEGACY_BOARD_DEFAULT false
+#endif
+
 class ConfigManager {
 public:
     ConfigManager();
@@ -24,6 +28,10 @@ public:
     bool getMotorSwap();
     int getMotorLeftGUI();
     int getMotorRightGUI();
+    int getMotorGripperGUI();
+    String getGuiMode() const { return gui_mode; }
+    bool isLegacyBoard() const { return legacy_board; }
+    int getActiveServoCount() const { return legacy_board ? 3 : 7; }
     int getLedCount();
     int getLedBrightness();
     bool getLedGamma();
@@ -77,6 +85,9 @@ public:
     void setMotorDeadband(int index, int val);
     void setMotorLeftGUI(int motorIndex);
     void setMotorRightGUI(int motorIndex);
+    void setMotorGripperGUI(int motorIndex);
+    void setGuiMode(const String& mode);
+    void setLegacyBoard(bool enabled) { legacy_board = enabled; }
 
     void setServoPulsewidthRange(int index, int min_pw, int max_pw);
 
@@ -114,6 +125,9 @@ private:
     int motor_frequency[4];
     int motorLeftGUI = 2;
     int motorRightGUI = 3;
+    int motorGripperGUI = 0;
+    String gui_mode = "basic";
+    bool legacy_board = LEGACY_BOARD_DEFAULT;
     String wifi_mode;
     String wifi_ssid;
     String wifi_password;

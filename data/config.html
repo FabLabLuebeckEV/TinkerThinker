@@ -27,6 +27,40 @@
 
     <form id="configForm" method="post" action="/config">
 
+    <!-- Roboter-Typ / Steuerungs-Oberflaeche & Board-Revision -->
+    <section>
+      <h2>Roboter-Typ &amp; Hardware</h2>
+      <div class="row" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:10px;">
+        <label for="gui_mode">
+          Steuerungs-Ansicht:
+          <span class="tooltip">i
+            <span class="tooltiptext">
+              Legt fest, welche Oberfläche im Tab "Steuerung" angezeigt wird und passt das Setup an (Workshop-Roboter Basic, Erweiterter Fahr-Roboter oder Roboter-Arm).
+            </span>
+          </span>
+        </label>
+        <select name="gui_mode" id="gui_mode">
+          <option value="basic">Workshop-Roboter (Basic - Standard)</option>
+          <option value="drive">Fahr-Roboter (Erweitert)</option>
+          <option value="arm">Roboter-Arm</option>
+        </select>
+        <span id="gui_mode_status" style="font-size:12px; color:#2e7d32;"></span>
+      </div>
+      <div class="row" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+        <label for="legacy_board">
+          Älteres Board (v1):
+          <span class="tooltip">i
+            <span class="tooltiptext">
+              Aktivieren für ältere Platinen ohne MODE-Button: Nutzt Pin 39 als Motorfehler-Eingang (statt MODE-Taster) und begrenzt die Servos auf 3 Kanäle.
+            </span>
+          </span>
+        </label>
+        <input type="checkbox" name="legacy_board" id="legacy_board">
+        <span style="font-size:13px; color:#555;">Motor-Fehler an Pin 39 statt MODE-Button, 3 Servos</span>
+        <span id="legacy_board_status" style="font-size:12px; color:#2e7d32;"></span>
+      </div>
+    </section>
+
     <!-- WLAN Einstellungen -->
     <section>
       <h2>WLAN Einstellungen</h2>
@@ -96,11 +130,36 @@
     <!-- Motor Einstellungen -->
     <section>
       <h2>Motor Einstellungen</h2>
+      <div class="row" style="display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-bottom:10px;">
+        <label for="motor_left_gui">Linker Ketten-/Fahrmotor:</label>
+        <select name="motor_left_gui" id="motor_left_gui" style="width:130px;">
+          <option value="0">Motor A</option>
+          <option value="1">Motor B</option>
+          <option value="2">Motor C</option>
+          <option value="3">Motor D</option>
+        </select>
+
+        <label for="motor_right_gui">Rechter Ketten-/Fahrmotor:</label>
+        <select name="motor_right_gui" id="motor_right_gui" style="width:130px;">
+          <option value="0">Motor A</option>
+          <option value="1">Motor B</option>
+          <option value="2">Motor C</option>
+          <option value="3">Motor D</option>
+        </select>
+
+        <label for="motor_gripper_gui">Greifer-Motor:</label>
+        <select name="motor_gripper_gui" id="motor_gripper_gui" style="width:130px;">
+          <option value="0">Motor A</option>
+          <option value="1">Motor B</option>
+          <option value="2">Motor C</option>
+          <option value="3">Motor D</option>
+        </select>
+      </div>
       <label for="motor_swap">
-        Motor seiten wechseln (C/D):
+        Motor seiten wechseln (Links/Rechts):
         <span class="tooltip">i
           <span class="tooltiptext">
-            Aktiviert die Vertauschung der Motoren C und D, also der linken und rechten Seite. Nützlich, wenn die Motoren physisch vertauscht sind zur Webseite.
+            Aktiviert die Vertauschung des linken und rechten Fahrmotors. Nützlich, wenn die Motoren physisch vertauscht sind zur Webseite.
           </span>
         </span>
       </label>
@@ -276,7 +335,7 @@
     <input type="submit" value="Speichern">
     </form>
 
-    <!-- Controller Whitelist – eigene REST-Logik, außerhalb des Hauptformulars -->
+    <!-- Controller Whitelist - eigene REST-Logik, außerhalb des Hauptformulars -->
     <section id="bt-whitelist-section" style="margin-top:20px;">
       <h2>Controller (Bluetooth Whitelist)</h2>
 
@@ -292,7 +351,7 @@
         <input type="checkbox" id="bt_whitelist_enabled">
       </div>
 
-      <!-- Verbundene Controller – immer sichtbar, zeigt MACs zum Kopieren -->
+      <!-- Verbundene Controller - immer sichtbar, zeigt MACs zum Kopieren -->
       <div id="bt-connected-panel" style="margin-bottom:16px;">
         <h3>Aktuell verbundene Controller</h3>
         <p style="color:#555; font-size:0.9em;">
@@ -300,7 +359,7 @@
           Klicke auf <strong>+ Zur Whitelist</strong>, um die MAC-Adresse direkt zu übernehmen.
         </p>
         <div id="bt-connected-list">
-          <p style="color:#888; font-style:italic;">Lade Controller-Status…</p>
+          <p style="color:#888; font-style:italic;">Lade Controller-Status...</p>
         </div>
         <button type="button" onclick="btLoadControllers()" style="margin-top:6px; background:#6c757d; font-size:0.85em; padding:6px 12px;">
           Aktualisieren
@@ -311,7 +370,7 @@
       <div>
         <h3>Whitelist-Einträge</h3>
         <div id="bt-whitelist-entries">
-          <p style="color:#888; font-style:italic;">Lade Whitelist…</p>
+          <p style="color:#888; font-style:italic;">Lade Whitelist...</p>
         </div>
         <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top:10px;">
           <input type="text" id="bt-mac-input" placeholder="XX:XX:XX:XX:XX:XX" maxlength="17"
@@ -333,6 +392,36 @@
       <button onclick="resetConfig()">Auf Werkseinstellungen zurücksetzen</button>
       <button onclick="reboot()">Neustarten</button>
     </div>
+
+    <!-- TinkerThinker Projekt-Info & GitHub Link -->
+    <section id="about-tinkerthinker" style="margin-top:24px; padding:16px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px;">
+      <h2 style="margin-bottom:8px;">Über TinkerThinker &amp; GitHub</h2>
+      <p style="color:#475569; font-size:0.92em; line-height:1.5; margin-bottom:12px;">
+        <strong>TinkerThinker</strong> ist die Open-Source-Roboterplattform aus dem <strong>FabLab Lübeck e.V.</strong>
+        Auf GitHub findest du die komplette Dokumentation, Firmware-Releases, 3D-Druck-Modelle (CAD) und Platinen-Daten (PCB).
+      </p>
+      <div style="display:flex; flex-direction:column; gap:10px; font-size:0.92em;">
+        <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; background:#ffffff; padding:10px 12px; border:1px solid #cbd5e1; border-radius:8px;">
+          <div>
+            <strong>GitHub Repository:</strong><br>
+            <a href="https://github.com/FabLabLuebeckEV/TinkerThinker" target="_blank" rel="noopener" style="color:#0284c7; font-weight:600; word-break:break-all;">
+              https://github.com/FabLabLuebeckEV/TinkerThinker
+            </a>
+          </div>
+          <button type="button" onclick="navigator.clipboard && navigator.clipboard.writeText('https://github.com/FabLabLuebeckEV/TinkerThinker'); this.textContent='✓ Kopiert';" style="margin:0; padding:6px 12px; font-size:0.85em; background:#0284c7;">
+            Link kopieren
+          </button>
+        </div>
+        <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; background:#ffffff; padding:10px 12px; border:1px solid #cbd5e1; border-radius:8px;">
+          <div>
+            <strong>Steuerungs-Adressen im WLAN:</strong><br>
+            <code style="color:#0369a1; font-weight:700;">http://tinker.local</code> (Apple / mDNS) &middot;
+            <code style="color:#0369a1; font-weight:700;">http://192.168.4.1</code> (Hotspot-IP)
+          </div>
+          <a href="/portal" style="color:#0284c7; font-weight:600; text-decoration:none; font-size:0.9em;">WLAN-Startseite →</a>
+        </div>
+      </div>
+    </section>
   </div>
 
   <!-- Popup für Neustart -->
