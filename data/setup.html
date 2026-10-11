@@ -5,6 +5,309 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Ersteinrichtung - TinkerThinker</title>
     <link rel="stylesheet" href="/styles.css">
+    <style>
+        .setup-shell {
+            max-width: 780px;
+            margin: 0 auto;
+        }
+        .step-badge {
+            display: inline-block;
+            background: #e0f2fe;
+            color: #0369a1;
+            border: 1px solid #bae6fd;
+            font-size: 0.78rem;
+            font-weight: 800;
+            padding: 3px 10px;
+            border-radius: 999px;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+        .port-sensor-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 5px 12px;
+            border-radius: 999px;
+            font-size: 0.82rem;
+            font-weight: 800;
+            margin-bottom: 10px;
+        }
+        .port-sensor-badge.no-sensor {
+            background: #f1f5f9;
+            color: #334155;
+            border: 1px solid #cbd5e1;
+        }
+        .port-sensor-badge.has-sensor {
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #fcd34d;
+        }
+        /* Visual Arm Reference Card */
+        .arm-diagram-card {
+            background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
+            color: #f8fafc;
+            border-radius: 14px;
+            padding: 14px 16px;
+            margin-bottom: 16px;
+            border: 1px solid #334155;
+            box-shadow: 0 8px 20px rgba(15, 23, 42, 0.18);
+        }
+        .arm-diagram-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+        .arm-diagram-title {
+            font-size: 0.95rem;
+            font-weight: 800;
+            color: #38bdf8;
+        }
+        .arm-diagram-sub {
+            font-size: 0.78rem;
+            color: #94a3b8;
+        }
+        .arm-diagram-layout {
+            display: grid;
+            grid-template-columns: 1.15fr 1fr;
+            gap: 14px;
+            align-items: center;
+        }
+        @media (max-width: 640px) {
+            .arm-diagram-layout {
+                grid-template-columns: 1fr;
+            }
+        }
+        .arm-svg-wrap {
+            background: rgba(15, 23, 42, 0.65);
+            border: 1px solid #334155;
+            border-radius: 12px;
+            padding: 8px;
+            text-align: center;
+        }
+        .arm-svg-wrap svg {
+            width: 100%;
+            max-width: 340px;
+            height: auto;
+            display: block;
+            margin: 0 auto;
+        }
+        .arm-legend-list {
+            display: flex;
+            flex-direction: column;
+            gap: 7px;
+        }
+        .arm-legend-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            background: rgba(30, 41, 59, 0.85);
+            border: 1px solid #334155;
+            border-radius: 9px;
+            padding: 7px 10px;
+            font-size: 0.82rem;
+            transition: all 0.2s ease;
+        }
+        .arm-legend-item.active-joint {
+            border-color: #38bdf8;
+            background: rgba(14, 116, 144, 0.35);
+            box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.25);
+        }
+        .arm-legend-item.assigned-joint {
+            border-color: #10b981;
+        }
+        .arm-legend-left {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            text-align: left;
+        }
+        .num-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            font-weight: 800;
+            font-size: 0.82rem;
+            flex-shrink: 0;
+            color: #0f172a;
+        }
+        .num-1 { background: #38bdf8; }
+        .num-2 { background: #f59e0b; }
+        .num-3 { background: #10b981; }
+        .num-4 { background: #a855f7; color: #fff; }
+        .num-5 { background: #f43f5e; color: #fff; }
+
+        .arm-legend-name {
+            font-weight: 700;
+            color: #f1f5f9;
+            line-height: 1.2;
+        }
+        .arm-legend-req {
+            font-size: 0.72rem;
+            color: #94a3b8;
+            display: block;
+        }
+        .arm-legend-status {
+            font-size: 0.74rem;
+            font-weight: 800;
+            padding: 2px 8px;
+            border-radius: 999px;
+            background: #1e293b;
+            color: #94a3b8;
+            border: 1px solid #475569;
+            white-space: nowrap;
+        }
+        .arm-legend-status.done {
+            background: rgba(16, 185, 129, 0.2);
+            color: #34d399;
+            border-color: #059669;
+        }
+
+        /* Choice Buttons for Arm Joints */
+        .role-choice-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 12px;
+        }
+        @media (max-width: 540px) {
+            .role-choice-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        .role-choice-btn {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 14px;
+            border-radius: 10px;
+            border: 2px solid #cbd5e1;
+            background: #ffffff;
+            color: #0f172a;
+            font-weight: 700;
+            font-size: 0.92rem;
+            text-align: left;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .role-choice-btn:hover {
+            border-color: #0284c7;
+            background: #f0f9ff;
+            transform: translateY(-1px);
+        }
+        .role-choice-btn .role-sub {
+            display: block;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #64748b;
+            margin-top: 2px;
+        }
+        .role-choice-btn.none-btn {
+            grid-column: 1 / -1;
+            justify-content: center;
+            background: #f8fafc;
+            color: #475569;
+            border-style: dashed;
+        }
+
+        /* Error Box ("Hey, Fehler!") */
+        .port-error-box {
+            display: none;
+            background: #fef2f2;
+            border: 2px solid #ef4444;
+            border-radius: 12px;
+            padding: 16px;
+            margin-top: 14px;
+            color: #7f1d1d;
+            text-align: left;
+            box-shadow: 0 8px 20px rgba(239, 68, 68, 0.15);
+        }
+        .port-error-box h3 {
+            margin: 0 0 8px 0;
+            color: #b91c1c;
+            font-size: 1.08rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .port-error-box p {
+            margin: 6px 0;
+            font-size: 0.9rem;
+            line-height: 1.45;
+        }
+        .port-error-steps {
+            background: #ffffff;
+            border: 1px solid #fca5a5;
+            border-radius: 8px;
+            padding: 10px 14px;
+            margin: 10px 0 14px 0;
+            font-size: 0.86rem;
+        }
+        .port-error-steps ol {
+            margin: 4px 0 0 18px;
+            padding: 0;
+        }
+        .port-error-steps li {
+            margin-bottom: 5px;
+        }
+        .btn-restart-error {
+            background: #dc2626 !important;
+            color: #ffffff !important;
+            font-weight: 800;
+            width: 100%;
+            padding: 12px;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            font-size: 0.95rem;
+        }
+        .btn-restart-error:hover {
+            background: #b91c1c !important;
+        }
+        .test-pulse-btn {
+            background: #0284c7;
+            color: #fff;
+            font-weight: 800;
+            padding: 12px 20px;
+            border-radius: 10px;
+            font-size: 1rem;
+        }
+        .servo-setup-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 12px;
+            margin: 14px 0;
+            text-align: left;
+        }
+        .servo-setup-box {
+            background: #f8fafc;
+            border: 1px solid #cbd5e1;
+            border-radius: 10px;
+            padding: 12px;
+        }
+        .servo-setup-box label {
+            display: block;
+            font-size: 0.82rem;
+            font-weight: 700;
+            color: #334155;
+            margin-bottom: 6px;
+        }
+        .servo-setup-box input, .servo-setup-box select {
+            width: 100%;
+            padding: 8px;
+            border-radius: 6px;
+            border: 1px solid #94a3b8;
+            font-size: 0.95rem;
+            box-sizing: border-box;
+        }
+    </style>
 </head>
 <body>
 
@@ -17,13 +320,146 @@
     </ul>
   </nav>
 
-  <div id="connectionStatus" style="margin-bottom: 20px; font-weight: bold;">
+  <div id="connectionStatus" style="margin-bottom: 14px; font-weight: bold;">
     WebSocket Status: <span style="color: green;">verbunden</span>
   </div>
 
-<div id="wizard" class="controls">
+<div id="wizard" class="controls setup-shell">
 
+    <!-- Dauerhafte visuelle Nummerierungs-Karte im Roboter-Arm-Modus -->
+    <div id="armSetupDiagramCard" class="arm-diagram-card" style="display: none;">
+        <div class="arm-diagram-header">
+            <div>
+                <div class="arm-diagram-title">🦾 Roboter-Arm Aufbau &amp; Nummerierung (① bis ⑤)</div>
+                <div class="arm-diagram-sub">Stromsensoren sitzen auf <strong>Motor A &amp; B</strong> (für ② &amp; ③). Wir starten mit <strong>Motor C &amp; D</strong> (ohne Sensor, für ① &amp; ④).</div>
+            </div>
+        </div>
+        <div class="arm-diagram-layout">
+            <div class="arm-svg-wrap">
+                <svg viewBox="0 0 340 250" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <linearGradient id="baseGrad" x1="0" y1="0" x2="1" y2="0">
+                            <stop offset="0%" stop-color="#334155"/>
+                            <stop offset="100%" stop-color="#475569"/>
+                        </linearGradient>
+                    </defs>
+                    <!-- Bodenlinie -->
+                    <line x1="20" y1="230" x2="320" y2="230" stroke="#475569" stroke-width="3" stroke-linecap="round"/>
+
+                    <!-- 1: Basis (Drehkranz) -->
+                    <g id="svgPart_base">
+                        <rect x="95" y="206" width="110" height="22" rx="6" fill="url(#baseGrad)" stroke="#38bdf8" stroke-width="2.5"/>
+                        <rect x="115" y="190" width="70" height="18" rx="4" fill="#1e293b" stroke="#38bdf8" stroke-width="2"/>
+                        <!-- Drehpfeil Basis -->
+                        <path d="M 105 217 Q 150 225 195 217" fill="none" stroke="#38bdf8" stroke-width="1.8" stroke-dasharray="3,2"/>
+                        <circle cx="80" cy="215" r="13" fill="#38bdf8"/>
+                        <text x="80" y="220" text-anchor="middle" fill="#0f172a" font-weight="900" font-size="13">1</text>
+                    </g>
+
+                    <!-- 2: Arm 1 (Unterarm / Schulter) -->
+                    <g id="svgPart_arm1">
+                        <line x1="150" y1="186" x2="122" y2="118" stroke="#f59e0b" stroke-width="14" stroke-linecap="round"/>
+                        <line x1="150" y1="186" x2="122" y2="118" stroke="#fef3c7" stroke-width="4" stroke-linecap="round" opacity="0.5"/>
+                        <circle cx="150" cy="186" r="9" fill="#0f172a" stroke="#f59e0b" stroke-width="3"/>
+                        <circle cx="102" cy="154" r="13" fill="#f59e0b"/>
+                        <text x="102" y="159" text-anchor="middle" fill="#0f172a" font-weight="900" font-size="13">2</text>
+                    </g>
+
+                    <!-- 3: Arm 2 (Mittelarm / Ellbogen) -->
+                    <g id="svgPart_arm2">
+                        <line x1="122" y1="118" x2="188" y2="74" stroke="#10b981" stroke-width="12" stroke-linecap="round"/>
+                        <line x1="122" y1="118" x2="188" y2="74" stroke="#d1fae5" stroke-width="3.5" stroke-linecap="round" opacity="0.5"/>
+                        <circle cx="122" cy="118" r="8" fill="#0f172a" stroke="#10b981" stroke-width="3"/>
+                        <circle cx="148" cy="76" r="13" fill="#10b981"/>
+                        <text x="148" y="81" text-anchor="middle" fill="#0f172a" font-weight="900" font-size="13">3</text>
+                    </g>
+
+                    <!-- Gelbes Bauteil rechts am Handgelenk-Gelenk (Blockade rechts) -->
+                    <g id="svgYellowBlock">
+                        <rect x="197" y="64" width="22" height="16" rx="4" fill="#facc15" stroke="#ca8a04" stroke-width="2"/>
+                        <text x="230" y="75" fill="#fde047" font-size="9.5" font-weight="700" text-anchor="start">Gelbes Bauteil</text>
+                        <text x="230" y="86" fill="#94a3b8" font-size="8.5" text-anchor="start">(nicht überfahren!)</text>
+                    </g>
+
+                    <!-- 4: Arm 3 (Handgelenk / Oberarm - dreht nach oben & links) -->
+                    <g id="svgPart_arm3">
+                        <line x1="188" y1="74" x2="188" y2="28" stroke="#a855f7" stroke-width="10" stroke-linecap="round"/>
+                        <circle cx="188" cy="74" r="7" fill="#0f172a" stroke="#a855f7" stroke-width="2.5"/>
+                        <!-- Pfeil über linke Seite -->
+                        <path d="M 176 34 Q 154 44 156 68" fill="none" stroke="#c084fc" stroke-width="1.8" stroke-dasharray="3,2"/>
+                        <circle cx="212" cy="42" r="13" fill="#a855f7"/>
+                        <text x="212" y="47" text-anchor="middle" fill="#ffffff" font-weight="900" font-size="13">4</text>
+                    </g>
+
+                    <!-- 5: Greifer (Servo) -->
+                    <g id="svgPart_gripper">
+                        <path d="M 176 26 L 170 12 L 180 8" fill="none" stroke="#f43f5e" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M 200 26 L 206 12 L 196 8" fill="none" stroke="#f43f5e" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+                        <circle cx="188" cy="26" r="5" fill="#f43f5e"/>
+                        <circle cx="152" cy="18" r="13" fill="#f43f5e"/>
+                        <text x="152" y="23" text-anchor="middle" fill="#ffffff" font-weight="900" font-size="13">5</text>
+                    </g>
+                </svg>
+            </div>
+
+            <div class="arm-legend-list">
+                <div class="arm-legend-item" id="legend_base">
+                    <div class="arm-legend-left">
+                        <span class="num-badge num-1">1</span>
+                        <div>
+                            <span class="arm-legend-name">Basis (Drehkranz)</span>
+                            <span class="arm-legend-req">360° frei · <strong>Motor C / D</strong> (ohne Sensor)</span>
+                        </div>
+                    </div>
+                    <span class="arm-legend-status" id="status_base">Offen</span>
+                </div>
+                <div class="arm-legend-item" id="legend_arm1">
+                    <div class="arm-legend-left">
+                        <span class="num-badge num-2">2</span>
+                        <div>
+                            <span class="arm-legend-name">Arm 1 (Unterarm)</span>
+                            <span class="arm-legend-req">⚡ <strong>Motor A / B</strong> (MIT Stromsensor!)</span>
+                        </div>
+                    </div>
+                    <span class="arm-legend-status" id="status_arm1">Offen</span>
+                </div>
+                <div class="arm-legend-item" id="legend_arm2">
+                    <div class="arm-legend-left">
+                        <span class="num-badge num-3">3</span>
+                        <div>
+                            <span class="arm-legend-name">Arm 2 (Mittelarm)</span>
+                            <span class="arm-legend-req">⚡ <strong>Motor A / B</strong> (MIT Stromsensor!)</span>
+                        </div>
+                    </div>
+                    <span class="arm-legend-status" id="status_arm2">Offen</span>
+                </div>
+                <div class="arm-legend-item" id="legend_arm3">
+                    <div class="arm-legend-left">
+                        <span class="num-badge num-4">4</span>
+                        <div>
+                            <span class="arm-legend-name">Arm 3 (Handgelenk)</span>
+                            <span class="arm-legend-req">Links vom gelben Teil · <strong>Motor C / D</strong></span>
+                        </div>
+                    </div>
+                    <span class="arm-legend-status" id="status_arm3">Offen</span>
+                </div>
+                <div class="arm-legend-item" id="legend_gripper">
+                    <div class="arm-legend-left">
+                        <span class="num-badge num-5">5</span>
+                        <div>
+                            <span class="arm-legend-name">Greifer (Servo)</span>
+                            <span class="arm-legend-req">Servo-Anschluss (Auf / Zu)</span>
+                        </div>
+                    </div>
+                    <span class="arm-legend-status" id="status_gripper">Servo 1</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Schritt 1: Modus & WLAN -->
     <div class="step active" id="step1">
+        <span class="step-badge">Schritt 1 · Grundeinstellungen</span>
         <h1><span id="deviceName">TinkerThinker</span> Grundeinstellungen</h1>
         <p>Wähle den Roboter-Typ (Steuerungs-Oberfläche) und gib den Namen für das WLAN des Roboters ein.</p>
         <div class="form-group" style="margin-bottom: 14px;">
@@ -31,7 +467,7 @@
             <select id="gui_mode">
                 <option value="basic">Workshop-Roboter (Basic - Standard)</option>
                 <option value="drive">Fahr-Roboter (Erweitert)</option>
-                <option value="arm">Roboter-Arm</option>
+                <option value="arm">Roboter-Arm (mit Nummerierung ①-⑤)</option>
             </select>
         </div>
         <div class="form-group">
@@ -39,39 +475,45 @@
             <input type="text" id="wifi_name" placeholder="TinkerThinker">
         </div>
         <div class="button-bar">
-            <button onclick="goToStep(2)">Weiter</button>
+            <button onclick="goToStep(2)">Weiter →</button>
         </div>
     </div>
 
+    <!-- Schritt 2: Übersicht & Start -->
     <div class="step" id="step2">
+        <span class="step-badge">Schritt 2 · Vorbereitung</span>
         <h1><span id="deviceName2">TinkerThinker</span> Ersteinrichtung</h1>
-        <p id="setupIntroText">In diesem Assistenten konfigurieren wir die Kettenmotoren (Links/Rechts) und den Greifer-Motor (Auf/Zu) sowie das Deadband für jeden angeschlossenen Motor. Nicht belegte Motoren ("Kein Motor") werden automatisch übersprungen.</p>
+        <p id="setupIntroText">In diesem Assistenten konfigurieren wir die Motoren und das Deadband für jeden angeschlossenen Motor.</p>
+        <div id="armSetupHintBox" style="display:none; background:#fffbeb; border:1px solid #fde68a; border-radius:10px; padding:12px 14px; margin:12px 0; text-align:left; color:#78350f; font-size:0.88rem;">
+            <strong>💡 Wichtig vor dem Start beim Roboter-Arm:</strong>
+            <ul style="margin:6px 0 0 18px; padding:0;">
+                <li>Wir starten absichtlich mit <strong>Motor C und Motor D (OHNE Stromsensor)</strong>: Hier müssen <strong>① Basis</strong> und <strong>④ Arm 3 (Handgelenk)</strong> angeschlossen sein.</li>
+                <li>Danach testen wir <strong>Motor A und Motor B (⚡ MIT Stromsensor)</strong>: Hier müssen zwingend <strong>② Arm 1 (Unterarm)</strong> und <strong>③ Arm 2 (Mittelarm)</strong> stecken!</li>
+                <li>Falls ein Motor am falschen Anschluss steckt, warnt dich der Assistent sofort („Hey, Fehler!“), damit du das Kabel umstecken und neu starten kannst.</li>
+            </ul>
+        </div>
         <div class="button-bar">
-            <button onclick="goToStep(3)">Setup starten</button>
+            <button class="test-pulse-btn" onclick="startMotorWizard()">🚀 Setup jetzt starten</button>
         </div>
     </div>
 
     <!-- Motor A -->
     <div class="step" id="step3">
+        <div id="sensorBadgeA" class="port-sensor-badge has-sensor">⚡ Motor A · Anschluss MIT Stromsensor (Sensor 2)</div>
         <h2>Motor A Zuordnung</h2>
-        <p>Wir bewegen jetzt Motor A vorwärts. Bitte beobachte, welcher Motor sich bewegt, und klicke dann auf den entsprechenden Button.</p>
+        <p id="testDescA">Klicke auf „Motor A testen“ und beobachte am Roboter, welches Teil (① bis ④) sich bewegt.</p>
         <div class="button-bar">
-            <button onclick="testMotor('A')">Motor A testen (1s)</button>
+            <button class="test-pulse-btn" onclick="testMotor('A')">▶ Motor A testen (1s)</button>
         </div>
-        <div id="motorAQuestion" style="display:none;">
-            <p>Welcher Motor hat sich bewegt?</p>
-            <button onclick="motorMoved('A','left')">Linker Motor</button>
-            <button onclick="motorMoved('A','right')">Rechter Motor</button>
-            <button onclick="motorMoved('A','gripp')">Greifer Motor</button>
-            <button onclick="motorMoved('A','none')">Kein Motor</button>
-        </div>
+        <div id="motorAQuestion" style="display:none;"></div>
+        <div id="portErrorA" class="port-error-box"></div>
     </div>
 
     <div class="step" id="step4">
         <h2 id="dirTitleA">Fahrtrichtung Motor A</h2>
-        <p id="dirPromptA">Fährt der Roboter bei "Motor A vorwärts" tatsächlich vorwärts (bzw. Greifer Auf) oder rückwärts (bzw. Greifer Zu)?</p>
+        <p id="dirPromptA">Fährt der Roboter bei „Motor A vorwärts“ tatsächlich vorwärts oder rückwärts?</p>
         <div class="button-bar">
-            <button onclick="testDirection('A','forward')">Motor A testen (1s)</button>
+            <button class="test-pulse-btn" onclick="testDirection('A','forward')">▶ Motor A nochmals testen (1s)</button>
         </div>
         <div class="button-bar">
             <button id="dirFwdBtnA" onclick="directionChosen('A','forward')">Vorwärts</button>
@@ -80,37 +522,33 @@
     </div>
 
     <div class="step" id="step5">
-        <h2>Deadband Motor A</h2>
-        <p>Bewege den Slider nach oben. Wenn du "Test" drückst, wird der Motor mit diesem PWM-Wert angesteuert. Sobald sich der Motor minimal bewegt, klicke auf "Übernehmen".</p>
+        <h2>Anlauf-Schwelle (Deadband) Motor A</h2>
+        <p>Falls der Motor bei kleinen Werten nur summt: Regler hochziehen und „Test“ drücken, bis er gerade anläuft (oder bei 0 belassen) und „Übernehmen“ klicken.</p>
         <div class="slider-container">
           <input type="range" min="0" max="255" value="0" id="db_slider_A">
           <span id="db_value_A">0</span>
           <button onclick="testDeadband('A')">Test (1s)</button>
         </div>
-        <p><button onclick="confirmDeadband('A')">Übernehmen</button></p>
+        <p><button onclick="confirmDeadband('A')">Übernehmen →</button></p>
     </div>
 
     <!-- Motor B -->
     <div class="step" id="step6">
+        <div id="sensorBadgeB" class="port-sensor-badge has-sensor">⚡ Motor B · Anschluss MIT Stromsensor (Sensor 1)</div>
         <h2>Motor B Zuordnung</h2>
-        <p>Gleiches Spiel wie bei A.</p>
+        <p id="testDescB">Klicke auf „Motor B testen“ und beobachte am Roboter, welches Teil sich bewegt.</p>
         <div class="button-bar">
-            <button onclick="testMotor('B')">Motor B testen (1s)</button>
+            <button class="test-pulse-btn" onclick="testMotor('B')">▶ Motor B testen (1s)</button>
         </div>
-        <div id="motorBQuestion" style="display:none;">
-            <p>Welcher Motor hat sich bewegt?</p>
-            <button onclick="motorMoved('B','left')">Linker Motor</button>
-            <button onclick="motorMoved('B','right')">Rechter Motor</button>
-            <button onclick="motorMoved('B','gripp')">Greifer Motor</button>
-            <button onclick="motorMoved('B','none')">Kein Motor</button>
-        </div>
+        <div id="motorBQuestion" style="display:none;"></div>
+        <div id="portErrorB" class="port-error-box"></div>
     </div>
 
     <div class="step" id="step7">
         <h2 id="dirTitleB">Fahrtrichtung Motor B</h2>
-        <p id="dirPromptB">Fährt der Roboter bei "Motor B vorwärts" tatsächlich vorwärts (bzw. Greifer Auf) oder rückwärts (bzw. Greifer Zu)?</p>
+        <p id="dirPromptB">Fährt der Roboter bei „Motor B vorwärts“ tatsächlich vorwärts oder rückwärts?</p>
         <div class="button-bar">
-            <button onclick="testDirection('B','forward')">Motor B testen (1s)</button>
+            <button class="test-pulse-btn" onclick="testDirection('B','forward')">▶ Motor B nochmals testen (1s)</button>
         </div>
         <div class="button-bar">
             <button id="dirFwdBtnB" onclick="directionChosen('B','forward')">Vorwärts</button>
@@ -119,35 +557,33 @@
     </div>
 
     <div class="step" id="step8">
-        <h2>Deadband Motor B</h2>
+        <h2>Anlauf-Schwelle (Deadband) Motor B</h2>
+        <p>Optional: Minimale Anlauf-Schwelle testen oder direkt auf „Übernehmen“ klicken.</p>
         <div class="slider-container">
           <input type="range" min="0" max="255" value="0" id="db_slider_B">
           <span id="db_value_B">0</span>
           <button onclick="testDeadband('B')">Test (1s)</button>
         </div>
-        <p><button onclick="confirmDeadband('B')">Übernehmen</button></p>
+        <p><button onclick="confirmDeadband('B')">Übernehmen →</button></p>
     </div>
 
     <!-- Motor C -->
     <div class="step" id="step9">
+        <div id="sensorBadgeC" class="port-sensor-badge no-sensor">🔌 Motor C · Anschluss OHNE Stromsensor</div>
         <h2>Motor C Zuordnung</h2>
+        <p id="testDescC">Klicke auf „Motor C testen“ und beobachte am Roboter, welches Teil sich bewegt.</p>
         <div class="button-bar">
-            <button onclick="testMotor('C')">Motor C testen (1s)</button>
+            <button class="test-pulse-btn" onclick="testMotor('C')">▶ Motor C testen (1s)</button>
         </div>
-        <div id="motorCQuestion" style="display:none;">
-            <p>Welcher Motor hat sich bewegt?</p>
-            <button onclick="motorMoved('C','left')">Linker Motor</button>
-            <button onclick="motorMoved('C','right')">Rechter Motor</button>
-            <button onclick="motorMoved('C','gripp')">Greifer Motor</button>
-            <button onclick="motorMoved('C','none')">Kein Motor</button>
-        </div>
+        <div id="motorCQuestion" style="display:none;"></div>
+        <div id="portErrorC" class="port-error-box"></div>
     </div>
 
     <div class="step" id="step10">
         <h2 id="dirTitleC">Fahrtrichtung Motor C</h2>
-        <p id="dirPromptC">Fährt der Roboter bei "Motor C vorwärts" tatsächlich vorwärts (bzw. Greifer Auf) oder rückwärts (bzw. Greifer Zu)?</p>
+        <p id="dirPromptC">Fährt der Roboter bei „Motor C vorwärts“ tatsächlich vorwärts oder rückwärts?</p>
         <div class="button-bar">
-            <button onclick="testDirection('C','forward')">Motor C testen (1s)</button>
+            <button class="test-pulse-btn" onclick="testDirection('C','forward')">▶ Motor C nochmals testen (1s)</button>
         </div>
         <div class="button-bar">
             <button id="dirFwdBtnC" onclick="directionChosen('C','forward')">Vorwärts</button>
@@ -156,35 +592,33 @@
     </div>
 
     <div class="step" id="step11">
-        <h2>Deadband Motor C</h2>
+        <h2>Anlauf-Schwelle (Deadband) Motor C</h2>
+        <p>Optional: Minimale Anlauf-Schwelle testen oder direkt auf „Übernehmen“ klicken.</p>
         <div class="slider-container">
           <input type="range" min="0" max="255" value="0" id="db_slider_C">
           <span id="db_value_C">0</span>
           <button onclick="testDeadband('C')">Test (1s)</button>
         </div>
-        <p><button onclick="confirmDeadband('C')">Übernehmen</button></p>
+        <p><button onclick="confirmDeadband('C')">Übernehmen →</button></p>
     </div>
 
     <!-- Motor D -->
     <div class="step" id="step12">
+        <div id="sensorBadgeD" class="port-sensor-badge no-sensor">🔌 Motor D · Anschluss OHNE Stromsensor</div>
         <h2>Motor D Zuordnung</h2>
+        <p id="testDescD">Klicke auf „Motor D testen“ und beobachte am Roboter, welches Teil sich bewegt.</p>
         <div class="button-bar">
-            <button onclick="testMotor('D')">Motor D testen (1s)</button>
+            <button class="test-pulse-btn" onclick="testMotor('D')">▶ Motor D testen (1s)</button>
         </div>
-        <div id="motorDQuestion" style="display:none;">
-            <p>Welcher Motor hat sich bewegt?</p>
-            <button onclick="motorMoved('D','left')">Linker Motor</button>
-            <button onclick="motorMoved('D','right')">Rechter Motor</button>
-            <button onclick="motorMoved('D','gripp')">Greifer Motor</button>
-            <button onclick="motorMoved('D','none')">Kein Motor</button>
-        </div>
+        <div id="motorDQuestion" style="display:none;"></div>
+        <div id="portErrorD" class="port-error-box"></div>
     </div>
 
     <div class="step" id="step13">
         <h2 id="dirTitleD">Fahrtrichtung Motor D</h2>
-        <p id="dirPromptD">Fährt der Roboter bei "Motor D vorwärts" tatsächlich vorwärts (bzw. Greifer Auf) oder rückwärts (bzw. Greifer Zu)?</p>
+        <p id="dirPromptD">Fährt der Roboter bei „Motor D vorwärts“ tatsächlich vorwärts oder rückwärts?</p>
         <div class="button-bar">
-            <button onclick="testDirection('D','forward')">Motor D testen (1s)</button>
+            <button class="test-pulse-btn" onclick="testDirection('D','forward')">▶ Motor D nochmals testen (1s)</button>
         </div>
         <div class="button-bar">
             <button id="dirFwdBtnD" onclick="directionChosen('D','forward')">Vorwärts</button>
@@ -193,25 +627,62 @@
     </div>
 
     <div class="step" id="step14">
-        <h2>Deadband Motor D</h2>
+        <h2>Anlauf-Schwelle (Deadband) Motor D</h2>
+        <p>Optional: Minimale Anlauf-Schwelle testen oder direkt auf „Übernehmen“ klicken.</p>
         <div class="slider-container">
           <input type="range" min="0" max="255" value="0" id="db_slider_D">
           <span id="db_value_D">0</span>
           <button onclick="testDeadband('D')">Test (1s)</button>
         </div>
-        <p><button onclick="confirmDeadband('D')">Übernehmen</button></p>
+        <p><button onclick="confirmDeadband('D')">Übernehmen →</button></p>
     </div>
 
+    <!-- Schritt 15: Greifer-Servo (⑤) für Roboter-Arm -->
     <div class="step" id="step15">
-        <h2>Fertig</h2>
-        <p>Die Einstellungen werden nun gespeichert.</p>
-        <button onclick="finalizeSetup()">Speichern &amp; Neustart</button>
+        <span class="step-badge">Schritt ⑤ · Greifer-Servo</span>
+        <h2>⑤ Greifer-Servo einrichten &amp; testen</h2>
+        <p>Wähle den Servo-Anschluss für den Greifer (<strong>⑤</strong> im Bild) und teste die Winkel für <strong>Greifer Auf</strong> und <strong>Greifer Zu</strong>.</p>
+        <div class="servo-setup-grid">
+            <div class="servo-setup-box">
+                <label for="setup_servo_ch">Servo-Anschluss</label>
+                <select id="setup_servo_ch" onchange="updateArmDiagramStatus()">
+                    <option value="0" selected>Servo 1 (Standard)</option>
+                    <option value="1">Servo 2</option>
+                    <option value="2">Servo 3</option>
+                    <option value="3">Servo 4</option>
+                </select>
+            </div>
+            <div class="servo-setup-box">
+                <label for="setup_grip_open">Winkel „Greifer Auf“ (°)</label>
+                <input type="number" id="setup_grip_open" min="0" max="180" value="35">
+            </div>
+            <div class="servo-setup-box">
+                <label for="setup_grip_close">Winkel „Greifer Zu“ (°)</label>
+                <input type="number" id="setup_grip_close" min="0" max="180" value="145">
+            </div>
+        </div>
+        <div class="button-bar" style="margin-bottom: 14px;">
+            <button type="button" onclick="testSetupGripper('open')">🔓 Test: Greifer Auf</button>
+            <button type="button" onclick="testSetupGripper('close')">🔒 Test: Greifer Zu</button>
+        </div>
+        <div class="button-bar">
+            <button class="test-pulse-btn" onclick="goToStep(16)">Weiter zum Speichern →</button>
+        </div>
     </div>
 
+    <!-- Schritt 16: Speichern & Neustart -->
     <div class="step" id="step16">
-        <h2>Abgeschlossen!</h2>
-        <p>Der Roboter ist nun konfiguriert.</p>
-        <a href="/">Zurück zur Hauptseite</a>
+        <span class="step-badge">Abschluss</span>
+        <h2>🎉 Zuordnung komplett!</h2>
+        <p>Alle Motoren wurden geprüft und zugeordnet. Klicke jetzt auf „Speichern &amp; Neustart“, um die Konfiguration dauerhaft auf dem Roboter zu sichern.</p>
+        <button class="test-pulse-btn" onclick="finalizeSetup()">💾 Speichern &amp; Neustart</button>
+    </div>
+
+    <!-- Schritt 17: Fertig -->
+    <div class="step" id="step17">
+        <h2>✅ Abgeschlossen!</h2>
+        <p>Der Roboter startet neu und übernimmt alle Einstellungen.</p>
+        <a href="/">Zurück zur Steuerung</a>
     </div>
 
 </div>

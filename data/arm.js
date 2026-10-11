@@ -1274,39 +1274,34 @@ function setupDualJoysticks() {
     createStick('joyRightCanvas', 'arm3', 'arm2');
 }
 
-// --- Persistente Arm-Konfiguration (localStorage + /getConfig) ---
+// --- Persistente Arm-Konfiguration (localStorage + ESP32 /getConfig & /arm/config) ---
 
-function loadArmConfig() {
-    try {
-        const raw = localStorage.getItem(STORAGE_KEY);
-        if (raw) {
-            const saved = JSON.parse(raw);
-            ['base', 'arm1', 'arm2', 'arm3'].forEach(id => {
-                if (saved[id]) {
-                    const j = joints[id];
-                    if (saved[id].motorIndex !== undefined) j.motorIndex = Number(saved[id].motorIndex);
-                    if (saved[id].invert !== undefined) j.invert = Boolean(saved[id].invert);
-                    if (saved[id].sensorMode !== undefined) {
-                        // 'auto' aus älteren Konfigurationen nicht mehr zulassen (nur '0', '1', 'none')
-                        const sm = String(saved[id].sensorMode);
-                        j.sensorMode = (sm === '0' || sm === '1' || sm === 'none') ? sm : j.sensorMode;
-                    }
-                    if (saved[id].homeEnd === 'min' || saved[id].homeEnd === 'max') {
-                        j.homeEnd = saved[id].homeEnd;
-                    }
-                    if (saved[id].stallLimit !== undefined) j.stallLimit = Number(saved[id].stallLimit);
-                    if (saved[id].time90 !== undefined) j.time90 = Number(saved[id].time90);
-                }
-            });
-            if (saved.gripper) {
-                if (saved.gripper.servoIndex !== undefined) gripperState.servoIndex = Number(saved.gripper.servoIndex);
-                if (saved.gripper.openAngle !== undefined) gripperState.openAngle = Number(saved.gripper.openAngle);
-                if (saved.gripper.closeAngle !== undefined) gripperState.closeAngle = Number(saved.gripper.closeAngle);
+function applySavedArmConfigObject(saved) {
+    if (!saved || typeof saved !== 'object') return;
+    ['base', 'arm1', 'arm2', 'arm3'].forEach(id => {
+        if (saved[id]) {
+            const j = joints[id];
+            if (saved[id].motorIndex !== undefined) j.motorIndex = Number(saved[id].motorIndex);
+            if (saved[id].invert !== undefined) j.invert = Boolean(saved[id].invert);
+            if (saved[id].sensorMode !== undefined) {
+                // 'auto' aus älteren Konfigurationen nicht mehr zulassen (nur '0', '1', 'none')
+                const sm = String(saved[id].sensorMode);
+                j.sensorMode = (sm === '0' || sm === '1' || sm === 'none') ? sm : j.sensorMode;
             }
+            if (saved[id].homeEnd === 'min' || saved[id].homeEnd === 'max') {
+                j.homeEnd = saved[id].homeEnd;
+            }
+            if (saved[id].stallLimit !== undefined) j.stallLimit = Number(saved[id].stallLimit);
+            if (saved[id].time90 !== undefined) j.time90 = Number(saved[id].time90);
         }
-    } catch (_) {}
+    });
+    if (saved.gripper) {
+        if (saved.gripper.servoIndex !== undefined) gripperState.servoIndex = Number(saved.gripper.servoIndex);
+        if (saved.gripper.openAngle !== undefined) gripperState.openAngle = Number(saved.gripper.openAngle);
+        if (saved.gripper.closeAngle !== undefined) gripperState.closeAngle = Number(saved.gripper.closeAngle);
+    }
 
-    // Basis hat niemals einen Stromsensor
+    // Basis und Handgelenk (arm3) haben beim Standardaufbau keinen Stromsensor; Basis erzwingen:
     joints.base.sensorMode = 'none';
 
     // Formularfelder synchronisieren
@@ -1332,6 +1327,15 @@ function loadArmConfig() {
     if (srvEl) srvEl.value = String(gripperState.servoIndex);
     if (goEl) goEl.value = String(gripperState.openAngle);
     if (gcEl) gcEl.value = String(gripperState.closeAngle);
+}
+
+function loadArmConfig() {
+    let loaded = null;
+    try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) loaded = JSON.parse(raw);
+    } catch (_) {}
+    applySavedArmConfigObject(loaded || {});
 }
 
 function saveArmConfigFromUI() {
@@ -1363,6 +1367,7 @@ function saveArmConfigFromUI() {
     });
 
     joints.base.sensorMode = 'none';
+    toSave.base.sensorMode = 'none';
 
     const srvEl = document.getElementById('cfgServo_gripper');
     const goEl = document.getElementById('cfgGripOpenDeg');
@@ -1377,13 +1382,20 @@ function saveArmConfigFromUI() {
         closeAngle: gripperState.closeAngle
     };
 
+    const jsonStr = JSON.stringify(toSave);
     try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
+        localStorage.setItem(STORAGE_KEY, jsonStr);
     } catch (_) {}
+
+    fetch('/arm/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: jsonStr
+    }).catch(() => {});
 
     updateJointCardsUI();
     updateCurrentUI();
-    showStatusOverlay('✓ Sensoren, Endanschläge & Zuordnung gespeichert', 2000);
+    showStatusOverlay('✓ Sensoren, Endanschläge & Zuordnung auf ESP32 gespeichert', 2200);
 }
 
 function setupDeviceName() {
@@ -1394,6 +1406,15 @@ function setupDeviceName() {
             const el = document.getElementById('deviceName');
             if (el) el.textContent = name;
             document.title = `${name} Roboter-Arm`;
+
+            if (cfg.arm_config && typeof cfg.arm_config === 'object' && Object.keys(cfg.arm_config).length > 0) {
+                applySavedArmConfigObject(cfg.arm_config);
+                try {
+                    localStorage.setItem(STORAGE_KEY, JSON.stringify(cfg.arm_config));
+                } catch (_) {}
+                updateJointCardsUI();
+                updateCurrentUI();
+            }
         })
         .catch(() => {});
 }

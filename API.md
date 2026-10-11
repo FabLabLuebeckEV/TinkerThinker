@@ -1,38 +1,42 @@
-# TinkerThinker API (Roboter steuern)
+# 📡 TinkerThinker API-Referenz (HTTP, WebSocket & mDNS)
 
-Diese API-Doku beschreibt die aktuellen HTTP- und WebSocket-Schnittstellen der Firmware.
+[⬅️ Zurück zur Hauptseite (`README.md`)](README.md)
 
-## Basis
+Diese Dokumentation beschreibt alle HTTP- und WebSocket-Schnittstellen der TinkerThinker-Firmware, mit denen du eigene Skripte (Python, JavaScript, Node-RED) oder eigene Apps direkt mit dem Roboter verbinden kannst.
 
-- AP-Standard-IP: `http://192.168.4.1`
-- WebSocket: `ws://<device-ip>/ws`
-- Authentifizierung: aktuell keine
-- Content-Type:
-  - Konfiguration: `multipart/form-data` (wie aus dem Web-UI) oder URL-encoded Formfelder
-  - Bindings API: `application/json`
+---
 
-## Schnellstart
+## 🌐 Verbindungsdaten & Basis-URLs
 
-1. Mit dem WLAN des Roboters verbinden.
-2. WebSocket zu `/ws` aufbauen.
-3. Fahr-/Motor-/Servo-/LED-Befehle als JSON senden.
-4. Status kommt als JSON über denselben WebSocket zurück.
+- **Standard-IP im Hotspot-Modus (AP)**: `http://192.168.4.1`
+- **mDNS-Hostname (im Hotspot- und Heimnetz-Modus)**: `http://tinker.local`
+- **WebSocket-Endpunkt**: `ws://192.168.4.1/ws` bzw. `ws://tinker.local/ws`
+- **Authentifizierung**: keine
+- **Content-Type**:
+  - `POST /config`: `multipart/form-data` oder `application/x-www-form-urlencoded`
+  - `POST /arm/config` & `POST /control_bindings`: `application/json`
 
-## WebSocket API (`/ws`)
+---
 
-## Client -> Roboter (Befehle)
+## ⚡ Schnellstart (WebSocket `/ws`)
 
-### 1) Fahren per Joystick
+1. Mit dem WLAN des Roboters (`TinkerThinkerAP`) verbinden.
+2. WebSocket-Verbindung zu `ws://192.168.4.1/ws` öffnen.
+3. Befehle für Motoren, Servos oder LEDs als JSON-Nachricht senden.
+4. Der Roboter sendet regelmäßig Live-Telemetrie (Akkustand, Motorströme, PWM-Werte, aktive Gamepad-Tasten) als JSON zurück.
 
+---
+
+## 📤 Client -> Roboter (WebSocket-Befehle)
+
+### 1) Fahren per virtuellem Joystick
 ```json
 { "x": 0.4, "y": -0.2 }
 ```
-
-- Wertebereich typischerweise `-1.0 .. 1.0`
-- Intern auf Motorantrieb gemappt (mit Arbitration gegenüber Bluetooth)
+- Wertebereich: `-1.0` bis `1.0`
+- Wird intern über den konfigurierten Drive-Mixer auf das gewählte Fahrpaar (`motor_left_gui` / `motor_right_gui`) umgerechnet.
 
 ### 2) Einzelmotor oder Greifer steuern
-
 ```json
 { "motorA": "forward" }
 { "motorA": "backward" }
@@ -42,49 +46,47 @@ Diese API-Doku beschreibt die aktuellen HTTP- und WebSocket-Schnittstellen der F
 { "gripper": "close" }
 { "gripper": "stop" }
 ```
-
-- Gültige Einzelmotor-Keys: `motorA`, `motorB`, `motorC`, `motorD` (`motorA` und `motorB` steuern in der Web-UI den konfigurierten Greifer- bzw. vierten Motor)
+- Gültige Einzelmotor-Keys: `motorA`, `motorB`, `motorC`, `motorD`
 - `gripper`: steuert direkt den konfigurierten Greifer-Motor (`motor_gripper_gui`, `open` = vorwärts, `close` = rückwärts, `stop` = 0)
-- String-PWM wird als Integer interpretiert und auf `-255..255` begrenzt
+- Zahlen-Strings (z. B. `"120"` oder `"-180"`) setzen den PWM-Wert im Bereich `-255..255` unter Berücksichtigung von `motor_invert` und `motor_deadband`.
 
-### 3) Raw-Motor (Setup/Kalibrierung)
-
+### 3) Raw-Motor (Direktes PWM für Setup, Kalibrierung & Roboter-Arm)
 ```json
-{ "motor_raw": { "motor": 0, "pwm": 80 } }
+{ "motor_raw": { "motor": 0, "pwm": 140 } }
 ```
+- `motor`: `0..3` (`0` = Motor A, `1` = Motor B, `2` = Motor C, `3` = Motor D)
+- `pwm`: `-255..255` (`0` = Stopp)
+- Steuert den Motorkanal direkt an (berücksichtigt die in der Firmware hinterlegte Hardware-Invertierung `motor_invert`).
 
-- `motor`: `0..3`
-- `pwm`: `-255..255`
-- Umgeht die normale Deadband-Logik
-
-### 4) Servo setzen
-
+### 4) Servo-Winkel setzen
 ```json
 { "servo0": 90 }
 { "servo1": 45, "servo2": 120 }
 ```
+Oder im strukturierten Objekt-Format (genutzt vom Roboter-Arm & Setup-Assistenten):
+```json
+{ "servo": { "channel": 0, "angle": 35 } }
+```
+- Kanäle: `0..6` (`servo0..servo6` auf v2-Boards) bzw. `0..2` (`servo0..servo2` auf v1-Legacy-Boards)
+- Winkel: `0..180` Grad
 
-- `servo0..servo6` (auf v2-Boards) bzw. `servo0..servo2` (auf v1-Legacy-Boards), Winkel `0..180` (intern begrenzt)
-
-### 5) LEDs setzen
-
+### 5) WS2812 RGB-LEDs setzen
 ```json
 { "led_set": { "start": 0, "count": 8, "color": "#00FF00" } }
 ```
+- Setzt die Farbe im Bereich `start .. start + count - 1` (`start: 0, count: 1` ist die Onboard-Status-LED).
 
-- Setzt Bereich `start .. start+count-1`
-
-### 6) Motor-Swap-Flag ändern
-
+### 6) Motor-Fahrpaar tauschen (`A/B` <-> `C/D`)
 ```json
 { "swap": true }
 ```
+- Tauscht das aktive Fahrpaar und speichert die Änderung in `/config.json`.
 
-- Persistiert direkt in `config.json`
+---
 
-## Roboter -> Client (Status)
+## 📥 Roboter -> Client (WebSocket Live-Telemetrie)
 
-Typische Statusnachricht:
+Der ESP32 sendet zyklisch ein Status-JSON an alle verbundenen WebSocket-Clients:
 
 ```json
 {
@@ -98,108 +100,35 @@ Typische Statusnachricht:
 }
 ```
 
-- Auf alten v1-Platinen (`legacy_board: true`) enthält das Status-JSON zusätzlich `"motorFaults": false|true` (Status von `GPIO_FAULT_1` auf GPIO 39) und `servos` umfasst 3 Einträge.
+- **`motorCurrents`**: Array mit 2 Messwerten in Ampere `[Sensor 1 (GPIO 34 / Motor B), Sensor 2 (GPIO 36 / Motor A)]`.
+- **`firstLED`**: Aktuelle RGB-Farbe der ersten WS2812-LED (`LED 0`), damit alle verbundenen Browser ihren Farbwähler synchronisieren können.
+- Auf alten v1-Platinen (`legacy_board: true`) enthält das JSON zusätzlich `"motorFaults": false|true` (Status von `GPIO_FAULT_1` auf GPIO 39) und `servos` umfasst 3 Einträge.
 
-Zusätzlich bei WLAN-relevanter Config-Änderung:
+---
 
-```json
-{ "restart": true }
-```
+## 🔗 HTTP-Endpunkte
 
-## HTTP API
+### Weboberflächen (`GET`)
+- **`GET /`**: Liefert je nach eingestelltem `gui_mode` automatisch `basic.html` (`basic`), `index.html` (`drive`) oder `arm.html` (`arm`).
+- **`GET /basic`**, **`GET /drive`**, **`GET /arm`**:Direkter Aufruf der jeweiligen Steuerungsoberfläche.
+- **`GET /setup`**: Geführter Einrichtungs-Assistent (inkl. nummeriertem Roboter-Arm-Assistenten ①-⑤).
+- **`GET /controls`**: Visueller Bluetooth-Gamepad- & Hardware-Editor.
+- **`GET /config`**: Experten-Konfiguration & Projekt-/GitHub-Übersicht.
+- **`GET /portal.html`**: Smartphone-Verbindungs-Assistent (Captive Portal mit Apple/Android-Erkennung und Countdown).
 
-### `GET /`, `GET /basic`, `GET /drive`, `GET /arm`
-
-- `GET /` liefert je nach `gui_mode` automatisch `basic.html` (`basic`), `index.html` (`drive`) oder `arm.html` (`arm`).
-- `/basic`, `/drive` und `/arm` rufen die jeweilige Oberfläche direkt auf.
-
-### `GET /getConfig`
-
-Liefert die komplette aktive Konfiguration als JSON, u. a.:
-
-- UI & Hardware: `gui_mode` (`"basic"`, `"drive"`, `"arm"`), `legacy_board` (`true`/`false`), `servo_count` (`3` oder `7`)
-- WLAN: `wifi_mode`, `wifi_ssid`, `hotspot_ssid`, ...
-- Motoren: `motor_invert[]`, `motor_deadband[]`, `motor_frequency[]`
-- Motor-Zuordnung: `motor_left_gui`, `motor_right_gui`, `motor_gripper_gui`
-- Bluetooth-Joystick-Richtung: `bt_invert_x`, `bt_invert_y`, `bt_swap_axes`
-- Servo: `servo_settings[]`
-- LEDs: `led_count`, `led_brightness`, `led_gamma`
-- BT/Wi-Fi Scan-Timings
-- `control_bindings`
-
-### `POST /config`
-
-Speichert Konfiguration aus Formfeldern und wendet sie an.
-
-Wichtige Felder:
-
-- UI & Hardware: `gui_mode` (`basic` | `drive` | `arm`), `legacy_board` (`on` für v1-Boards)
-- WLAN: `wifi_mode`, `wifi_ssid`, `wifi_password`, `hotspot_ssid`, `hotspot_password`
-- Motor-Zuordnung: `motor_left_gui`, `motor_right_gui`, `motor_gripper_gui`
-- Motoren: `motor_invert_0..3`, `motor_deadband_0..3`, `motor_frequency_0..3`
-- Servo: `servo0_min/max .. servo6_min/max`
-- LEDs: `led_count`
-- Fahrprofil: `drive_mixer`, `drive_turn_gain`, `drive_axis_deadband`
-- Motorkurve: `motor_curve_type`, `motor_curve_strength`
-- BT/Wi-Fi: `bt_scan_on_normal_ms`, `bt_scan_off_normal_ms`, `bt_scan_on_sta_ms`, `bt_scan_off_sta_ms`, `bt_scan_on_ap_ms`, `bt_scan_off_ap_ms`
-
-Antwort: Redirect auf `/config`.
-
-### `GET /setGuiMode?mode=basic|drive|arm`
-
-Speichert `gui_mode` direkt in `config.json`.
-
-### `GET /setLegacyBoard?enabled=0|1`
-
-Schaltet den v1-Legacy-Board-Modus (`legacy_board`) zur Laufzeit um, speichert ihn in `config.json` und wendet die Pin-/Servo-Konfiguration direkt an.
-
-### `POST /wifi/disable`
-
-Deaktiviert WLAN bis zum Neustart.
-
-- Erfolg: `200 {"status":"ok"}`
-- Bereits deaktiviert: `409 {"error":"already_disabled"}`
-
-### `GET /reboot`
-
-Startet den ESP neu.
-
-### `GET /resetconfig`
-
-Setzt Config auf Defaults und rebootet.
-
-### `GET /getBindings`
-
-Liefert `control_bindings` als JSON-Array.
-
-### `POST /control_bindings`
-
-Speichert komplette Bindings-Liste als JSON-Array.
-
-## Beispiele
-
-### Per `curl` Fahrpaar auf A/B setzen
-
-```bash
-curl -X POST http://192.168.4.1/config \
-  -F wifi_mode=AP \
-  -F hotspot_ssid=TinkerThinkerAP \
-  -F hotspot_password= \
-  -F motor_left_gui=0 \
-  -F motor_right_gui=1
-```
-
-### Per `wscat` Motor A vor/zurück/stop
-
-```bash
-wscat -c ws://192.168.4.1/ws
-> {"motorA":"forward"}
-> {"motorA":"backward"}
-> {"motorA":"stop"}
-```
-
-## Hinweise
-
-- Steuer-Arbitration ist aktiv: letzte nicht-neutrale Quelle gewinnt (WebSocket vs. Bluetooth).
-- Für stabile Steuerung regelmäßig senden (z. B. 20-50 Hz für Joystick).
-- Bei Änderungen an HTML/JS immer LittleFS neu hochladen.
+### Konfiguration lesen & schreiben
+- **`GET /getConfig`**:
+  Liefert die gesamte aktive Konfiguration als JSON (inkl. `gui_mode`, `legacy_board`, `servo_count`, WLAN-Einstellungen, `motor_invert[]`, `motor_deadband[]`, `motor_frequency[]`, `arm_config` und `control_bindings`).
+- **`POST /config`**:
+  Speichert alle Konfigurationsfelder (inkl. optionalem JSON-Feld `arm_config`) dauerhaft in `/config.json` auf LittleFS.
+- **`POST /arm/config`**:
+  Speichert die Roboter-Arm-Konfiguration (`base`, `arm1`, `arm2`, `arm3`, `gripper` mit Motorzuordnung, Stromsensor-Auswahl `sensorMode`, Endanschlag `homeEnd`, `stallLimit`, `time90` und Servo-Winkeln) direkt als JSON in `/config.json`.
+  - Antwort: `200 {"status":"ok"}`
+- **`GET /setGuiMode?mode=basic|drive|arm`**:
+  Schaltet die Standard-Steuerungsoberfläche um und speichert sie in `/config.json`.
+- **`GET /setLegacyBoard?enabled=0|1`**:
+  Schaltet den v1-Legacy-Board-Modus (`legacy_board`) zur Laufzeit um.
+- **`GET /getBindings`** & **`POST /control_bindings`**:
+  Liest bzw. speichert die Bluetooth-Controller-Belegungen als JSON-Array.
+- **`GET /reboot`**: Startet den ESP32 neu.
+- **`GET /resetconfig`**: Setzt `/config.json` auf Werkseinstellungen zurück und startet neu.

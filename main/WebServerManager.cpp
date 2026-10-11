@@ -641,10 +641,41 @@ document.getElementById('f').onsubmit=function(e){
             }
         }
 
+        // Robot Arm configuration: embed JSON if saved
+        {
+            String armCfg = config->getArmConfigJson();
+            if (armCfg.length() > 0) {
+                JsonDocument ad;
+                if (deserializeJson(ad, armCfg) == DeserializationError::Ok) {
+                    doc["arm_config"] = ad;
+                }
+            }
+        }
+
         String json;
         serializeJson(doc, json);
         request->send(200, "application/json", json);
     });
+
+    // POST /arm/config (speichert die Roboter-Arm-Zuordnung & Sensoren persistent im config.json)
+    server.on("/arm/config", HTTP_POST,
+        [this](AsyncWebServerRequest *request){
+            request->send(200, "application/json", "{\"status\":\"ok\"}");
+        },
+        NULL,
+        [this](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total){
+            String body;
+            body.reserve(total);
+            body.concat((const char*)data, len);
+            JsonDocument doc;
+            if (deserializeJson(doc, body) == DeserializationError::Ok) {
+                String normalized;
+                serializeJson(doc, normalized);
+                config->setArmConfigJson(normalized);
+                config->saveConfig();
+            }
+        }
+    );
 
     // POST config
     server.on("/config", HTTP_POST, [this](AsyncWebServerRequest *request){
@@ -779,6 +810,13 @@ void WebServerManager::handleConfig(AsyncWebServerRequest* request) {
 
     if (request->hasParam("gui_mode", true)) {
         config->setGuiMode(request->getParam("gui_mode", true)->value());
+    }
+
+    if (request->hasParam("arm_config", true)) {
+        String armJson = request->getParam("arm_config", true)->value();
+        if (armJson.length() > 0) {
+            config->setArmConfigJson(armJson);
+        }
     }
 
     if (request->hasParam("legacy_board", true)) {

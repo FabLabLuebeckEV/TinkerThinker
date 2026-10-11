@@ -152,6 +152,13 @@ bool ConfigManager::loadConfig() {
         control_bindings_json = tmp;
     }
 
+    // Robot Arm configuration (store raw JSON)
+    if (!doc["arm_config"].isNull()) {
+        String tmp;
+        serializeJson(doc["arm_config"], tmp);
+        arm_config_json = tmp;
+    }
+
     // Bluetooth Whitelist
     bt_whitelist_enabled = doc["bt_whitelist_enabled"] | false;
     bt_whitelist.clear();
@@ -231,6 +238,14 @@ bool ConfigManager::saveConfig() {
         DeserializationError err = deserializeJson(binds, control_bindings_json);
         if (!err) {
             doc["control_bindings"] = binds;
+        }
+    }
+
+    // Robot Arm configuration: embed stored JSON
+    if (arm_config_json.length() > 0) {
+        JsonDocument armDoc;
+        if (deserializeJson(armDoc, arm_config_json) == DeserializationError::Ok) {
+            doc["arm_config"] = armDoc;
         }
     }
 

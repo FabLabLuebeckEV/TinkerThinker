@@ -1,395 +1,348 @@
-# TinkerThinker
+# 🤖 TinkerThinker - Das All-in-One Robotik-Board
 
-English | [Deutsch](README.de.md)
+**🇩🇪 Deutsch** | [🇬🇧 English](README.en.md)
 
-ESP32-based robotics controller firmware with Bluetooth gamepad support, Wi-Fi web control, motor and servo control, WS2812 LEDs, and a LittleFS-hosted setup/configuration UI.
+Willkommen bei **TinkerThinker**! Dieses Repository enthält die komplette Firmware, Weboberfläche, Platinen-Unterlagen (PCB), 3D-Druck-Modelle (CAD) und Flash-Werkzeuge für das ESP32-basierte Robotik-Steuerungsboard aus dem **FabLab Lübeck**.
+
+Egal ob **Workshop-Kettenroboter**, **Sumo-Bot** oder **4-Achs-Roboter-Arm**: Du kannst sofort loslegen - **ganz ohne Programmierkenntnisse** direkt über dein Smartphone, Tablet, deinen Laptop oder ein Bluetooth-Gamepad!
 
-This README starts with the finished product from the end user's perspective. Developer and build notes are further down.
+---
 
-## Contents
+## 🧭 Schnellnavigation
 
-- [Using a Flashed Board](#using-a-flashed-board)
-- [Default Controls](#default-controls)
-- [Factory Reset](#factory-reset)
-- [Web Pages](#web-pages)
-- [What This Project Includes](#what-this-project-includes)
-- [Hardware Overview (default pins)](#hardware-overview-default-pins)
-- [Project Layout](#project-layout)
-- [Quick Start (PlatformIO)](#quick-start-platformio)
-- [Bluetooth and Wi-Fi Coexistence](#bluetooth-and-wi-fi-coexistence)
-- [Control Arbitration](#control-arbitration)
-- [Releases and Flashing](#releases-and-flashing)
-- [Configuration Reference](#configuration-reference)
-- [Troubleshooting](#troubleshooting)
-- [Credits and Support](#credits-and-support)
-- [Further Reading](#further-reading)
+| Für Einsteiger & Workshops | Funktionen & Hardware | Flashen, Bauen & Technik |
+| :--- | :--- | :--- |
+| 🚀 [In 60 Sekunden starten](#in-60-sekunden-starten) | 🎮 [Die 3 Roboter-Oberflächen](#die-3-integrierten-roboter-oberflächen) | ⚡ [Firmware einfach flashen (ohne Code)](#firmware-installieren-oder-aktualisieren) |
+| 📱 [WLAN & Smartphone-Verbindung](#option-a-steuerung-per-smartphone-tablet-oder-pc-wlan) | 🦾 [Roboter-Arm & Stromsensoren](#3-4-achs-roboter-arm-arm---arm) | 🛠️ [Für Entwickler (PlatformIO)](#für-entwickler-bauen-mit-platformio) |
+| 🎮 [Bluetooth-Gamepad koppeln](#option-b-steuerung-per-bluetooth-gamepad) | 🧭 [Einrichtungs-Assistent (`/setup`)](#geführter-einrichtungs-assistent-setup) | 📡 [HTTP- & WebSocket-API (`API.md`)](API.md) |
+| 💡 [Status-LED & Tasten erklärt](#status-led--tasten-auf-der-platine) | 🔌 [Anschlüsse & Pinbelegung](#hardware-anschlüsse--pinbelegung) | 🖨️ [3D-Druck (`CAD/`)](CAD/README.md) & [Platine (`PCB/`)](PCB/README.md) |
+| ❓ [Hilfe bei Problemen (FAQ)](#häufige-fragen--problemlösungen-faq) | 🔄 [Werksreset durchführen](#werksreset-auf-werkseinstellungen-zurücksetzen) | 💬 [Support & Discord](#credits--support) |
 
-## Using a Flashed Board
+---
 
-### Power on
+## ✨ Was kann das TinkerThinker-Board? (Auf einen Blick)
 
-1. Turn on the board using the physical power switch on the board edge next to the antenna housing.
-2. The status LED should light dim white. Dim white means the board is on and in `Normal` radio mode.
-
-From here you have two main control options:
-
-- connect a Bluetooth controller
-- connect with a phone or laptop over Wi-Fi and use the web interface
-
-### Option 1: Bluetooth controller
-
-1. Put your controller into pairing mode.
-2. Wait for the board to accept a new Bluetooth connection.
-3. Once a controller is connected, the status LED turns green.
-
-Notes:
-
-- In normal mode, Bluetooth scanning is duty-cycled to leave airtime for Wi-Fi.
-- If pairing is unreliable, switch the board to Bluetooth scan mode with the MODE button. In that mode the LED is blue and Bluetooth scanning stays on continuously.
-- Pairing keys are cleared on every boot, so re-pairing is usually straightforward.
-
-### Option 2: Control over Wi-Fi
-
-1. Search for the board's hotspot on your phone or laptop. Depending on the saved configuration, the hotspot is typically named `TinkerThinker` or `TinkerThinkerAP`.
-2. Connect to that Wi-Fi network.
-3. If your device warns that the network has no internet access, stay connected anyway.
-4. Open [http://192.168.4.1](http://192.168.4.1) in your browser.
-5. The control interface should appear and you can drive and configure the robot there.
-
-Important mobile/network notes:
-
-- Disable VPNs before connecting.
-- Some phones automatically switch back to another Wi-Fi or to mobile data when they detect no internet. If that happens, reconnect to the robot and stay on that network.
-- If the page does not load, make sure your browser did not silently rewrite `http://192.168.4.1` to `https://192.168.4.1`.
-- Trying another browser often helps.
-- Depending on the phone, turning mobile data off can help. On some devices the opposite helps, so it is worth trying both.
-
-### Changing controller mappings
-
-The web interface is not only for driving the board. It also lets you change the Bluetooth controller bindings and other runtime settings without reflashing the firmware.
-
-## Default Controls
-
-The default Bluetooth mapping is configured in [`main/ConfigManager.cpp`](main/ConfigManager.cpp) and mirrored in [`data/config.json`](data/config.json).
-
-By default:
-
-- Right stick (`RX` / `RY`) drives the configured GUI motor pair.
-- Left stick (`X` / `Y`) drives the other motor pair.
-- D-pad right nudges Servo 0 by `+10`.
-- D-pad left nudges Servo 0 by `-10`.
-- `R2` toggles Servo 0 between `0°` and `90°`.
-- `L2` toggles Servo 0 between `90°` and `180°`.
-- `R1` increases the global speed multiplier.
-- `L1` decreases the global speed multiplier.
-
-Motor assignment details:
-
-- The configurable "GUI motor pair" is stored as `motor_left_gui` and `motor_right_gui`.
-- In the shipped default config, that pair is motor `2` and motor `3`.
-- That means the right stick drives motor channels `C/D` by default, while the left stick drives the remaining pair `A/B`.
-- This can be changed later in `/config` or by using the setup wizard at `/setup`.
-
-## Factory Reset
-
-If you changed the configuration, forgot a password, or want to return to a known default state, reset the board like this:
-
-1. Press and hold the MODE button on the side of the board.
-2. While holding MODE, briefly press the reset button to reboot the board.
-3. Keep holding MODE during startup for about 10 seconds. During the reset hold time, the status LED cycles through red, white, and orange.
-4. When the reset completes, the configuration is cleared and the board restarts.
-
-After a factory reset:
-
-- the hotspot name goes back to `TinkerThinkerAP`
-- saved Wi-Fi and controller configuration is reset to defaults
-
-## Web Pages
-
-### `/` (Control Tab - selectable via `gui_mode`)
-
-The root route `/` serves the configured control interface (`gui_mode` in `/config` or `/setup`):
-
-- **`basic` (Default - Workshop Robot, `/basic`)**:
-  - Compact top status bar with visual battery bar, 4-bar wireless signal indicator (`wifiRssi`), and single-LED color picker (LED 0)
-  - Touch joystick with directional labels (`Vorwärts`, `Links`, `Rechts`, `Rückwärts`)
-  - Dedicated `Greifer auf` and `Greifer zu` touch buttons linked to the configured gripper motor (`motor_gripper_gui`)
-- **`drive` (Full Drive Robot, `/drive`)**:
-  - Live battery, motor current, and servo status
-  - Touch joystick
-  - Servo slider
-  - Motor test buttons and gripper buttons
-  - LED color and range control
-- **`arm` (Robot Arm, `/arm`)**:
-  - Dedicated control page for robot arm setups
-
-### `/config`
-
-Main configuration page for:
-
-- Control GUI mode (`basic`, `drive`, `arm`)
-- Legacy board hardware switch (`legacy_board` for v1 boards)
-- Wi-Fi AP/STA settings
-- Hotspot name and password
-- Motor inversion, deadband, and PWM frequency
-- GUI drive motor pair (`motor_left_gui`, `motor_right_gui`) and gripper motor (`motor_gripper_gui`)
-- LED count
-- Servo pulse widths
-- Bluetooth scan timings
-- Drive profile parameters
-
-### `/controls`
-
-Binding editor for controller inputs and actions:
-
-- Buttons, D-pad directions, and stick axes
-- Independent Bluetooth joystick direction settings (`bt_invert_x`, `bt_invert_y`, `bt_swap_axes`)
-- Actions for motors, servos, LEDs, GPIO, and speed scaling
-- Live test sliders for LEDs, motors, and active servos (3 on v1 boards, 7 on v2 boards)
-
-### `/setup`
-
-Guided first-time setup wizard for:
-
-- Control GUI mode selection (`basic`, `drive`, `arm`) and hotspot name
-- Motor role assignment (`Kettenmotor Links`, `Kettenmotor Rechts`, `Greifer Motor`, `Kein Motor`)
-- Automatic step skipping: motors set to `Kein Motor` skip direction and deadband steps
-- Direction correction and deadband tuning for active motors
-- Automatic assignment of `motor_left_gui`, `motor_right_gui`, and `motor_gripper_gui`
-
-## What This Project Includes
-
-- Bluepad32 gamepad support over Bluetooth Classic
-- 4 DC motor outputs
-- Up to 7 servo outputs (7 on v2 boards, 3 on v1 legacy boards)
-- WS2812 LED control
-- Wi-Fi AP/STA support
-- Async web UI served from LittleFS (automatically `.gz` compressed) with selectable control dashboards (`basic`, `drive`, `arm`)
-- Battery voltage and current monitoring
-- Configurable control bindings
-- Runtime and compile-time support for v1 legacy boards (`legacy_board`)
-- Last-writer-wins arbitration between web control and Bluetooth control
-
-## Hardware Overview (v2 default pins vs. v1 legacy boards)
-
-- Motors
-  - `M0`: `pin1=16`, `pin2=25`
-  - `M1`: `pin1=32`, `pin2=27`
-  - `M2`: `pin1=4`, `pin2=12`
-  - `M3`: `pin1=15`, `pin2=14`
-- Servos
-  - `S0`: `pin=13` (v1 & v2)
-  - `S1`: `pin=33` (v1 & v2)
-  - `S2`: `pin=17` (v1 & v2)
-  - `S3`: `pin=23` (v2 only)
-  - `S4`: `pin=18` (v2 only)
-  - `S5`: `pin=19` (v2 only)
-  - `S6`: `pin=5` (v2 only)
-- WS2812 LED data: `pin=2`
-- Battery ADC: `pin=35`
-- Current sense: `pin=34`, `pin=36`
-- GPIO 39:
-  - **v2 boards (`legacy_board: false`, default)**: `MODE` button, active low (requires external pull-up)
-  - **v1 boards (`legacy_board: true`)**: H-bridge motor driver fault input (`GPIO_FAULT_1`, `LOW` = OK, `HIGH` = motor fault)
-
-### Legacy v1 Board Support
-
-Older v1 boards wire GPIO 39 to the motor driver fault pin (which stays `LOW` during normal operation) instead of a `MODE` button, and provide 3 servo headers instead of 7.
-
-- **Runtime switch**: Enable **Älteres Board (v1)** in `/config` (or set `"legacy_board": true` in `data/config.json`). When enabled, GPIO 39 is monitored as `GPIO_FAULT_1`, `MODE` button polling is disabled, and only 3 servos (`13, 33, 17`) are initialized.
-- **Compile-time environment**: Build with `env:esp32dev_legacy` (`pio run -e esp32dev_legacy`) to bake `LEGACY_BOARD_DEFAULT=true` into the firmware defaults.
-- **Boot safeguard**: Even if a v1 board boots with default v2 settings (`legacy_board: false`), the startup reset check detects if GPIO 39 remains permanently `LOW` without a button release and continues normal boot instead of entering a factory-reset loop.
-
-## Project Layout
-
-- [`main/`](main/)
-  - [`sketch.cpp`](main/sketch.cpp): Arduino setup/loop, radio-mode handling, legacy board handling, Bluepad32 processing
-  - [`main.c`](main/main.c): ESP-IDF entry point and Bluepad32 glue
-  - [`TinkerThinkerBoard.*`](main/TinkerThinkerBoard.cpp): board facade and control arbitration
-  - [`InputBindingManager.*`](main/InputBindingManager.cpp): controller input mapping
-  - [`WebServerManager.*`](main/WebServerManager.cpp): web UI, WebSocket, config routes
-  - [`ConfigManager.*`](main/ConfigManager.cpp): persistent configuration in LittleFS
-- [`data/`](data/): web app source files (`basic.html`, `index.html`, `arm.html`, `config.html`, `setup.html`, `controls.html`), automatically packed as `.gz` into LittleFS by [`tools/gzip_littlefs.py`](tools/gzip_littlefs.py)
-- [`PCB/`](PCB/): board files and exports
-- [`CAD/`](CAD/): mechanical models and Sumo robot kit files
-- [`tools/`](tools/): automated flashing scripts, LittleFS gzip hook, WebSerial installer, and CI helpers
-
-## Quick Start (PlatformIO)
-
-This repository is primarily built with PlatformIO.
-
-1. Open the project in VS Code with the PlatformIO extension.
-2. Select `env:esp32dev` (or `env:esp32dev_legacy` for v1 boards).
-3. Build the firmware.
-4. Upload the firmware.
-5. Upload the LittleFS image so the web UI is available.
-6. Open the serial monitor at `115200` baud if you want logs.
-
-Windows PowerShell examples:
-
-- Build firmware (v2 default): `& "C:\Users\mgabr\.platformio\penv\Scripts\pio.exe" run -e esp32dev`
-- Build firmware (v1 legacy default): `& "C:\Users\mgabr\.platformio\penv\Scripts\pio.exe" run -e esp32dev_legacy`
-- Upload firmware: `$env:PYTHONIOENCODING="utf-8"; & "C:\Users\mgabr\.platformio\penv\Scripts\pio.exe" run -e esp32dev -t upload`
-- Build LittleFS (`.gz`-optimized via PlatformIO): `& "C:\Users\mgabr\.platformio\penv\Scripts\pio.exe" run -e esp32dev -t buildfs`
-- Upload LittleFS (`.gz`-optimized via PlatformIO): `$env:PYTHONIOENCODING="utf-8"; & "C:\Users\mgabr\.platformio\penv\Scripts\pio.exe" run -e esp32dev -t uploadfs`
-- Fast standalone LittleFS build & flash (<1s without CMake overhead): `python tools/gzip_littlefs.py --build --flash COM19`
-
-### Optimized `.gz` LittleFS Build (Compressed Web UI)
-
-To minimize flash usage and speed up page loads over Wi-Fi, all static web assets in [`data/`](data/) are automatically compressed with Gzip (level 9) before building `littlefs.bin`:
-
-- **How it works**:
-  - [`platformio.ini`](platformio.ini) registers `extra_scripts = pre:tools/gzip_littlefs.py`.
-  - Before LittleFS packaging, [`tools/gzip_littlefs.py`](tools/gzip_littlefs.py) stages `data/` into `.pio/data_gzip/` and compresses `.html`, `.js`, `.css`, `.ico`, and `.svg` files into `.gz` (**~63% size reduction**, from ~208 KB down to ~77 KB).
-  - `config.json` (required uncompressed for runtime read/write by `ConfigManager`) and `.png` files are copied uncompressed.
-  - `ESPAsyncWebServer` transparently detects and serves the `.gz` files from LittleFS with `Content-Encoding: gzip`.
-- **How to build and flash the optimized `.gz` filesystem**:
-  1. **Fastest method (standalone script, <1 second, skips ESP-IDF CMake re-evaluation)**:
-     ```powershell
-     # Build .gz-optimized littlefs.bin only:
-     python tools/gzip_littlefs.py --build
-
-     # Build and flash directly to the board (e.g. COM19):
-     python tools/gzip_littlefs.py --build --flash COM19
-     ```
-  2. **Via PlatformIO CLI (`buildfs` / `uploadfs`)**:
-     ```powershell
-     # Build .pio/build/esp32dev/littlefs.bin with automatic .gz compression:
-     & "C:\Users\mgabr\.platformio\penv\Scripts\pio.exe" run -e esp32dev -t buildfs
-
-     # Build and upload .gz-optimized LittleFS via PlatformIO:
-     $env:PYTHONIOENCODING="utf-8"
-     & "C:\Users\mgabr\.platformio\penv\Scripts\pio.exe" run -e esp32dev -t uploadfs
-     ```
-  3. **In VS Code (PlatformIO GUI)**:
-     - Click **Project Tasks -> esp32dev -> Platform -> Build Filesystem Image** or **Upload Filesystem Image**. The `pre:tools/gzip_littlefs.py` hook runs automatically before `mklittlefs`.
-
-Important:
-
-- The web UI will not work until the LittleFS image has been uploaded.
-- Keep all text files in `data/` encoded as clean UTF-8 (without BOM).
-- This project uses Arduino as a managed ESP-IDF component. Do not add a second `components/arduino`.
-
-## Bluetooth and Wi-Fi Coexistence
-
-The ESP32 uses one shared 2.4 GHz radio for Wi-Fi and Bluetooth. This firmware therefore duty-cycles Bluetooth scanning so Wi-Fi still has airtime.
-
-Current radio modes:
-
-- `Normal`: dim white LED
-- `Wi-Fi only`: orange LED
-- `Bluetooth scan only`: blue LED
-- controller connected: green LED
-
-The MODE button cycles through the radio modes. In normal mode, Wi-Fi is also paused briefly after a controller connection to improve Bluetooth pairing stability.
-
-## Control Arbitration
-
-Both the Bluetooth controller and the web UI can issue drive commands.
-
-The firmware uses a last-writer-wins model:
-
-- the last non-neutral control source becomes the owner
-- neutral input from another source does not cancel the active owner
-
-This behavior is implemented in [`main/TinkerThinkerBoard.cpp`](main/TinkerThinkerBoard.cpp).
-
-## Releases and Flashing
-
-The main CI workflow builds:
-
-- `bootloader.bin`
-- `partitions.bin`
-- `firmware.bin`
-- `littlefs.bin`
-
-On successful pushes to `main`, GitHub Actions creates a release tagged like `main-YYYYMMDD-HHMM-<shortsha>`.
-
-### Flashing with Auto-Flasher
-
-You can flash release assets automatically using the flasher scripts in `tools/`:
-
-- **Windows (one-click):** Run [`tools/start_flasher.bat`](tools/start_flasher.bat). It automatically checks for `uv` (recommended) or Python with `.venv`, installs requirements (`esptool`, `pyserial`), and launches the flasher.
-- **Python / CLI:**
+- **🔌 4 DC-Motor-Ausgänge (`Motor A` bis `Motor D`)**:
+  - Perfekt für Kettenfahrzeuge, Allrad-Roboter, Greifer oder 4-Achs-Roboterarme.
+  - **`Motor A` und `Motor B` besitzen integrierte Stromsensoren** (messen live den Motorstrom in Ampere - ideal für automatische Endanschlag-Erkennung beim Roboter-Arm!).
+- **⚙️ Bis zu 7 Servo-Anschlüsse (`Servo 1` bis `Servo 7`)**:
+  - 7 Servos auf aktuellen **v2-Platinen** (bzw. 3 Servos auf älteren **v1-Platinen**, umschaltbar per Klick).
+- **🌈 Adressierbare RGB-LEDs (WS2812 / NeoPixel)**:
+  - Status-LED direkt auf dem Board + Anschluss für eigene LED-Streifen (Farbe & Effekte live im Browser wählbar).
+- **🎮 Kabellose Steuerung auf zwei Wegen gleichzeitig**:
+  - **WLAN-Weboberfläche**: Eigenes Roboter-WLAN mit moderner Touch-Steuerung im Browser - **keine App-Installation nötig**.
+  - **Bluetooth-Gamepads (Bluepad32)**: Unterstützt PS3, PS4, PS5, Xbox Wireless, Nintendo Switch Pro, 8BitDo sowie günstige **No-Name PS3-Clone-Controller**.
+- **🧠 Clevere Extras ab Werk**:
+  - **Smartphone-Verbindungs-Assistent (Captive Portal)** mit Geräteerkennung (Apple iPhone/iPad, Android, PC) und Countdown, damit das Handy nicht nach 1 Minute die Verbindung trennt.
+  - **Erreichbar über `http://tinker.local` (mDNS)** oder `http://192.168.4.1`.
+  - **Interaktiver Einrichtungs-Assistent (`/setup`)** mit Bildern und Fehlermeldung bei falsch gesteckten Kabeln.
+  - **Visueller Gamepad-Editor (`/controls`)** mit Live-Controller-Grafik zum freien Umbelegen aller Tasten und Joysticks.
+
+---
+
+## 🚀 In 60 Sekunden starten
+
+### 1. Platine einschalten
+1. Schieb den physischen **Ein-/Ausschalter** am Platinenrand (neben dem Antennengehäuse) auf **EIN**.
+2. Die **Status-LED** auf dem Board leuchtet **schwach weiß** (= Board ist bereit für WLAN und Bluetooth).
+
+Jetzt kannst du frei wählen: **Steuerung per Smartphone/Browser (Option A)** oder **per Bluetooth-Controller (Option B)** - oder beides gleichzeitig!
+
+---
+
+### Option A: Steuerung per Smartphone, Tablet oder PC (WLAN)
+
+1. **Mit dem Roboter-WLAN verbinden**:
+   - Öffne die WLAN-Einstellungen deines Geräts und wähle das Netzwerk **`TinkerThinkerAP`** (oder deinen eigenen vergebenen Roboter-Namen).
+   - Standardmäßig ist kein Passwort nötig.
+2. **Automatische Landingpage (Captive Portal) & Browser-Wechsel**:
+   - Sobald du dich mit dem WLAN verbindest, öffnet sich automatisch unsere **helle, freundliche Verbindungs-Landingpage (`/portal.html`)**.
+   - Sie erkennt automatisch, ob du ein **🍎 Apple iPhone/iPad**, ein **🤖 Android-Handy** oder einen **💻 PC/Laptop** nutzt, und zeigt dir **nur die für dein Gerät wichtigen 2 Schritte** an.
+3. **Steuerungsseite im echten Browser öffnen (mDNS & IP)**:
+   - 👉 **[http://tinker.local](http://tinker.local)** *(bequemer mDNS-Name - oder `http://<dein-robotername>.local`)*
+   - 👉 **[http://192.168.4.1](http://192.168.4.1)** *(funktioniert garantiert auf jedem Gerät)*
+
+#### 🌐 Warum gibt es die Landingpage mit Countdown statt direkter Steuerung im Popup?
+- Wenn sich ein Smartphone mit einem WLAN ohne Internet verbindet, öffnet das Betriebssystem (iOS / Android) zunächst nur einen eingeschränkten **Captive-Portal-Minibrowser**.
+- **Das Problem der Handys**: Dieser Minibrowser hat ein eingebautes System-Zeitlimit! Nach ca. **60 bis 90 Sekunden** sagt das Handy sonst *„Keine Internetverbindung“*, schließt das Fenster einfach von selbst und wirft dich aus der Steuerung.
+- **Unsere Lösung**:
+  - Die **Landingpage (`/portal.html`)** zeigt dir oben einen **sichtbaren 60-Sekunden-Countdown** und eine maßgeschneiderte Kurzanleitung für dein Modell:
+    - **🍎 Apple (iPhone / iPad)**: Oben rechts auf **„Abbrechen“** -> **„Ohne Internet verwenden“** tippen -> in **Safari** öffnen.
+    - **🤖 Android**: Bei der Systemmeldung auf **„Ja, verbunden bleiben“** / **„WLAN weiter versuchen“** tippen -> in **Chrome** öffnen.
+  - Sobald du im richtigen Browser (Safari / Chrome) bist, läuft die Steuerung **stundenlang ohne Abbruch**!
+
+> **💡 Tipp, falls die Seite am Handy nicht lädt:**
+> - Schalte für die Dauer des Spielens kurz die **Mobilen Daten** aus (manche Handys suchen sonst im Mobilfunknetz nach dem Roboter).
+> - Achte darauf, dass im Browser **`http://`** (ohne `s`) steht, nicht `https://`.
+> - Deaktiviere aktive VPN-Apps.
+
+---
+
+### Option B: Steuerung per Bluetooth-Gamepad
+
+1. Schalte das Board ein (LED leuchtet **schwach weiß**).
+2. Versetze deinen Controller in den **Pairing-Modus** (Kopplungsmodus):
+   - **PS4 / PS5 Controller**: `SHARE` (bzw. `CREATE`) + `PS-Taste` gleichzeitig gedrückt halten, bis die Lichtleiste schnell blitzt.
+   - **PS3 Controller (auch Clones)**: Controller ohne USB-Kabel über die `PS-Taste` einschalten.
+   - **Xbox Wireless Controller**: Kleine Pairing-Taste an der Stirnseite 3 Sekunden gedrückt halten.
+   - **Switch Pro / 8BitDo**: Pairing-Taste oben am Controller gedrückt halten.
+3. Nach wenigen Sekunden verbindet sich der Controller automatisch und die Status-LED auf dem Board leuchtet **dauerhaft grün** 🟢!
+
+> **💡 Profi-Tipp bei schwierigem Pairing:**
+> Drücke auf dem Board zweimal kurz die **MODE-Taste**, bis die Status-LED **blau** 🔵 leuchtet (*Bluetooth-Scan-Modus*). Dann sucht das Board ununterbrochen mit voller Leistung nach Controllern.
+
+---
+
+## 💡 Status-LED & Tasten auf der Platine
+
+Auf der Platine befinden sich zwei kleine Tasten (**`RESET`** und **`MODE`**) sowie die **Status-LED**, die dir jederzeit zeigt, was das Board gerade macht:
+
+| LED-Farbe | Funkmodus / Zustand | Bedeutung |
+| :--- | :--- | :--- |
+| ⚪ **Schwach Weiß** | `Normal` (Standard) | WLAN-Hotspot **und** Bluetooth-Suche sind gleichzeitig aktiv. |
+| 🟢 **Grün** | `Controller verbunden` | Ein Bluetooth-Gamepad ist aktiv gekoppelt und steuerbereit. |
+| 🟠 **Orange** | `Nur WLAN` | Bluetooth ist pausiert, 100 % Funkleistung für die Weboberfläche. |
+| 🔵 **Blau** | `Nur Bluetooth-Scan` | Durchgehende Bluetooth-Suche zum schnellen Koppeln neuer Controller. |
+| 🔴⚪🟠 **Wechselblinken** | `Werksreset läuft` | `MODE`-Taste wird beim Start für 10 Sekunden gedrückt gehalten. |
+
+Mit einem kurzen Druck auf die **`MODE`-Taste** schaltest du im Betrieb jederzeit zwischen **Weiß (Normal)** -> **Orange (Nur WLAN)** -> **Blau (Nur Bluetooth)** um.
+
+---
+
+## 🎮 Die 3 integrierten Roboter-Oberflächen
+
+Über das Setup (`/setup`) oder die Einstellungen (`/config`) kannst du auswählen, welchen Roboter-Typ du gebaut hast. Die Startseite `/` passt sich dann automatisch an:
+
+### 1. 🚜 Workshop-Roboter (`basic` - `/basic`)
+Die ideale, übersichtliche Oberfläche für Einsteiger, Kettenroboter und Fahr-Workshops:
+- **Kompakte Statusleiste**: Zeigt Akkustand (`%` + Farbbalken), WLAN-Empfangsstärke (4 Balken) und einen **LED-Farbwähler**, der automatisch die aktuell auf dem Board leuchtende Farbe anzeigt.
+- **Großer Touch-Joystick**: Intuitives Fahren (`Vorwärts`, `Rückwärts`, `Links`, `Rechts`).
+- **Greifer-Steuerung**: Zwei große Touch-Tasten **`Greifer auf`** und **`Greifer zu`**.
+
+### 2. 🏎️ Fahr-Roboter Erweitert (`drive` - `/drive`)
+Das volle Cockpit für Fortgeschrittene, Tüftler und Wettbewerbs-Roboter:
+- **Live-Telemetrie**: Echtzeit-Anzeige von Akkuspannung (`V`), Ladezustand (`%`) und **Motorstrom (`A`)**.
+- **Servo-Steuerung**: Direkte Schieberegler für alle angeschlossenen Servos (`Servo 1..7` auf v2, `Servo 1..3` auf v1).
+- **Einzelmotor-Test & Greifer**: Direkte Tasten für alle 4 Motor-Ausgänge (`A..D`) sowie Ein-Klick-Tausch des Fahrpaars (`A/B` <-> `C/D`).
+- **LED-Streifen-Steuerung**: Farbe und Anzahl der leuchtenden WS2812-LEDs live einstellen.
+
+### 3. 🦾 4-Achs-Roboter-Arm (`arm` - `/arm`)
+Speziell entwickelte Oberfläche mit **interaktiver 2D-Live-Simulation** für den TinkerThinker-Roboterarm:
+- **Nummern-System (`①` bis `⑤`)**:
+  - **`① Basis (Drehkranz)`**: `360°` Endlos-Drehung (**ohne Stromsensor**, an `Motor C` oder `D`).
+  - **`② Arm 1 (Unterarm / Schulter)`**: `180°` Schwenkbereich (**⚡ mit Stromsensor**, an `Motor A` oder `B`).
+  - **`③ Arm 2 (Mittelarm / Ellbogen)`**: `180°` Schwenkbereich (**⚡ mit Stromsensor**, an `Motor A` oder `B`).
+  - **`④ Arm 3 (Handgelenk / Oberarm)`**: `180°` Schwenkbereich von `+90°` (senkrecht oben) über die **linke Seite** nach `-90°` (unten), sodass das **gelbe Bauteil rechts niemals überfahren** wird (**ohne Stromsensor**, an `Motor C` oder `D`).
+  - **`⑤ Greifer (Servo)`**: Öffnen und Schließen per Servo (`Servo 1..4`) mit einstellbaren Winkeln.
+- **⚡ Automatische Stromsensor-Kalibrierung (`Kalibrieren`-Buttons)**:
+  - Da DC-Motoren keine internen Winkel-Encoder haben, misst das Board über die **Stromsensoren an `Motor A` und `Motor B`** den Stromanstieg am mechanischen Endanschlag.
+  - Ein Klick auf **`⚡ Alle kalibrieren`** fährt die Gelenke bis zum Anschlag, erkennt den Strom-Peak automatisch, stoppt sofort, setzt den exakten Winkel (`+90°` bzw. `-90°`) und fährt sanft in die **neutrale Startposition (`0°`)**!
+- **Manuelle Steuerung ohne künstliche Blockade**:
+  - Weil die grafische Winkelanzeige zwischen den Anschlägen eine zeitbasierte Schätzung ist, sendet die manuelle Steuerung (Joystick / `◀` `▶` Buttons) auch am geschätzten Limit weiter Strom an den Motor, bis der echte physische Anschlag erreicht ist.
+- **Sanftes Anfahren & Abbremsen (Soft-Start / Soft-Stop)**:
+  - Schont Zahnräder und Mechanik durch eine sanfte Beschleunigungsrampe.
+- **Dual-Touch-Joysticks**: Zwei virtuelle Kreuzknüppel für gleichzeitiges, flüssiges Steuern aller 4 Achsen wie bei einem echten Bagger/Kran.
+
+---
+
+## 🧭 Alle Webseiten im Überblick
+
+Wenn du mit dem Roboter-WLAN verbunden bist, erreichst du über die obere Menüleiste folgende Seiten:
+
+| URL / Pfad | Name | Was kannst du hier machen? |
+| :--- | :--- | :--- |
+| **`/`** | **Steuerung** | Öffnet automatisch deine gewählte Roboter-Oberfläche (`/basic`, `/drive` oder `/arm`). |
+| **`/setup`** | **Setup-Assistent** | Geführte Schritt-für-Schritt-Ersteinrichtung für Fahrmotoren oder den Roboter-Arm (inkl. Grafik ①-⑤). |
+| **`/controls`** | **Steuerungs-Editor** | Visuelles Live-Abbild von Bluetooth-Gamepad & Board zum Testen und freien Umbelegen aller Tasten/Sticks. |
+| **`/config`** | **Konfiguration** | Alle Experten-Einstellungen (WLAN-Name/Passwort, v1/v2-Board, Motor-PWM, Servos, Projekt- & GitHub-Infos). |
+| **`/portal.html`** | **Verbindungs-Hilfe** | Freundlicher Smartphone-Assistent mit Apple/Android-Erkennung zum Wechsel in den richtigen Browser. |
+
+---
+
+## 🛠️ Geführter Einrichtungs-Assistent (`/setup`)
+
+Du weißt nicht genau, welches Motorkabel an welchem Anschluss (`A`, `B`, `C`, `D`) steckt oder warum ein Motor rückwärts läuft? Öffne einfach **`http://192.168.4.1/setup`**:
+
+1. **Roboter-Typ & WLAN-Name wählen**: Wähle `Workshop-Roboter`, `Fahr-Roboter` oder `Roboter-Arm` und gib deinem Roboter einen eigenen WLAN-Namen (z. B. `Roboter-Max`).
+2. **Motoren einzeln antesten (`1s`)**:
+   - Du klickst auf **„Motor testen (1s)“**, beobachtest am echten Roboter, welches Teil sich bewegt hat, und klickst den passenden Button an.
+   - Nicht belegte Anschlüsse (*„Kein Motor“*) überspringen automatisch alle weiteren Fragen.
+3. **Drehrichtung & Anlauf-Schwelle (Deadband)**:
+   - Der Assistent fragt dich in klaren Worten nach der beobachteten Richtung (z. B. *„Vorwärts“* vs. *„Rückwärts“*) und kehrt falsch gepolte Motoren automatisch um.
+4. **Besonderheit beim Roboter-Arm (`①` bis `⑤` mit Kabel-Fehlerprüfung)**:
+   - Oben siehst du dauerhaft eine **nummerierte Grafik des Roboter-Arms (`①` bis `⑤`)**.
+   - Der Assistent startet gezielt mit **`Motor C` und `Motor D` (OHNE Stromsensor)** für **`① Basis`** und **`④ Arm 3 (Handgelenk)`** und testet danach **`Motor A` und `Motor B` (⚡ MIT Stromsensor)** für **`② Arm 1`** und **`③ Arm 2`**.
+   - **Automatische Fehler-Erkennung (*„⚠️ Hey, Fehler!“*)**: Hast du versehentlich einen Armteil mit Stromsensor-Bedarf (`②` oder `③`) an `Motor C/D` angeschlossen (oder `①`/`④` an `Motor A/B`), stoppt der Assistent sofort, erklärt dir genau, welche zwei Stecker du am Board tauschen musst, und lässt dich sauber von vorne starten.
+   - Zum Schluss kannst du in Schritt `⑤` direkt den **Greifer-Servo** (`Greifer Auf` / `Greifer Zu`) live testen.
+   - Alle Einstellungen werden dauerhaft auf dem ESP32 gespeichert - jedes verbundene Handy hat sofort die fertige Konfiguration!
+
+---
+
+## 🎮 Visueller Steuerungs-Editor (`/controls`)
+
+Unter **`http://192.168.4.1/controls`** findest du das visuelle Diagnose- und Mapping-Studio:
+
+- **Live-Controller-Grafik & Board-Vorschau**:
+  - Sobald du Tasten oder Joysticks an deinem gekoppelten Bluetooth-Gamepad bewegst, leuchten sie in Echtzeit auf dem Bildschirm auf.
+- **Klick-Zuordnung (Tasten frei belegen)**:
+  - Klicke einfach im Bild auf eine Controller-Taste (z. B. `R2`, `Steuerkreuz`, `Linker Stick`) und weise ihr eine Aktion zu (Motor fahren, Servo auf Winkel stellen, Servo schrittweise bewegen, LED-Farbe ändern oder Geschwindigkeits-Stufe schalten).
+- **Joystick-Achsen anpassen**:
+  - Vorwärts/Rückwärts oder Links/Rechts vertauscht? Mit den Schaltern `X invertieren`, `Y invertieren` und `Achsen tauschen` korrigierst du das mit einem Klick.
+- **Integrierter Hardware-Live-Tester**:
+  - Teste alle Servos, Motoren und LEDs direkt per Schieberegler über die Weboberfläche.
+
+### Standard-Belegung für Bluetooth-Gamepads (ab Werk)
+
+| Controller-Eingabe | Standard-Funktion |
+| :--- | :--- |
+| **Rechter Stick (`RX` / `RY`)** | Fährt das konfigurierte Haupt-Motorpaar (Standard: `Motor C & D`) |
+| **Linker Stick (`X` / `Y`)** | Steuert das zweite Motorpaar (Standard: `Motor A & B`) |
+| **Steuerkreuz Rechts / Links** | Bewegt `Servo 1` schrittweise um `+10°` / `-10°` |
+| **Trigger `R2` / `L2`** | Schaltet `Servo 1` zwischen `0°`/`90°` bzw. `90°`/`180°` um |
+| **Schultertasten `R1` / `L1`** | Erhöht (`R1`) bzw. verringert (`L1`) die globale Fahrgeschwindigkeit |
+
+---
+
+## 🔌 Hardware-Anschlüsse & Pinbelegung
+
+### Motoren & Stromsensoren
+
+| Anschluss am Board | Interner Index | ESP32 GPIO-Pins | Stromsensor integriert? | Empfohlene Verwendung beim Roboter-Arm |
+| :--- | :---: | :---: | :--- | :--- |
+| **Motor A** | `M0` (`0`) | `GPIO 16` / `GPIO 25` | ✅ **Ja (`Sensor 2` an `GPIO 36`)** | **② Arm 1 (Unterarm)** oder **③ Arm 2 (Mittelarm)** |
+| **Motor B** | `M1` (`1`) | `GPIO 32` / `GPIO 27` | ✅ **Ja (`Sensor 1` an `GPIO 34`)** | **③ Arm 2 (Mittelarm)** oder **② Arm 1 (Unterarm)** |
+| **Motor C** | `M2` (`2`) | `GPIO 4` / `GPIO 12` | ❌ Nein | **① Basis (Drehkranz)** oder **④ Arm 3 (Handgelenk)** |
+| **Motor D** | `M3` (`3`) | `GPIO 15` / `GPIO 14` | ❌ Nein | **④ Arm 3 (Handgelenk)** oder **① Basis (Drehkranz)** |
+
+### Servos, LEDs & Sensorik (Platinen-Revision v2 vs. v1)
+
+| Funktion | ESP32 GPIO | Hinweis (v2 Standard vs. ältere v1-Platine) |
+| :--- | :---: | :--- |
+| **Servo 1 bis 3 (`S0..S2`)** | `13`, `33`, `17` | Auf **allen** Platinen (v1 & v2) vorhanden (`Servo 1` = Greifer-Standard) |
+| **Servo 4 bis 7 (`S3..S6`)** | `23`, `18`, `19`, `5` | Nur auf neueren **v2-Platinen** bestückt |
+| **WS2812 RGB-LEDs** | `GPIO 2` | Onboard-Status-LED (`LED 0`) + externer LED-Streifen |
+| **Akku-Spannungsmessung** | `GPIO 35` | Misst live die Versorgungsspannung (ADC) |
+| **MODE-Taster / Fault-Pin** | `GPIO 39` | **v2-Board**: `MODE`-Taster · **v1-Board**: Motortreiber-Fault-Eingang |
+
+> **🔄 Ältere v1-Platine im Einsatz?**
+> Falls du eine ältere Platinen-Version (v1 mit nur 3 Servo-Steckplätzen) nutzt, kannst du in **`/config`** ganz oben einfach den Haken bei **„Älteres Board (v1 - 3 Servos, Fault-Pin auf GPIO 39)“** setzen. Selbst ohne diese Einstellung erkennt unsere Boot-Schutzlogik automatisch ein v1-Board und verhindert zuverlässig einen unbeabsichtigten Werksreset beim Einschalten.
+
+---
+
+## 🔄 Werksreset (Auf Werkseinstellungen zurücksetzen)
+
+Du hast das WLAN-Passwort vergessen oder möchtest alle Einstellungen komplett zurücksetzen?
+
+1. Halte die **`MODE`-Taste** an der Seite der Platine gedrückt.
+2. Drücke kurz auf die **`RESET`-Taste** (oder schalte das Board aus und wieder ein), **während du `MODE` weiter gedrückt hältst**.
+3. Halte `MODE` für **ca. 10 Sekunden** gedrückt: Währenddessen blinkt die Status-LED abwechselnd **Rot - Weiß - Orange**.
+4. Sobald der Reset abgeschlossen ist, startet das Board neu. Das WLAN heißt jetzt wieder **`TinkerThinkerAP`** (ohne Passwort).
+
+---
+
+## ⚡ Firmware installieren oder aktualisieren
+
+Du möchtest ein neues Board bespielen oder ein Update aufspielen? Dafür gibt es **3 einfache Wege** - die ersten beiden funktionieren **komplett ohne Programmierumgebung**:
+
+### Weg 1: Direkt im Browser mit dem WebSerial-Installer (Empfohlen für Einsteiger)
+Du brauchst **weder Python noch VS Code**:
+1. Öffne die Datei **[`tools/webserial_installer.html`](tools/webserial_installer.html)** in **Google Chrome** oder **Microsoft Edge**.
+2. Verbinde dein TinkerThinker-Board per USB-Kabel mit dem Computer.
+3. Klicke im Browser auf **„Verbinden & Flashen“** - der Installer spielt Bootloader, Partitionstabelle, Firmware und die komprimierte Weboberfläche (`littlefs.bin`) vollautomatisch auf!
+   - *Bonus*: Über den Installer kannst du auch fertige Roboter-Konfigurationen sichern und auf weitere Boards klonen.
+
+### Weg 2: Ein-Klick Auto-Flasher (Ideal für Workshops & Serien-Flashen)
+Wenn du mehrere Boards hintereinander flashen möchtest:
+- **Unter Windows**: Doppelklicke einfach auf **[`tools/start_flasher.bat`](tools/start_flasher.bat)**.
+- **Per Terminal (macOS / Linux / Windows)**:
   ```bash
   python tools/auto_flasher.py
   ```
-  Or using `uv`:
-  ```bash
-  uv run --with-requirements tools/requirements.txt python tools/auto_flasher.py
-  ```
+- **Was passiert automatisch?**
+  - Das Skript lädt automatisch das **allerneueste Release** direkt von GitHub herunter.
+  - Sobald du ein Board per USB ansteckst, wird es erkannt und komplett geflasht.
+  - Bereits aktuell geflashte Boards werden anhand ihrer MAC-Adresse (`tools/blacklist.txt`) erkannt und übersprungen, bis ein neues Release erscheint.
+  - Alle Details findest du in **[`tools/README.md`](tools/README.md)**.
 
-Flasher features:
-- Automatically downloads and extracts the latest release assets from GitHub Actions.
-- Calculates offsets from [`platformio.ini`](platformio.ini) and the partition CSV.
-- Continuously watches serial ports: connect an ESP32 board to flash it automatically.
-- Tracks flashed boards by MAC in `tools/blacklist.txt` per release tag. Boards already on the target release are skipped; if a new release is available, they will be updated.
-- CLI flags:
-  - `--once` or `-1`: Flash a single connected board and exit.
-  - `--clear-blacklist` or `-c`: Clear blacklist to reflash boards.
+---
 
-### WebSerial Installer (Browser)
+## 🛠️ Für Entwickler: Bauen mit PlatformIO
 
-Alternatively, you can flash firmware and upload configurations directly through Google Chrome or Edge using the WebSerial installer at [`tools/webserial_installer.html`](tools/webserial_installer.html).
+Wenn du selbst am C++-Code (`main/`) oder an der Weboberfläche (`data/`) arbeitest:
 
-## Configuration Reference
+### Projektstruktur
+- **[`main/`](main/)**: ESP32-Firmware (ESP-IDF + Arduino-Komponente + Bluepad32)
+  - [`sketch.cpp`](main/sketch.cpp): Hauptschleife, Funkmodi (`Normal`, `Wi-Fi only`, `BT scan`), mDNS & Reset-Logik
+  - [`TinkerThinkerBoard.cpp`](main/TinkerThinkerBoard.cpp): Ansteuerung von Motoren, Servos, LEDs, Strom-/Akkusensoren & Last-Writer-Wins-Arbitration
+  - [`WebServerManager.cpp`](main/WebServerManager.cpp): AsyncWebServer, WebSocket (`/ws`), Captive-Portal-Erkennung & REST-Endpunkte
+  - [`ConfigManager.cpp`](main/ConfigManager.cpp): Speicherung aller Einstellungen (inkl. `arm_config` & `control_bindings`) in `/config.json` auf LittleFS
+  - [`InputBindingManager.cpp`](main/InputBindingManager.cpp): Auswertung und Zuordnung der Bluetooth-Gamepad-Eingaben
+- **[`data/`](data/)**: Weboberfläche (`basic.html`, `index.html`, `arm.html`, `setup.html`, `controls.html`, `config.html`, `portal.html`) - wird beim Bauen automatisch per Gzip komprimiert!
+- **[`tools/`](tools/)**: Auto-Flasher, WebSerial-Installer und Gzip-Build-Skript ([`tools/README.md`](tools/README.md))
+- **[`PCB/`](PCB/)**: Schaltpläne (V4.4), Platinen-Ansichten, 3D-Modell & Sicherheitshinweise ([`PCB/README.md`](PCB/README.md))
+- **[`CAD/`](CAD/)**: 3D-Druck-Modelle für Chassis, Platinenhalter und Sumo-Roboter-Bausatz ([`CAD/README.md`](CAD/README.md))
 
-Persistent configuration is stored in `/config.json` on LittleFS.
+### Wichtige Befehle (PlatformIO CLI)
 
-Main config groups:
+```powershell
+# 1. Firmware kompilieren (Standard v2-Board):
+pio run -e esp32dev
 
-- Control GUI mode (`gui_mode`: `"basic"`, `"drive"`, `"arm"`)
-- Legacy board v1 switch (`legacy_board`)
-- Wi-Fi mode, SSIDs, passwords
-- Motor inversion and deadband
-- GUI drive motor pair (`motor_left_gui`, `motor_right_gui`) and gripper motor (`motor_gripper_gui`)
-- Motor frequency
-- Servo pulse width limits
-- LED count, brightness, and gamma
-- Bluetooth scan timing
-- Drive profile and motor curve
-- `control_bindings`
+# 2. Komprimiertes LittleFS-Dateisystem (.gz) bauen:
+pio run -e esp32dev -t buildfs
 
-The HTTP and WebSocket API is documented in [`API.md`](API.md).
+# 3. Ultraschneller LittleFS-Build & Flash (< 1 Sekunde, ohne CMake-Wartezeit):
+python tools/gzip_littlefs.py --build --flash COM19
+```
 
-## Troubleshooting
+> **📦 Automatische `.gz`-Komprimierung der Weboberfläche:**
+> Vor jedem Dateisystem-Build komprimiert [`tools/gzip_littlefs.py`](tools/gzip_littlefs.py) alle `.html`, `.js`, `.css`, `.ico` und `.svg` Dateien aus `data/` nach `.pio/data_gzip/` (spart **~69 % Flash-Speicher** und beschleunigt das Laden im Browser drastisch). `config.json` bleibt unkomprimiert, damit das Board Einstellungen zur Laufzeit lesen und speichern kann.
 
-- The web page does not open:
-  - make sure you are connected to the robot hotspot, not another Wi-Fi
-  - disable VPNs
-  - use `http://192.168.4.1`, not `https://192.168.4.1`
-  - try another browser
-  - on phones, try toggling mobile data
-- The board shows a white LED but the controller does not connect:
-  - put the controller back into pairing mode
-  - switch to Bluetooth scan mode if needed so the LED turns blue
-- **PS3 / DualShock 3 clone controllers** (common no-name clones with MAC prefix `A0:5A:5E` or `A0:5A:5F`) are supported with special handling:
-  - the firmware skips the Bluetooth name request (clones don't answer it and cause a 15-second timeout)
-  - GAP Security Level 2 and Wii-style PIN logic are bypassed for these devices
-  - if your clone has a different MAC OUI and still doesn't connect, open an issue with the first 3 bytes of its MAC address
-- The controller connects but the website becomes unreachable briefly:
-  - this can happen for about 3 seconds because Wi-Fi is intentionally paused to improve Bluetooth pairing
-- Motors move in the wrong direction:
-  - correct them in `/setup` or `/config`
-- The UI returns 404 or stays blank after flashing:
-  - upload the LittleFS image
+---
 
-## Credits and Support
+## ❓ Häufige Fragen & Problemlösungen (FAQ)
 
-The board and software were created at FabLab Lübeck:
+<details>
+<summary><strong>📱 Mein Handy schließt das Steuerungsfenster nach 1-2 Minuten von selbst!</strong></summary>
 
-- Andre: hardware
-- Marco: software
+Das liegt am eingebauten **Captive-Portal-Minibrowser** von iOS und Android: Sobald das Handy merkt, dass der Roboter-Hotspot kein Internet hat, bricht das kleine Popup-Fenster nach einem Timeout ab.
+**Lösung:** Folge einfach den 2 Schritten auf unserer Startseite (`/portal.html`): Wähle bei der Systemfrage *„Ohne Internet verbunden bleiben“* und öffne **`http://192.168.4.1`** oder **`http://tinker.local`** in deinem **echten Browser (Safari / Chrome)**. Dort bleibt die Verbindung dauerhaft stabil!
+</details>
 
-If you run into hardware or software problems, they are the right people to contact through the project or FabLab channels.
+<details>
+<summary><strong>🌐 Die Seite <code>192.168.4.1</code> lädt im Browser nicht.</strong></summary>
 
-Project/community support:
+1. Prüfe, ob dein Handy noch mit dem Roboter-WLAN verbunden ist.
+2. Schalte am Handy testweise die **Mobilen Daten** aus und deaktiviere aktive **VPN-Apps**.
+3. Stelle sicher, dass der Browser **`http://192.168.4.1`** (ohne `s`!) aufruft und nicht `https://`.
+</details>
 
-- Board and main firmware: [TinkerThinker / board support Discord](https://discord.gg/kxpnWjJjyF)
-- Bluepad32 / Bluetooth-related topics only: [Bluepad32 Discord](https://discord.gg/r5aMn6Cw5q)
+<details>
+<summary><strong>🎮 Mein Bluetooth-Controller (oder PS3-Clone) verbindet sich nicht.</strong></summary>
 
-## Further Reading
+1. Drücke zweimal kurz auf die **`MODE`-Taste** am Board, bis die Status-LED **blau** 🔵 leuchtet (dauerhafter Bluetooth-Scan-Modus).
+2. Versetze den Controller erneut in den Pairing-Modus.
+3. **Günstige PS3-/DualShock-3-Clone-Controller** (MAC-Präfix `A0:5A:5E` / `A0:5A:5F`) werden von unserer Firmware speziell unterstützt. Falls dein Clone eine andere MAC-Adresse hat, erstelle gern ein GitHub-Issue mit den ersten 3 Bytes der MAC-Adresse.
+</details>
 
-- [Bluepad32 for Arduino](https://bluepad32.readthedocs.io/en/latest/plat_arduino/)
-- [Arduino as ESP-IDF component](https://docs.espressif.com/projects/arduino-esp32/en/latest/esp-idf_component.html)
-- [ESP-IDF VS Code extension](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/get-started/vscode-setup.html)
+<details>
+<summary><strong>🔄 Ein Motor dreht falsch herum oder die falschen Räder bewegen sich.</strong></summary>
+
+Starte einfach den geführten Assistenten unter **`http://192.168.4.1/setup`** oder kehre die Drehrichtung einzelner Motoren per Klick unter **`http://192.168.4.1/config`** um. Du musst dafür keine Kabel umlöten!
+</details>
+
+---
+
+## 💬 Credits & Support
+
+Entwickelt mit ❤️ im **FabLab Lübeck**:
+- **Andre**: Hardware & Platinen-Design (PCB)
+- **Marco**: Firmware, Weboberfläche & Flash-Tools
+
+### Weiterführende Dokumente & Community
+- 📡 **API-Dokumentation (HTTP & WebSocket)**: [`API.md`](API.md)
+- 🧰 **Flash-Tools & WebSerial-Installer**: [`tools/README.md`](tools/README.md)
+- 🖨️ **CAD- & 3D-Druck-Dateien**: [`CAD/README.md`](CAD/README.md)
+- 🔌 **Schaltplan & PCB-Unterlagen**: [`PCB/README.md`](PCB/README.md)
+- 💬 **TinkerThinker / FabLab Support-Discord**: [discord.gg/kxpnWjJjyF](https://discord.gg/kxpnWjJjyF)
+- 🎮 **Bluepad32 Discord (nur für allgemeine Bluetooth-Gamepad-Fragen)**: [discord.gg/r5aMn6Cw5q](https://discord.gg/r5aMn6Cw5q)

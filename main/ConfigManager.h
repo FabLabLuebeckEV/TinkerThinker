@@ -112,6 +112,10 @@ public:
     void setControlBindingsJson(const String &json) { control_bindings_json = json; }
     static const char* getDefaultControlBindingsJson();
 
+    // Persistent Robot Arm configuration JSON (motor mapping, sensors, gripper servo)
+    String getArmConfigJson() const { return arm_config_json; }
+    void setArmConfigJson(const String &json) { arm_config_json = json; }
+
     // Bluetooth Whitelist
     bool getBtWhitelistEnabled() const { return bt_whitelist_enabled; }
     const std::vector<String>& getBtWhitelist() const { return bt_whitelist; }
@@ -167,6 +171,7 @@ private:
     int bt_scan_off_ap_ms = 1900;
 
     String control_bindings_json; // raw JSON string for control mappings
+    String arm_config_json;       // raw JSON object string for robot arm setup
 
     bool bt_whitelist_enabled = false;
     std::vector<String> bt_whitelist;

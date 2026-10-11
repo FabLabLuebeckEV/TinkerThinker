@@ -1,34 +1,30 @@
-# CAD-Dateien
+# 🖨️ CAD- & 3D-Druck-Dateien
 
-Dieser Ordner enthält CAD-Dateien (Autodesk Fusion 360, STEP, DXF, 3MF) rund um das TinkerThinker-Projekt.
+[⬅️ Zurück zur Hauptseite (`README.md`)](../README.md)
 
-## Inhalt
+Dieser Ordner enthält alle mechanischen Konstruktions- und 3D-Druck-Dateien (Autodesk Fusion 360, STEP, DXF, 3MF) für das TinkerThinker-Projekt.
 
-### Roboter-Chassis & Halterungen
-- `Roboter V3 v27.f3z`: Komplettes Fusion-Archiv (Baugruppe) des Roboters. Zum Import in Fusion 360: Datei > Öffnen > Upload.
-- `RescueBot2025OLD PCB.f3z`: Älteres Fusion-Archiv mit PCB-Bezug (Historie/Referenz).
-- `PlatinenhalterNEU v6.f3d`: Einzelteil (Platinenträger/Halter) als Fusion-Bauteil.
+## 📂 Übersicht der Modelle
 
-### Sumo-Roboter-Bausatz
-- `Sumo Bausatz.step`: STEP-Baugruppe des vollständigen Sumo-Roboters.
-- `Sumo Bausatz 3D Druck.3mf`: Druckfertige 3D-Druck-Komponenten für den Bausatz.
-- `Sumo Bausatz Grundplatte.dxf`: DXF-Kontur der Grundplatte für Laser- oder Fräsbearbeitung.
-- `Sumo Bausatz Wippe.dxf`: DXF-Kontur der beweglichen Wippe.
+### 1. Roboter-Chassis & Platinenhalter
+| Datei | Format | Beschreibung |
+| :--- | :---: | :--- |
+| **`PlatinenhalterNEU v6.f3d`** | Fusion 360 | Aktueller Träger/Halter für die TinkerThinker-Platine. |
+| **`Roboter V3 v27.f3z`** | Fusion 360 Archiv | Komplette Baugruppe des Roboters (Import in Fusion 360 über *Datei -> Öffnen -> Upload*). |
+| **`RescueBot2025OLD PCB.f3z`** | Fusion 360 Archiv | Älteres Referenz-Archiv des Rescue-Bots. |
 
-## Öffnen und Export
-- Empfohlen: Autodesk Fusion 360 (native `.f3d` / `.f3z`).
-- Alternativen: FreeCAD, Blender, PrusaSlicer, Bambu Studio o. ä. über STEP-, 3MF- und DXF-Formate.
+### 2. Sumo-Roboter-Bausatz (3D-Druck & Lasercutter)
+| Datei | Format | Beschreibung |
+| :--- | :---: | :--- |
+| **`Sumo Bausatz 3D Druck.3mf`** | 3MF (Slicer) | Druckfertige 3D-Druck-Bauteile direkt für Bambu Studio, PrusaSlicer oder OrcaSlicer. |
+| **`Sumo Bausatz.step`** | STEP | Komplette 3D-Baugruppe des Sumo-Roboters (kompatibel mit allen CAD-Programmen wie FreeCAD & Fusion 360). |
+| **`Sumo Bausatz Grundplatte.dxf`** | DXF (2D) | Laser- / Fräskontur der Grundplatte. |
+| **`Sumo Bausatz Wippe.dxf`** | DXF (2D) | Laser- / Fräskontur der vorderen Sumo-Wippe. |
 
-## 3D-Druck-Hinweise (Platinenhalter & Chassis)
-- Material: PETG oder PLA+ (für höhere Wärmebeständigkeit und Flexibilität wird PETG empfohlen).
-- Layerhöhe: 0.2 mm (feiner bei Passflächen: 0.12 bis 0.16 mm).
-- Infill: 20 bis 40% (je nach gewünschter Steifigkeit).
-- Wände/Perimeter: 3 bis 4.
-- Ausrichtung: So auf dem Druckbett platzieren, dass Rastnasen und Bohrungen sauber gedruckt werden; Stützen nur falls nötig.
+## ⚙️ Empfohlene 3D-Druck-Einstellungen
 
-## Mechanik-Abgleich
-- Abmessungen prüfen: Platinen-Bohrungen und Außenkontur mit den Daten in `PCB/` abgleichen.
-- Falls Passungstoleranzen nötig sind (z. B. +0.2 mm an Bohrungen), direkt im CAD oder im Slicer anpassen.
-
-## Lizenz und Verwendung
-- Sofern nicht anders angegeben, gelten die Lizenzbedingungen des Repository-Root (siehe `LICENSE`).
+- **Material**: **PETG** oder **PLA+** (PETG wird wegen der höheren Bruchfestigkeit und Wärmebeständigkeit an den Rastnasen empfohlen).
+- **Schichthöhe (Layer Height)**: `0.20 mm` (bei feinen Passflächen `0.16 mm`).
+- **Wandlinien (Perimeters)**: `3 bis 4 Wände` für stabile Schraubdome.
+- **Füllung (Infill)**: `20 % bis 35 %` (Gyroid oder Grid).
+- **Platinen-Abgleich**: Das 3D-Modell und die Bohrungsmaße der Leiterplatte findest du im Ordner **[`../PCB/`](../PCB/README.md)**.
