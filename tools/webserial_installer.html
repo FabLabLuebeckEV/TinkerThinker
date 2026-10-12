@@ -683,13 +683,19 @@
       el.textContent = text;
     }
 
-    function base64ToUint8Array(base64) {
-      const binary = atob(base64);
-      const out = new Uint8Array(binary.length);
-      for (let i = 0; i < binary.length; i++) {
-        out[i] = binary.charCodeAt(i);
+    function base64ToBinaryString(base64) {
+      return atob(base64);
+    }
+
+    function uint8ArrayToBinaryString(bytes) {
+      if (typeof bytes === "string") return bytes;
+      const u8 = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+      const chunkSize = 0x8000;
+      const chunks = [];
+      for (let i = 0; i < u8.length; i += chunkSize) {
+        chunks.push(String.fromCharCode.apply(null, u8.subarray(i, i + chunkSize)));
       }
-      return out;
+      return chunks.join("");
     }
 
     function setRuntimeUi(connected) {
@@ -952,7 +958,7 @@
         if (!file) continue;
         entries.push({
           address: parseOffset(document.getElementById(offsetId).value),
-          data: new Uint8Array(await file.arrayBuffer()),
+          data: uint8ArrayToBinaryString(new Uint8Array(await file.arrayBuffer())),
           name: file.name,
         });
       }
@@ -968,7 +974,7 @@
           if (!asset?.dataBase64) throw new Error(item.name + " fehlt im lokalen Bundle.");
           entries.push({
             address: item.offset,
-            data: base64ToUint8Array(asset.dataBase64),
+            data: base64ToBinaryString(asset.dataBase64),
             name: item.name,
           });
         }
@@ -980,11 +986,26 @@
       for (const item of REQUIRED_RELEASE_FILES) {
         const asset = assetMap.get(item.name);
         if (!asset) throw new Error(item.name + " fehlt im Release.");
-        entries.push({
-          address: item.offset,
-          data: await fetchReleaseAsset(asset),
-          name: item.name,
-        });
+        try {
+          const rawBytes = await fetchReleaseAsset(asset);
+          entries.push({
+            address: item.offset,
+            data: uint8ArrayToBinaryString(rawBytes),
+            name: item.name,
+          });
+        } catch (err) {
+          const fallbackAsset = bundledRelease?.assets?.[item.name];
+          if (fallbackAsset?.dataBase64) {
+            appendLog(`[RELEASE] Download von ${item.name} blockiert (${err.message}), nutze eingebettetes Bundle.`);
+            entries.push({
+              address: item.offset,
+              data: base64ToBinaryString(fallbackAsset.dataBase64),
+              name: item.name,
+            });
+          } else {
+            throw err;
+          }
+        }
       }
       return entries;
     }
@@ -1011,7 +1032,10 @@
 
       const eraseAll = document.getElementById("eraseAllInput").checked;
       await loader.writeFlash({
-        fileArray: entries.map((entry) => ({ data: entry.data, address: entry.address })),
+        fileArray: entries.map((entry) => ({
+          data: uint8ArrayToBinaryString(entry.data),
+          address: entry.address,
+        })),
         flashMode: document.getElementById("flashModeSelect").value,
         flashFreq: document.getElementById("flashFreqSelect").value,
         flashSize: document.getElementById("flashSizeSelect").value,
@@ -1058,6 +1082,7 @@
       if (bundledRelease?.tag_name) {
         infoRelease.textContent = bundledRelease.tag_name;
         appendLog("[BUNDLE] Lokales Release-Bundle gefunden: " + bundledRelease.tag_name);
+        applyBundledReleaseFallback();
       }
     }
 
