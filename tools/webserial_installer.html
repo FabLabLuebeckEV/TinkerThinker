@@ -1010,6 +1010,112 @@
       return entries;
     }
 
+    function createPatchedTransportAndReset(port) {
+      const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+      const transport = new Transport(port, true);
+
+      // Verhindert, dass bei einem Read-Timeout ein verwaistes reader.read()-Promise
+      // in der WebSerial-Queue bleibt und die Antwort des naechsten Befehls verschluckt.
+      transport._pendingReadPromise = null;
+      transport._nextChunk = function (timeoutMs) {
+        if (!this.reader && this.device?.readable) {
+          this.reader = this.device.readable.getReader();
+        }
+        if (!this._pendingReadPromise) {
+          this._pendingReadPromise = this.reader.read().then(
+            (res) => {
+              this._pendingReadPromise = null;
+              return res;
+            },
+            (err) => {
+              this._pendingReadPromise = null;
+              throw err;
+            }
+          );
+        }
+        if (!timeoutMs || timeoutMs <= 0) {
+          return this._pendingReadPromise;
+        }
+        return new Promise((resolve, reject) => {
+          const timer = setTimeout(() => {
+            reject(new Error("Read timeout exceeded"));
+          }, timeoutMs);
+          this._pendingReadPromise.then(
+            (res) => {
+              clearTimeout(timer);
+              resolve(res);
+            },
+            (err) => {
+              clearTimeout(timer);
+              reject(err);
+            }
+          );
+        });
+      };
+
+      transport.newRead = async function (minBytes, timeoutMs) {
+        if (this.buffer.length >= minBytes) {
+          const out = this.buffer.slice(0, minBytes);
+          this.buffer = this.buffer.slice(minBytes);
+          return out;
+        }
+        while (this.buffer.length < minBytes) {
+          try {
+            const { value, done } = await this._nextChunk(timeoutMs);
+            if (done || !value) break;
+            this.buffer = this.appendArray(this.buffer, value);
+          } catch (_) {
+            break;
+          }
+        }
+        if (this.buffer.length === 0) return new Uint8Array(0);
+        const take = minBytes > 0 ? Math.min(minBytes, this.buffer.length) : this.buffer.length;
+        const out = this.buffer.slice(0, take);
+        this.buffer = this.buffer.slice(take);
+        return out;
+      };
+
+      const resetConstructors = {
+        classicReset: (trans, delay = 50) => ({
+          async reset() {
+            // Atomares Setzen von DTR & RTS in einem einzigen setSignals-Aufruf,
+            // damit CH340/CP2102 nicht durch die WebSerial-IPC-Luecke in den normalen Flash-Boot (0x13) springen.
+            await trans.device.setSignals({ dataTerminalReady: false, requestToSend: true });
+            await sleep(100);
+            await trans.device.setSignals({ dataTerminalReady: true, requestToSend: false });
+            await sleep(delay);
+            await trans.device.setSignals({ dataTerminalReady: false, requestToSend: false });
+            trans._DTR_state = false;
+
+            // Kurz warten, bis der ROM-Bootloader seinen ASCII-Boottext ("waiting for download")
+            // komplett gesendet hat, und alles gesammelt in trans.buffer legen.
+            await sleep(100);
+            const chunks = [];
+            while (true) {
+              try {
+                const { value, done } = await trans._nextChunk(45);
+                if (done || !value) break;
+                chunks.push(...value);
+              } catch (_) {
+                break;
+              }
+            }
+            trans.buffer = new Uint8Array(chunks.length > 0 ? chunks : [0x0a]);
+          },
+        }),
+        hardReset: (trans) => ({
+          async reset() {
+            await trans.device.setSignals({ dataTerminalReady: false, requestToSend: true });
+            await sleep(100);
+            await trans.device.setSignals({ dataTerminalReady: false, requestToSend: false });
+            trans._DTR_state = false;
+          },
+        }),
+      };
+
+      return { transport, resetConstructors };
+    }
+
     async function runFlash(entries) {
       if (!entries.length) throw new Error("Keine Dateien zum Flashen ausgewaehlt.");
       if (runtimePort) {
@@ -1017,41 +1123,54 @@
       }
 
       const port = await navigator.serial.requestPort();
-      const transport = new Transport(port, true);
+      const { transport, resetConstructors } = createPatchedTransportAndReset(port);
       const loader = new ESPLoader({
         transport,
         baudrate: 115200,
         terminal,
         debugLogging: false,
+        resetConstructors,
       });
 
-      setPill(flashPill, "Verbinde mit Bootloader", "warn");
-      const chipName = await loader.main();
-      infoChip.textContent = chipName || "-";
-      appendLog("[FLASH] Verbunden mit " + chipName);
+      try {
+        setPill(flashPill, "Verbinde mit Bootloader", "warn");
+        const chipName = await loader.main();
+        infoChip.textContent = chipName || "-";
+        appendLog("[FLASH] Verbunden mit " + chipName);
 
-      const eraseAll = document.getElementById("eraseAllInput").checked;
-      await loader.writeFlash({
-        fileArray: entries.map((entry) => ({
-          data: uint8ArrayToBinaryString(entry.data),
-          address: entry.address,
-        })),
-        flashMode: document.getElementById("flashModeSelect").value,
-        flashFreq: document.getElementById("flashFreqSelect").value,
-        flashSize: document.getElementById("flashSizeSelect").value,
-        eraseAll,
-        compress: true,
-        reportProgress: (fileIndex, written, total) => {
-          const entry = entries[fileIndex];
-          const percent = total ? ((written / total) * 100).toFixed(1) : "0.0";
-          setPill(flashPill, `Flashe ${entry.name}: ${percent}%`, "warn");
-        },
-      });
+        const eraseAll = document.getElementById("eraseAllInput").checked;
+        await loader.writeFlash({
+          fileArray: entries.map((entry) => ({
+            data: uint8ArrayToBinaryString(entry.data),
+            address: entry.address,
+          })),
+          flashMode: document.getElementById("flashModeSelect").value,
+          flashFreq: document.getElementById("flashFreqSelect").value,
+          flashSize: document.getElementById("flashSizeSelect").value,
+          eraseAll,
+          compress: true,
+          reportProgress: (fileIndex, written, total) => {
+            const entry = entries[fileIndex];
+            const percent = total ? ((written / total) * 100).toFixed(1) : "0.0";
+            setPill(flashPill, `Flashe ${entry.name}: ${percent}%`, "warn");
+          },
+        });
 
-      await loader.after("hard_reset");
-      await transport.disconnect();
-      setPill(flashPill, "Flash abgeschlossen", "ok");
-      appendLog("[FLASH] Vorgang abgeschlossen");
+        await loader.after("hard_reset");
+        setPill(flashPill, "Flash abgeschlossen", "ok");
+        appendLog("[FLASH] Vorgang abgeschlossen");
+      } finally {
+        try {
+          if (transport.reader) {
+            await transport.reader.cancel();
+            transport.reader.releaseLock();
+            transport.reader = null;
+          }
+        } catch (_) {}
+        try {
+          await port.close();
+        } catch (_) {}
+      }
     }
 
     function buildConfigPayload() {
