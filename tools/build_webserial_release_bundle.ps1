@@ -1,4 +1,5 @@
 $ErrorActionPreference = "Stop"
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $releaseApi = "https://api.github.com/repos/FabLabLuebeckEV/TinkerThinker/releases/latest"
@@ -12,7 +13,7 @@ $offsets = @{
 }
 
 Write-Host "Lade Release-Metadaten..."
-$release = Invoke-RestMethod -Uri $releaseApi -Headers @{ "Accept" = "application/vnd.github+json" }
+$release = Invoke-RestMethod -Uri $releaseApi -Headers @{ "Accept" = "application/vnd.github+json"; "User-Agent" = "TinkerThinker-BundleBuilder" }
 
 $lines = New-Object System.Collections.Generic.List[string]
 $lines.Add("window.TINKERTHINKER_RELEASE_BUNDLE = {")
@@ -30,7 +31,7 @@ foreach ($name in @("bootloader.bin", "partitions.bin", "firmware.bin", "littlef
 
   Write-Host "Lade $name..."
   $tmpFile = Join-Path $env:TEMP ("tt_bundle_" + [Guid]::NewGuid().ToString("N") + "_" + $name)
-  Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $tmpFile
+  Invoke-WebRequest -Uri $asset.url -Headers @{ "Accept" = "application/octet-stream"; "User-Agent" = "TinkerThinker-BundleBuilder" } -OutFile $tmpFile
   $bytes = [System.IO.File]::ReadAllBytes($tmpFile)
   Remove-Item $tmpFile -Force
   $base64 = [Convert]::ToBase64String($bytes)
