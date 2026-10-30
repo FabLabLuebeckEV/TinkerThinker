@@ -42,6 +42,9 @@ private:
     AsyncUDP localDnsUdp;
     String mdnsHostname = "tinkerthinker";
     uint32_t portalUnlockedUntilMs = 0;
+    // Nach dem Verbinden eines Handys zeigt das Portal-Popup nur kurz; danach melden die
+    // Connectivity-Checks dauerhaft "Internet vorhanden", damit das Handy verbunden bleibt.
+    uint32_t portalAutoUnlockAtMs = 0;
     int lastApStaCount = 0;
     SemaphoreHandle_t wsMutex = xSemaphoreCreateMutex();
     //Timeout als millisekunden seit dem letzten paket

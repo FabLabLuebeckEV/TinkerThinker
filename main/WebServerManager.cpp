@@ -57,7 +57,9 @@ static String sanitizeMdnsHost(const String& raw) {
 void WebServerManager::startWifi() {
     if (config->getWifiMode() == "AP") {
         WiFi.mode(WIFI_AP);
-        WiFi.softAP(config->getHotspotSSID().c_str(), config->getHotspotPassword().c_str());
+        // Fester Kanal, max. 4 Clients; kein Power-Save gegen Timeouts/Abbrueche
+        WiFi.softAP(config->getHotspotSSID().c_str(), config->getHotspotPassword().c_str(), 6, 0, 4);
+        esp_wifi_set_ps(WIFI_PS_NONE);
         IPAddress IP = WiFi.softAPIP();
         Serial.print("AP IP address: ");
         Serial.println(IP);
@@ -81,7 +83,8 @@ void WebServerManager::startWifi() {
                 Serial.println("\nSTA connect timeout - falling back to AP mode");
                 WiFi.disconnect(true);
                 WiFi.mode(WIFI_AP);
-                WiFi.softAP(config->getHotspotSSID().c_str(), config->getHotspotPassword().c_str());
+                WiFi.softAP(config->getHotspotSSID().c_str(), config->getHotspotPassword().c_str(), 6, 0, 4);
+                esp_wifi_set_ps(WIFI_PS_NONE);
                 Serial.print("Fallback AP IP: ");
                 Serial.println(WiFi.softAPIP());
                 startMdnsAndLocalDns();
@@ -247,8 +250,8 @@ void WebServerManager::handleLocalDnsPacket(AsyncUDPPacket& pkt) {
 }
 
 bool WebServerManager::isPortalUnlocked() const {
-    if (portalUnlockedUntilMs == 0) return false;
-    return (int32_t)(portalUnlockedUntilMs - millis()) > 0;
+    if (portalUnlockedUntilMs != 0 && (int32_t)(portalUnlockedUntilMs - millis()) > 0) return true;
+    return portalAutoUnlockAtMs != 0 && (int32_t)(millis() - portalAutoUnlockAtMs) >= 0;
 }
 
 void WebServerManager::disableWifiUntilRestart() {
@@ -1208,6 +1211,9 @@ void WebServerManager::sendStatusUpdate() {
             if (staList.num != lastApStaCount) {
                 if (staList.num > lastApStaCount || staList.num == 0) {
                     portalUnlockedUntilMs = 0;
+                    // Popup 15 s lang zeigen, danach Checks wieder bestehen lassen
+                    portalAutoUnlockAtMs = millis() + 15000UL;
+                    if (portalAutoUnlockAtMs == 0) portalAutoUnlockAtMs = 1;
                 }
                 lastApStaCount = staList.num;
             }
