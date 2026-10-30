@@ -433,7 +433,29 @@ void WebServerManager::setupRoutes() {
         request->redirect("http://192.168.4.1/portal");
     });
 
-    server.serveStatic("/", LittleFS, "/");
+    // Statische Dateien aus LittleFS. Bewusst kein serveStatic: Dessen ETag besteht nur aus der
+    // Dateigroesse, eine Änderung gleicher Größe wuerde nach einem Update als "304 unveraendert"
+    // gelten. send(LittleFS, ...) nutzt fuer .gz den CRC32 aus dem gzip-Trailer als ETag und setzt
+    // "Cache-Control: no-cache" - der Browser fragt jedes Mal nach und laedt bei neuer Version neu.
+    server.onNotFound([](AsyncWebServerRequest *request){
+        String path = request->url();
+        if (request->method() != HTTP_GET || path.endsWith("/") || path.indexOf("..") >= 0) {
+            request->send(404);
+            return;
+        }
+        if (LittleFS.exists(path + ".gz")) {
+            request->send(LittleFS, path);
+            return;
+        }
+        if (LittleFS.exists(path)) {
+            // Unkomprimierte Dateien (config.json, Bilder): nie veraltet ausliefern
+            AsyncWebServerResponse *response = request->beginResponse(LittleFS, path, String());
+            response->addHeader("Cache-Control", "no-cache, must-revalidate");
+            request->send(response);
+            return;
+        }
+        request->send(404);
+    });
 
     server.on("/config", HTTP_GET, [this](AsyncWebServerRequest *request){
         request->send(LittleFS, "/config.html", "text/html");
