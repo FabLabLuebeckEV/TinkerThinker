@@ -1262,9 +1262,10 @@ void WebServerManager::onWebSocketEvent(AsyncWebSocket *server, AsyncWebSocketCl
             // z.B. {"swap":true} oder {"swap":false}
             if (!doc["swap"].isNull()) {
                 bool sw = doc["swap"].as<bool>();
-                // Config entsprechend setzen
+                // Config setzen, speichern und sofort anwenden (sonst erst nach Neustart wirksam)
                 config->setMotorSwap(sw);
                 config->saveConfig();
+                board->reApplyConfig();
             }
         }
     } else if (type == WS_EVT_CONNECT) {

@@ -85,11 +85,11 @@ let reconnectAttempts = 0;
 
 // Funktion zum Senden von Nachrichten über WebSocket
 function sendWebSocketMessage(message) {
-  //if (socket && socket.readyState === WebSocket.OPEN) {
+  if (socket && socket.readyState === WebSocket.OPEN) {
     socket.send(JSON.stringify(message));
-  //} else {
+  } else {
     alert("WebSocket ist nicht verbunden. Bitte versuche es später erneut.");
-  //}
+  }
 }
 
 // Funktion zum Herstellen der WebSocket-Verbindung
@@ -336,100 +336,41 @@ function sendLedColor(hex) {
     const data = {
         led_set: { start: range.start, count: range.count, color: hex.toLowerCase() }
     };
-    socket.send(JSON.stringify(data));
+    if (socket && socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify(data));
 }
 
-// Motor C Steuerung
-function controlMotorA(direction) {
-    //if (socket.readyState === WebSocket.OPEN) {
-        const data = {
-            motorA: direction
-        };
-        socket.send(JSON.stringify(data));
-        console.log('Sent motorA command:', data);
-    //}
+// Einzelmotor-Tasten (Motor A und B): fahren nur, solange die Taste gedrueckt ist.
+// Auch beim Wegziehen vom Button oder abgebrochenem Touch stoppen, sonst laeuft der Motor weiter.
+function controlMotor(key, direction) {
+    if (!socket || socket.readyState !== WebSocket.OPEN) return;
+    socket.send(JSON.stringify({ [key]: direction }));
 }
 
-// Motor C Steuerung
-function controlMotorB(direction) {
-    //if (socket.readyState === WebSocket.OPEN) {
-        const data = {
-            motorB: direction
-        };
-        socket.send(JSON.stringify(data));
-        console.log('Sent motorB command:', data);
-    //}
+function bindHoldMotorButton(button, key, direction) {
+    if (!button) return;
+    let active = false;
+    const start = (e) => {
+        if (e) e.preventDefault();
+        active = true;
+        controlMotor(key, direction);
+    };
+    const stop = () => {
+        if (!active) return;
+        active = false;
+        controlMotor(key, 'stop');
+    };
+    button.addEventListener('mousedown', start);
+    button.addEventListener('touchstart', start, { passive: false });
+    button.addEventListener('mouseup', stop);
+    button.addEventListener('mouseleave', stop);
+    button.addEventListener('touchend', stop);
+    button.addEventListener('touchcancel', stop);
 }
 
-// Event Listener für Motor B Buttons
-motorBForwardButton.addEventListener('mousedown', () => {
-    controlMotorB('forward');
-});
-
-motorBForwardButton.addEventListener('touchstart', (e) => {
-    e.preventDefault(); // Verhindert Textauswahl und andere Standardaktionen
-    controlMotorB('forward');
-});
-
-motorBForwardButton.addEventListener('mouseup', () => {
-    controlMotorB('stop');
-});
-
-motorBForwardButton.addEventListener('touchend', () => {
-    controlMotorB('stop');
-});
-
-motorBBackwardButton.addEventListener('mousedown', () => {
-    controlMotorB('backward');
-});
-
-motorBBackwardButton.addEventListener('touchstart', (e) => {
-    e.preventDefault(); // Verhindert Textauswahl und andere Standardaktionen
-    controlMotorB('backward');
-});
-
-motorBBackwardButton.addEventListener('mouseup', () => {
-    controlMotorB('stop');
-});
-
-motorBBackwardButton.addEventListener('touchend', () => {
-    controlMotorB('stop');
-});
-
-// Event Listener für Motor C Buttons
-motorAForwardButton.addEventListener('mousedown', () => {
-    controlMotorA('forward');
-});
-
-motorAForwardButton.addEventListener('touchstart', (e) => {
-    e.preventDefault(); // Verhindert Textauswahl und andere Standardaktionen
-    controlMotorA('forward');
-});
-
-motorAForwardButton.addEventListener('mouseup', () => {
-    controlMotorA('stop');
-});
-
-motorAForwardButton.addEventListener('touchend', () => {
-    controlMotorA('stop');
-});
-
-motorABackwardButton.addEventListener('mousedown', () => {
-    controlMotorA('backward');
-});
-
-motorABackwardButton.addEventListener('touchstart', (e) => {
-    e.preventDefault(); // Verhindert Textauswahl und andere Standardaktionen
-    controlMotorA('backward');
-});
-
-motorABackwardButton.addEventListener('mouseup', () => {
-    controlMotorA('stop');
-});
-
-motorABackwardButton.addEventListener('touchend', () => {
-    controlMotorA('stop');
-});
+bindHoldMotorButton(motorAForwardButton, 'motorA', 'forward');
+bindHoldMotorButton(motorABackwardButton, 'motorA', 'backward');
+bindHoldMotorButton(motorBForwardButton, 'motorB', 'forward');
+bindHoldMotorButton(motorBBackwardButton, 'motorB', 'backward');
 
 // Event Listener für Servo Slider
 servoSlider.addEventListener('input', handleSliderChange);

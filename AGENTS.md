@@ -106,6 +106,15 @@ Recent Changes (Important)
      - `python tools/gzip_littlefs.py --build`
      - `python tools/gzip_littlefs.py --build --flash COM19`
 
+10) Review fixes (Oct 2026)
+   - Captive portal: connectivity probes pass automatically 15 s after a client connects, so phones stay on the robot AP. AP uses channel 6, max 4 clients, Wi-Fi power save off.
+   - Static web files are served by an `onNotFound` LittleFS handler (`no-cache` + gzip-CRC ETag) instead of `serveStatic`, so browsers never keep stale UI files after an update.
+   - WS drive watchdog: pages resend `{x,y}` while the joystick is deflected; the firmware neutralizes WS drive after 1 s without joystick data (via the arbiter, BT is not stopped).
+   - All pages reconnect the WebSocket forever (max 5 s backoff).
+   - `reApplyConfig()` creates the motor/servo/LED/monitor objects once and only applies new settings afterwards (no leak; other tasks keep valid pointers).
+   - POST bodies of `/arm/config` and `/bt/whitelist` are assembled across chunks and errors are reported.
+   - GitHub Pages: the CI `pages` job publishes `tools/webserial_installer.html` plus the freshly built binaries under `./release/` (GitHub release downloads are blocked by CORS).
+
 Editing Guidelines
 - Keep changes focused; do not introduce a second Arduino core.
 - Respect the control arbiter API; route all new control surfaces through TinkerThinkerBoard request* methods.

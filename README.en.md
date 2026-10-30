@@ -59,6 +59,7 @@ Now choose how you want to control your robot: **Smartphone/Browser (Option A)**
    - When connecting, phones automatically open a small **Captive Portal popup window**.
    - ⚠️ **Note**: On iOS and Android, this mini popup browser has a strict timeout (60-90 seconds) and closes itself when no internet is detected!
    - Our **Connection Assistant** automatically detects your device (Apple iPhone/iPad vs. Android) and guides you with a countdown to **keep the Wi-Fi connection without internet** and open the control page in **Safari or Chrome**.
+   - About 15 seconds after connecting, the robot answers the iOS/Android/Windows connectivity checks with "internet available", so the phone does not switch to mobile data or drop the robot Wi-Fi. If the connection still drops briefly, all control pages reconnect automatically.
 3. **Open the Control Interface**:
    - Tap the button in the assistant or enter one of these addresses in your browser:
      - 👉 **[http://192.168.4.1](http://192.168.4.1)** *(works on all devices)*
@@ -77,7 +78,7 @@ Now choose how you want to control your robot: **Smartphone/Browser (Option A)**
 3. Once connected, the onboard status LED turns **solid green** 🟢!
 
 > **💡 Tip if pairing fails:**
-> Press the **`MODE` button** twice until the status LED turns **blue** 🔵 (*Bluetooth Scan Only mode*). This dedicates 100% of the radio to continuous Bluetooth scanning.
+> Hold the **`MODE` button** for about 1 second, twice (white -> orange -> blue), until the status LED turns **blue** 🔵 (*Bluetooth Scan Only mode*). This dedicates 100% of the radio to continuous Bluetooth scanning.
 
 ---
 
@@ -86,12 +87,12 @@ Now choose how you want to control your robot: **Smartphone/Browser (Option A)**
 | LED Color | Radio Mode / State | Meaning |
 | :--- | :--- | :--- |
 | ⚪ **Dim White** | `Normal` (Default) | Both Wi-Fi hotspot **and** duty-cycled Bluetooth scanning are active. |
-| 🟢 **Green** | `Controller Connected` | A Bluetooth gamepad is connected and ready to drive. |
+| 🟢 **Green** | `Controller Connected` | A Bluetooth gamepad is connected and ready to drive (shown in `Normal` mode). |
 | 🟠 **Orange** | `Wi-Fi Only` | Bluetooth scanning is paused; 100% radio airtime for Wi-Fi. |
 | 🔵 **Blue** | `Bluetooth Scan Only` | Continuous Bluetooth scanning for fast controller pairing. |
 | 🔴⚪🟠 **Cycling** | `Factory Reset` | `MODE` button is held for 10 seconds during startup. |
 
-Press the **`MODE` button** briefly during operation to cycle between **White (Normal)** -> **Orange (Wi-Fi Only)** -> **Blue (Bluetooth Scan Only)**.
+Hold the **`MODE` button** for about **1 second** during operation to switch the radio mode. The order is **White (Normal)** -> **Orange (Wi-Fi Only)** -> **Blue (Bluetooth Scan Only)** -> **Orange (Wi-Fi Only)** -> **White (Normal)**. v1 boards have no `MODE` button and always stay in `Normal` mode.
 
 ---
 
@@ -108,9 +109,10 @@ Clean, beginner-friendly interface for tracked and wheeled workshop robots:
 ### 2. 🏎️ Advanced Drive Robot (`drive` - `/drive`)
 Full telemetry dashboard for advanced builders and competitions:
 - **Live Telemetry**: Battery voltage (`V`), percentage (`%`), and live **motor current (`A`)**.
-- **Servo Sliders**: Direct angle sliders for all active servos (`Servo 1..7` on v2, `Servo 1..3` on v1).
-- **Motor Test & Pair Swap**: Direct test buttons for `Motor A..D` plus 1-click drive pair swapping.
-- **LED Strip Control**: Set color and active LED count.
+- **Servo Slider**: Angle slider for `Servo 1`. Sliders for all active servos (`Servo 1..7` on v2, `Servo 1..3` on v1) are in the controls editor (`/controls`).
+- **Single-Motor Buttons**: `Motor A` and `Motor B` run forward or backward while the button is held.
+- **Joystick Direction**: Swap axes and invert X/Y for the website only (independent of the Bluetooth controller).
+- **LED Strip Control**: Set color and LED range.
 
 ### 3. 🦾 4-Axis Robot Arm (`arm` - `/arm`)
 Dedicated interface with an **interactive 2D kinematic canvas** for the TinkerThinker robot arm:
@@ -152,13 +154,14 @@ Open **`http://192.168.4.1/setup`** for a step-by-step guided configuration:
 
 - **Servos**: `S0..S2` on `GPIO 13, 33, 17` (all boards); `S3..S6` on `GPIO 23, 18, 19, 5` (v2 boards only).
 - **WS2812 LEDs**: `GPIO 2` · **Battery ADC**: `GPIO 35` · **GPIO 39**: `MODE` button (v2) / `GPIO_FAULT_1` (v1 legacy).
+- **Using an older v1 board?** Enable the legacy board (v1) option in `/config` right after the first flash. A v1 board holds `GPIO 39` LOW permanently. Until the option is set, the firmware treats this at power-on like a held `MODE` button: the LED cycles red-white-orange for 10 seconds and all settings are reset to factory defaults. The board then continues booting (no reboot loop).
 
 ---
 
 ## ⚡ Installing or Updating Firmware
 
 ### 1. Browser WebSerial Installer (No Setup Required)
-Open the **[web flasher (GitHub Page)](https://fablabluebeckev.github.io/TinkerThinker/)** (or [`tools/webserial_installer.html`](tools/webserial_installer.html) locally) in **Google Chrome** or **Microsoft Edge**, connect the board via USB, and click **Flash**.
+Open the **[web flasher (GitHub Page)](https://fablabluebeckev.github.io/TinkerThinker/)** (or [`tools/webserial_installer.html`](tools/webserial_installer.html) locally) in **Google Chrome** or **Microsoft Edge**, connect the board via USB, click **Latest Release laden** (load latest release), then **Latest Release flashen** (flash latest release), and select the board's USB port.
 
 ### 2. One-Click Auto-Flasher (Windows & Workshops)
 Run **[`tools/start_flasher.bat`](tools/start_flasher.bat)** (or `python tools/auto_flasher.py`). It automatically downloads the latest GitHub Actions release and flashes every connected ESP32 board. See **[`tools/README.md`](tools/README.md)** for details.
