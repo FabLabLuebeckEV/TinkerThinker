@@ -12,7 +12,7 @@
 
 let socket = null;
 let reconnectInterval = 1000;
-const maxReconnectInterval = 30000;
+const maxReconnectInterval = 5000;
 let reconnectAttempts = 0;
 let lastLedSendMs = 0;
 
@@ -338,13 +338,12 @@ function connectWebSocket() {
 
     socket.onclose = function() {
         updateSignalDisplay(0, false);
-        if (reconnectAttempts * reconnectInterval < maxReconnectInterval) {
-            setTimeout(() => {
-                reconnectAttempts++;
-                connectWebSocket();
-                reconnectInterval = Math.min(reconnectInterval * 2, maxReconnectInterval);
-            }, reconnectInterval);
-        }
+        // Nie aufgeben: Der Hotspot kann kurz wegbrechen
+        setTimeout(() => {
+            reconnectAttempts++;
+            connectWebSocket();
+            reconnectInterval = Math.min(reconnectInterval * 2, maxReconnectInterval);
+        }, reconnectInterval);
     };
 
     socket.onerror = function() {

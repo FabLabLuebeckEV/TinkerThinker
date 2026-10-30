@@ -493,8 +493,11 @@ function motorMoved(letter, side) {
 }
 
 function directionChosen(letter, dir) {
-    // invert = true, wenn backward
-    motorSettings[letter].invert = (dir === 'backward');
+    // Der Testlauf nutzt die aktuell gespeicherte Invertierung. Lief er rueckwaerts,
+    // muss die gespeicherte Einstellung umgedreht werden, sonst bleibt sie.
+    const idx = letterToIndex(letter);
+    const currentInvert = !!(configData.motor_invert && configData.motor_invert[idx]);
+    motorSettings[letter].invert = (dir === 'backward') !== currentInvert;
     // Weiter zum Deadband
     if (letter === 'A') goToStep(5);
     else if (letter === 'B') goToStep(8);
@@ -541,12 +544,7 @@ function testSetupGripper(action) {
         ? (openEl ? parseInt(openEl.value, 10) : 35)
         : (closeEl ? parseInt(closeEl.value, 10) : 145);
     const clamped = Math.max(0, Math.min(180, isNaN(deg) ? 90 : deg));
-    sendWS({
-        servo: {
-            channel: ch,
-            angle: clamped
-        }
-    });
+    sendWS({ ['servo' + ch]: clamped });
 }
 
 function letterToIndex(letter) {
@@ -696,6 +694,7 @@ function finalizeSetup() {
     formData.append("led_count", String(configData.led_count || 30));
     if (configData.ota_enabled) formData.append("ota_enabled", "on");
     if (configData.legacy_board) formData.append("legacy_board", "on");
+    if (configData.motor_swap) formData.append("motor_swap", "on");
 
     for (let i = 0; i < 7; i++) {
         const minPw = configData.servo_settings?.[i]?.min_pulsewidth ?? 500;
@@ -707,7 +706,8 @@ function finalizeSetup() {
     fetch('/config', {
         method: 'POST',
         body: formData
-    }).then(() => {
+    }).then((res) => {
+        if (!res.ok) throw new Error('HTTP ' + res.status);
         goToStep(17);
         setTimeout(() => {
             fetch('/reboot').catch(() => {});

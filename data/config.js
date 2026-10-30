@@ -1,7 +1,7 @@
 // WebSocket-Parameter
 let socket;
 let reconnectInterval = 1000; // Initialer Rekonnektion-Intervall in ms
-const maxReconnectInterval = 30000; // Maximales Rekonnektion-Intervall in ms
+const maxReconnectInterval = 5000; // Maximales Rekonnektion-Intervall in ms
 let reconnectAttempts = 0;
 
 // Funktion zum Senden von Nachrichten über WebSocket
@@ -21,6 +21,7 @@ function connectWebSocket() {
   socket.onopen = function() {
     console.log("WebSocket verbunden");
     reconnectAttempts = 0; // Zurücksetzen der Versuche nach erfolgreicher Verbindung
+    reconnectInterval = 1000;
     updateConnectionStatus("verbunden");
   };
 
@@ -61,11 +62,7 @@ function connectWebSocket() {
 
 // Funktion zum Versuch der Rekonnektion
 function attemptReconnect() {
-  if (reconnectAttempts * reconnectInterval >= maxReconnectInterval) {
-    console.log("Maximales Rekonnektion-Intervall erreicht. Weitere Versuche werden eingestellt.");
-    return;
-  }
-
+  // Nie aufgeben: Der Hotspot kann kurz wegbrechen
   setTimeout(() => {
     console.log(`Versuche, WebSocket erneut zu verbinden... (Versuch ${reconnectAttempts + 1})`);
     reconnectAttempts++;

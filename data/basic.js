@@ -23,7 +23,7 @@ let lastSentData = { x: 0, y: 0 };
 
 let socket;
 let reconnectInterval = 1000;
-const maxReconnectInterval = 30000;
+const maxReconnectInterval = 5000;
 let reconnectAttempts = 0;
 
 function sendWS(payload) {
@@ -130,9 +130,7 @@ function connectWebSocket() {
 }
 
 function attemptReconnect() {
-    if (reconnectAttempts * reconnectInterval >= maxReconnectInterval) {
-        return;
-    }
+    // Nie aufgeben: Der Hotspot kann kurz wegbrechen, die Steuerung muss danach von selbst zurueckkommen
     setTimeout(() => {
         reconnectAttempts++;
         connectWebSocket();
@@ -247,7 +245,8 @@ function sendDriveData(force = false) {
         y: parseFloat((normalizedHorizontal * -1).toFixed(4))
     };
 
-    if (force || currentData.x !== lastSentData.x || currentData.y !== lastSentData.y) {
+    const active = currentData.x !== 0 || currentData.y !== 0;
+    if (force || active || currentData.x !== lastSentData.x || currentData.y !== lastSentData.y) {
         sendWS(currentData);
         lastSentData = currentData;
     }

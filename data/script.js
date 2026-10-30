@@ -80,7 +80,7 @@ let lastSentData = { x: 0, y: 0, servo: 90 };
 // WebSocket Verbindung aufbauen
 let socket;
 let reconnectInterval = 1000; // Initialer Rekonnektion-Intervall in ms
-const maxReconnectInterval = 30000; // Maximales Rekonnektion-Intervall in ms
+const maxReconnectInterval = 5000; // Maximales Rekonnektion-Intervall in ms
 let reconnectAttempts = 0;
 
 // Funktion zum Senden von Nachrichten über WebSocket
@@ -100,6 +100,7 @@ function connectWebSocket() {
   socket.onopen = function() {
     console.log("WebSocket verbunden");
     reconnectAttempts = 0; // Zurücksetzen der Versuche nach erfolgreicher Verbindung
+    reconnectInterval = 1000;
     updateConnectionStatus("verbunden");
   };
 
@@ -156,11 +157,7 @@ function connectWebSocket() {
 
 // Funktion zum Versuch der Rekonnektion
 function attemptReconnect() {
-    if (reconnectAttempts * reconnectInterval >= maxReconnectInterval) {
-      console.log("Maximales Rekonnektion-Intervall erreicht. Weitere Versuche werden eingestellt.");
-      return;
-    }
-  
+    // Nie aufgeben: Der Hotspot kann kurz wegbrechen, die Steuerung muss danach von selbst zurueckkommen
     setTimeout(() => {
       console.log(`Versuche, WebSocket erneut zu verbinden... (Versuch ${reconnectAttempts + 1})`);
       reconnectAttempts++;
@@ -298,7 +295,6 @@ function handleSliderChange() {
 
 // Daten senden an den Server
 function sendData() {
-    console.log("SendData: " + socket.readyStat);
     const normalizedHorizontal = (touchX - centerX) / (canvasSize / 2 - 15);
     const normalizedVertical = (centerY - touchY) / (canvasSize / 2 - 15);
     const servoAngle = parseInt(servoSlider.value);
@@ -309,17 +305,18 @@ function sendData() {
         servo0: servoAngle
     };
 
-    //if (socket.readyState === WebSocket.OPEN) {
+    if (!socket || socket.readyState !== WebSocket.OPEN) return;
+    // Waehrend der Joystick ausgelenkt ist, laufend senden (Firmware-Watchdog stoppt sonst nach 1 s)
+    const active = currentData.x !== 0 || currentData.y !== 0;
         if (
+            active ||
             currentData.x !== lastSentData.x ||
             currentData.y !== lastSentData.y ||
             currentData.servo0 !== lastSentData.servo0
         ) {
-            console.log(JSON.stringify(currentData));
             socket.send(JSON.stringify(currentData));
             lastSentData = currentData;
         }
-    //}
 }
 
 function hexToRgb(hex) {
