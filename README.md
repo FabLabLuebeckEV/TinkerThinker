@@ -246,7 +246,7 @@ Du möchtest ein neues Board bespielen oder ein Update aufspielen? Dafür gibt e
 
 ### Weg 1: Direkt im Browser mit dem WebSerial-Installer (Empfohlen für Einsteiger)
 Du brauchst **weder Python noch VS Code**:
-1. Öffne die Datei **[`tools/webserial_installer.html`](tools/webserial_installer.html)** in **Google Chrome** oder **Microsoft Edge**.
+1. Öffne den **[Web-Flasher (GitHub Page)](https://fablabluebeckev.github.io/TinkerThinker/)** in **Google Chrome** oder **Microsoft Edge** (am Desktop). Er lädt automatisch das neueste Release. Alternativ funktioniert auch die Datei [`tools/webserial_installer.html`](tools/webserial_installer.html) lokal.
 2. Verbinde dein TinkerThinker-Board per USB-Kabel mit dem Computer.
 3. Klicke im Browser auf **„Verbinden & Flashen“** - der Installer spielt Bootloader, Partitionstabelle, Firmware und die komprimierte Weboberfläche (`littlefs.bin`) vollautomatisch auf!
    - *Bonus*: Über den Installer kannst du auch fertige Roboter-Konfigurationen sichern und auf weitere Boards klonen.

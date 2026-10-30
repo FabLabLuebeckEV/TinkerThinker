@@ -11,6 +11,8 @@ on:
 
 permissions:
   contents: write
+  pages: write
+  id-token: write
 
 jobs:
   build:
@@ -187,3 +189,35 @@ jobs:
             .pio/build/esp32dev/firmware.bin
             .pio/build/esp32dev/littlefs.bin
             partitions_dual3mb_1m5spiffs.csv
+
+  pages:
+    # Web-Flasher (WebSerial) als GitHub Page; holt zur Laufzeit das neueste Release
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    concurrency:
+      group: pages
+      cancel-in-progress: true
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Assemble site
+        run: |
+          mkdir -p _site
+          # Lokales Bundle (veraltet, mehrere MB) weglassen: online wird immer das neueste Release geladen
+          sed '/webserial_release_bundle.js/d' tools/webserial_installer.html > _site/index.html
+          touch _site/.nojekyll
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

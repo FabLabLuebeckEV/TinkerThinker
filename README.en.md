@@ -158,7 +158,7 @@ Open **`http://192.168.4.1/setup`** for a step-by-step guided configuration:
 ## ⚡ Installing or Updating Firmware
 
 ### 1. Browser WebSerial Installer (No Setup Required)
-Open **[`tools/webserial_installer.html`](tools/webserial_installer.html)** in **Google Chrome** or **Microsoft Edge**, connect the board via USB, and click **Flash**.
+Open the **[web flasher (GitHub Page)](https://fablabluebeckev.github.io/TinkerThinker/)** (or [`tools/webserial_installer.html`](tools/webserial_installer.html) locally) in **Google Chrome** or **Microsoft Edge**, connect the board via USB, and click **Flash**.
 
 ### 2. One-Click Auto-Flasher (Windows & Workshops)
 Run **[`tools/start_flasher.bat`](tools/start_flasher.bat)** (or `python tools/auto_flasher.py`). It automatically downloads the latest GitHub Actions release and flashes every connected ESP32 board. See **[`tools/README.md`](tools/README.md)** for details.
