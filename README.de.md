@@ -70,6 +70,7 @@ Jetzt kannst du frei wählen: **Steuerung per Smartphone/Browser (Option A)** od
     - **🍎 Apple (iPhone / iPad)**: Oben rechts auf **„Abbrechen“** -> **„Ohne Internet verwenden“** tippen -> in **Safari** öffnen.
     - **🤖 Android**: Bei der Systemmeldung auf **„Ja, verbunden bleiben“** / **„WLAN weiter versuchen“** tippen -> in **Chrome** öffnen.
   - Sobald du im richtigen Browser (Safari / Chrome) bist, läuft die Steuerung **stundenlang ohne Abbruch**!
+- **Verbindung bleibt bestehen**: Etwa 15 Sekunden nach dem Verbinden beantwortet der Roboter die Internet-Prüfungen von iOS, Android und Windows mit „Internet vorhanden“. Dadurch wechselt das Handy nicht von selbst ins Mobilfunknetz und trennt das Roboter-WLAN nicht. Bricht die Verbindung trotzdem kurz ab, verbinden sich alle Steuerungsseiten automatisch neu.
 
 > **💡 Tipp, falls die Seite am Handy nicht lädt:**
 > - Schalte für die Dauer des Spielens kurz die **Mobilen Daten** aus (manche Handys suchen sonst im Mobilfunknetz nach dem Roboter).
@@ -89,7 +90,7 @@ Jetzt kannst du frei wählen: **Steuerung per Smartphone/Browser (Option A)** od
 3. Nach wenigen Sekunden verbindet sich der Controller automatisch und die Status-LED auf dem Board leuchtet **dauerhaft grün** 🟢!
 
 > **💡 Profi-Tipp bei schwierigem Pairing:**
-> Drücke auf dem Board zweimal kurz die **MODE-Taste**, bis die Status-LED **blau** 🔵 leuchtet (*Bluetooth-Scan-Modus*). Dann sucht das Board ununterbrochen mit voller Leistung nach Controllern.
+> Halte auf dem Board die **MODE-Taste** zweimal jeweils ca. 1 Sekunde gedrückt (Weiß -> Orange -> Blau), bis die Status-LED **blau** 🔵 leuchtet (*Bluetooth-Scan-Modus*). Dann sucht das Board ununterbrochen mit voller Leistung nach Controllern.
 
 ---
 
@@ -100,12 +101,12 @@ Auf der Platine befinden sich zwei kleine Tasten (**`RESET`** und **`MODE`**) so
 | LED-Farbe | Funkmodus / Zustand | Bedeutung |
 | :--- | :--- | :--- |
 | ⚪ **Schwach Weiß** | `Normal` (Standard) | WLAN-Hotspot **und** Bluetooth-Suche sind gleichzeitig aktiv. |
-| 🟢 **Grün** | `Controller verbunden` | Ein Bluetooth-Gamepad ist aktiv gekoppelt und steuerbereit. |
+| 🟢 **Grün** | `Controller verbunden` | Ein Bluetooth-Gamepad ist aktiv gekoppelt und steuerbereit (Anzeige im Modus `Normal`). |
 | 🟠 **Orange** | `Nur WLAN` | Bluetooth ist pausiert, 100 % Funkleistung für die Weboberfläche. |
 | 🔵 **Blau** | `Nur Bluetooth-Scan` | Durchgehende Bluetooth-Suche zum schnellen Koppeln neuer Controller. |
 | 🔴⚪🟠 **Wechselblinken** | `Werksreset läuft` | `MODE`-Taste wird beim Start für 10 Sekunden gedrückt gehalten. |
 
-Mit einem kurzen Druck auf die **`MODE`-Taste** schaltest du im Betrieb jederzeit zwischen **Weiß (Normal)** -> **Orange (Nur WLAN)** -> **Blau (Nur Bluetooth)** um.
+Halte die **`MODE`-Taste** im Betrieb ca. **1 Sekunde** gedrückt, um den Funkmodus zu wechseln. Die Reihenfolge ist **Weiß (Normal)** -> **Orange (Nur WLAN)** -> **Blau (Nur Bluetooth)** -> **Orange (Nur WLAN)** -> **Weiß (Normal)**. Auf v1-Platinen gibt es keine `MODE`-Taste, dort bleibt das Board immer im Modus `Normal`.
 
 ---
 
@@ -122,9 +123,10 @@ Die ideale, übersichtliche Oberfläche für Einsteiger, Kettenroboter und Fahr-
 ### 2. 🏎️ Fahr-Roboter Erweitert (`drive` - `/drive`)
 Das volle Cockpit für Fortgeschrittene, Tüftler und Wettbewerbs-Roboter:
 - **Live-Telemetrie**: Echtzeit-Anzeige von Akkuspannung (`V`), Ladezustand (`%`) und **Motorstrom (`A`)**.
-- **Servo-Steuerung**: Direkte Schieberegler für alle angeschlossenen Servos (`Servo 1..7` auf v2, `Servo 1..3` auf v1).
-- **Einzelmotor-Test & Greifer**: Direkte Tasten für alle 4 Motor-Ausgänge (`A..D`) sowie Ein-Klick-Tausch des Fahrpaars (`A/B` <-> `C/D`).
-- **LED-Streifen-Steuerung**: Farbe und Anzahl der leuchtenden WS2812-LEDs live einstellen.
+- **Servo-Steuerung**: Schieberegler für `Servo 1`. Regler für alle aktiven Servos (`Servo 1..7` auf v2, `Servo 1..3` auf v1) findest du im Steuerungs-Editor (`/controls`).
+- **Einzelmotor-Tasten**: `Motor A` und `Motor B` fahren vor oder zurück, solange du die Taste gedrückt hältst.
+- **Joystick-Richtung**: Achsen tauschen sowie X/Y invertieren, nur für die Website (unabhängig vom Bluetooth-Controller).
+- **LED-Streifen-Steuerung**: Farbe und LED-Bereich der WS2812-LEDs live einstellen.
 
 ### 3. 🦾 4-Achs-Roboter-Arm (`arm` - `/arm`)
 Speziell entwickelte Oberfläche mit **interaktiver 2D-Live-Simulation** für den TinkerThinker-Roboterarm:
@@ -133,7 +135,7 @@ Speziell entwickelte Oberfläche mit **interaktiver 2D-Live-Simulation** für de
   - **`② Arm 1 (Unterarm / Schulter)`**: `180°` Schwenkbereich (**⚡ mit Stromsensor**, an `Motor A` oder `B`).
   - **`③ Arm 2 (Mittelarm / Ellbogen)`**: `180°` Schwenkbereich (**⚡ mit Stromsensor**, an `Motor A` oder `B`).
   - **`④ Arm 3 (Handgelenk / Oberarm)`**: `180°` Schwenkbereich von `+90°` (senkrecht oben) über die **linke Seite** nach `-90°` (unten), sodass das **gelbe Bauteil rechts niemals überfahren** wird (**ohne Stromsensor**, an `Motor C` oder `D`).
-  - **`⑤ Greifer (Servo)`**: Öffnen und Schließen per Servo (`Servo 1..4`) mit einstellbaren Winkeln.
+  - **`⑤ Greifer (Servo)`**: Öffnen und Schließen per Servo (`Servo 1..3`) mit einstellbaren Winkeln.
 - **⚡ Automatische Stromsensor-Kalibrierung (`Kalibrieren`-Buttons)**:
   - Da DC-Motoren keine internen Winkel-Encoder haben, misst das Board über die **Stromsensoren an `Motor A` und `Motor B`** den Stromanstieg am mechanischen Endanschlag.
   - Ein Klick auf **`⚡ Alle kalibrieren`** fährt die Gelenke bis zum Anschlag, erkennt den Strom-Peak automatisch, stoppt sofort, setzt den exakten Winkel (`+90°` bzw. `-90°`) und fährt sanft in die **neutrale Startposition (`0°`)**!
@@ -197,7 +199,8 @@ Unter **`http://192.168.4.1/controls`** findest du das visuelle Diagnose- und Ma
 | :--- | :--- |
 | **Rechter Stick (`RX` / `RY`)** | Fährt das konfigurierte Haupt-Motorpaar (Standard: `Motor C & D`) |
 | **Linker Stick (`X` / `Y`)** | Steuert das zweite Motorpaar (Standard: `Motor A & B`) |
-| **Steuerkreuz Rechts / Links** | Bewegt `Servo 1` schrittweise um `+10°` / `-10°` |
+| **Steuerkreuz Rechts / Links** | Fährt `Motor A` vorwärts / rückwärts, solange gedrückt |
+| **Steuerkreuz Hoch / Runter** | Fährt `Motor B` vorwärts / rückwärts, solange gedrückt |
 | **Trigger `R2` / `L2`** | Schaltet `Servo 1` zwischen `0°`/`90°` bzw. `90°`/`180°` um |
 | **Schultertasten `R1` / `L1`** | Erhöht (`R1`) bzw. verringert (`L1`) die globale Fahrgeschwindigkeit |
 
@@ -225,7 +228,7 @@ Unter **`http://192.168.4.1/controls`** findest du das visuelle Diagnose- und Ma
 | **MODE-Taster / Fault-Pin** | `GPIO 39` | **v2-Board**: `MODE`-Taster · **v1-Board**: Motortreiber-Fault-Eingang |
 
 > **🔄 Ältere v1-Platine im Einsatz?**
-> Falls du eine ältere Platinen-Version (v1 mit nur 3 Servo-Steckplätzen) nutzt, kannst du in **`/config`** ganz oben einfach den Haken bei **„Älteres Board (v1 - 3 Servos, Fault-Pin auf GPIO 39)“** setzen. Selbst ohne diese Einstellung erkennt unsere Boot-Schutzlogik automatisch ein v1-Board und verhindert zuverlässig einen unbeabsichtigten Werksreset beim Einschalten.
+> Falls du eine ältere Platinen-Version (v1 mit nur 3 Servo-Steckplätzen) nutzt, kannst du in **`/config`** ganz oben einfach den Haken bei **„Älteres Board (v1 - 3 Servos, Fault-Pin auf GPIO 39)“** setzen. **Setze den Haken direkt nach dem ersten Flashen:** Auf einem v1-Board liegt `GPIO 39` dauerhaft auf LOW. Solange der Haken fehlt, wertet die Firmware das beim Einschalten wie eine gedrückte `MODE`-Taste: Die LED blinkt 10 Sekunden Rot-Weiß-Orange und alle Einstellungen werden auf Werkseinstellungen zurückgesetzt. Danach startet das Board normal weiter (keine Neustart-Schleife).
 
 ---
 
@@ -246,9 +249,9 @@ Du möchtest ein neues Board bespielen oder ein Update aufspielen? Dafür gibt e
 
 ### Weg 1: Direkt im Browser mit dem WebSerial-Installer (Empfohlen für Einsteiger)
 Du brauchst **weder Python noch VS Code**:
-1. Öffne die Datei **[`tools/webserial_installer.html`](tools/webserial_installer.html)** in **Google Chrome** oder **Microsoft Edge**.
+1. Öffne den **[Web-Flasher (GitHub Page)](https://fablabluebeckev.github.io/TinkerThinker/)** in **Google Chrome** oder **Microsoft Edge** (am Desktop). Er lädt automatisch das neueste Release. Alternativ funktioniert auch die Datei [`tools/webserial_installer.html`](tools/webserial_installer.html) lokal.
 2. Verbinde dein TinkerThinker-Board per USB-Kabel mit dem Computer.
-3. Klicke im Browser auf **„Verbinden & Flashen“** - der Installer spielt Bootloader, Partitionstabelle, Firmware und die komprimierte Weboberfläche (`littlefs.bin`) vollautomatisch auf!
+3. Klicke auf **„Latest Release laden“**, dann auf **„Latest Release flashen“** und wähle den USB-Port des Boards aus - der Installer spielt Bootloader, Partitionstabelle, Firmware und die komprimierte Weboberfläche (`littlefs.bin`) vollautomatisch auf!
    - *Bonus*: Über den Installer kannst du auch fertige Roboter-Konfigurationen sichern und auf weitere Boards klonen.
 
 ### Weg 2: Ein-Klick Auto-Flasher (Ideal für Workshops & Serien-Flashen)
@@ -306,7 +309,7 @@ python tools/gzip_littlefs.py --build --flash COM19
 <summary><strong>📱 Mein Handy schließt das Steuerungsfenster nach 1-2 Minuten von selbst!</strong></summary>
 
 Das liegt am eingebauten **Captive-Portal-Minibrowser** von iOS und Android: Sobald das Handy merkt, dass der Roboter-Hotspot kein Internet hat, bricht das kleine Popup-Fenster nach einem Timeout ab.
-**Lösung:** Folge einfach den 2 Schritten auf unserer Startseite (`/portal.html`): Wähle bei der Systemfrage *„Ohne Internet verbunden bleiben“* und öffne **`http://192.168.4.1`** oder **`http://tinker.local`** in deinem **echten Browser (Safari / Chrome)**. Dort bleibt die Verbindung dauerhaft stabil!
+**Lösung:** Folge einfach den 2 Schritten auf unserer Startseite (`/portal.html`): Wähle bei der Systemfrage *„Ohne Internet verbunden bleiben“* und öffne **`http://192.168.4.1`** oder **`http://tinker.local`** in deinem **echten Browser (Safari / Chrome)**. Dort bleibt die Verbindung dauerhaft stabil! Etwa 15 Sekunden nach dem Verbinden meldet der Roboter dem Handy außerdem „Internet vorhanden“, damit es das WLAN nicht von selbst verlässt.
 </details>
 
 <details>
@@ -320,7 +323,7 @@ Das liegt am eingebauten **Captive-Portal-Minibrowser** von iOS und Android: Sob
 <details>
 <summary><strong>🎮 Mein Bluetooth-Controller (oder PS3-Clone) verbindet sich nicht.</strong></summary>
 
-1. Drücke zweimal kurz auf die **`MODE`-Taste** am Board, bis die Status-LED **blau** 🔵 leuchtet (dauerhafter Bluetooth-Scan-Modus).
+1. Halte die **`MODE`-Taste** am Board zweimal jeweils ca. 1 Sekunde gedrückt, bis die Status-LED **blau** 🔵 leuchtet (dauerhafter Bluetooth-Scan-Modus).
 2. Versetze den Controller erneut in den Pairing-Modus.
 3. **Günstige PS3-/DualShock-3-Clone-Controller** (MAC-Präfix `A0:5A:5E` / `A0:5A:5F`) werden von unserer Firmware speziell unterstützt. Falls dein Clone eine andere MAC-Adresse hat, erstelle gern ein GitHub-Issue mit den ersten 3 Bytes der MAC-Adresse.
 </details>

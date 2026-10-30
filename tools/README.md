@@ -8,12 +8,12 @@ Dieses Verzeichnis enthält alle Werkzeuge zum schnellen Flashen von Platinen (i
 
 | Datei | Beschreibung |
 | :--- | :--- |
-| **`webserial_installer.html`** | 🌐 **Browser-Installer (Chrome / Edge)**: Flashen & Konfigurieren per USB ganz ohne Python oder VS Code. |
+| **`webserial_installer.html`** | 🌐 **Browser-Installer (Chrome / Edge)**: Flashen & Konfigurieren per USB ganz ohne Python oder VS Code. Online als [GitHub Page](https://fablabluebeckev.github.io/TinkerThinker/) mit immer aktuellem Release. |
 | **`start_flasher.bat`** | 🪟 **Ein-Klick-Starter für Windows**: Richtet Python/`uv` automatisch ein und startet den Auto-Flasher. |
 | **`auto_flasher.py`** | ⚡ **Automatischer Serien-Flasher**: Lädt das neueste GitHub-Release und flasht jedes angesteckte Board automatisch. |
 | **`auto_flasher_print.py`** | 🏷️ **Workshop-Flasher mit Etikettendruck**: Flasht das Board und druckt automatisch ein Label mit Namen/MAC/QR-Code. |
 | **`gzip_littlefs.py`** | 📦 **LittleFS Gzip-Packer**: Komprimiert `data/` automatisch um ~69 % vor dem Dateisystem-Build (oder flasht in <1s). |
-| **`webserial_release_bundle.js`** | 💾 **Offline-Bundle**: Enthält die aktuellen Binaries direkt für den Offline-Einsatz des WebSerial-Installers. |
+| **`webserial_release_bundle.js`** | 💾 **Offline-Bundle**: Enthält die Binaries vom Stand des letzten Bundle-Builds für den Offline-Einsatz des WebSerial-Installers (mit `build_webserial_release_bundle.*` aktualisieren). |
 | **`build_webserial_release_bundle.*`** | 🔄 Aktualisiert das Offline-Bundle aus dem neuesten GitHub-Release oder lokalen Build. |
 | **`requirements.txt`** | 📋 Python-Abhängigkeiten (`esptool`, `pyserial`, `requests`, `tqdm`). |
 
@@ -22,11 +22,12 @@ Dieses Verzeichnis enthält alle Werkzeuge zum schnellen Flashen von Platinen (i
 ## 1. 🌐 WebSerial-Installer im Browser (`webserial_installer.html`)
 
 Der einfachste Weg für Einsteiger ohne jede Software-Installation:
-1. Öffne **`webserial_installer.html`** in **Google Chrome**, **Microsoft Edge** oder **Opera**.
+1. Öffne die **[GitHub Page](https://fablabluebeckev.github.io/TinkerThinker/)** oder die lokale Datei **`webserial_installer.html`** in **Google Chrome**, **Microsoft Edge** oder **Opera** (am Desktop).
 2. Schließe das TinkerThinker-Board per USB-Kabel an.
-3. Klicke auf **„Verbinden & Flashen“**:
+3. Klicke auf **„Latest Release laden“** und danach auf **„Latest Release flashen“**, dann wähle den USB-Port des Boards aus:
    - Der Installer spielt Bootloader, Partitionen, Firmware und die Weboberfläche (`littlefs.bin`) komplett in einem Rutsch auf.
-   - Dank des mitgelieferten Offline-Bundles (`webserial_release_bundle.js`) funktioniert das auch ohne Internetverbindung im Workshop-Raum!
+   - Auf der GitHub Page kommen die Dateien direkt von der Page (die Pipeline legt sie bei jedem Build auf `main` dort ab).
+   - Lokal geöffnet (`file://`) nutzt der Installer das Offline-Bundle (`webserial_release_bundle.js`). Es enthält den Stand des letzten Bundle-Builds, nicht automatisch das neueste Release. So funktioniert das Flashen auch ohne Internetverbindung im Workshop-Raum.
    - Zusätzlich kannst du über den Installer die Konfiguration eines fertig eingerichteten Roboters auslesen, als Datei speichern und auf beliebig viele weitere Boards klonen.
 
 ---

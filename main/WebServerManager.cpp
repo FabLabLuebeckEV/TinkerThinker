@@ -24,6 +24,44 @@ void WebServerManager::init() {
 
 #include <lwip/def.h>
 
+// POST-Bodies kommen bei groesseren Daten in mehreren Stuecken (index/total). Sie werden in
+// einem malloc-Puffer gesammelt (free-kompatibel mit ~AsyncWebServerRequest, falls die
+// Verbindung vor onRequest abbricht) und erst im onRequest-Handler ausgewertet.
+static void accumulateBody(AsyncWebServerRequest* request, uint8_t* data, size_t len, size_t index, size_t total) {
+    if (index == 0) {
+        char* buf = (char*)malloc(total + 1);
+        if (buf) buf[total] = '\0';
+        request->_tempObject = buf;
+    }
+    char* buf = reinterpret_cast<char*>(request->_tempObject);
+    if (!buf || index + len > total) return;
+    memcpy(buf + index, data, len);
+}
+
+// Antwort senden und erst danach neu starten: sobald der Browser die Verbindung schliesst,
+// spaetestens aber nach 3 s (falls der Client die Verbindung offen haelt).
+// Kein delay()/ESP.restart() direkt im Handler, sonst kommt die Antwort nie beim Browser an.
+static void sendAndRestart(AsyncWebServerRequest* request, AsyncWebServerResponse* response) {
+    response->addHeader("Connection", "close");
+    request->onDisconnect([](){
+        Serial.println("Neustart nach Antwort an den Browser...");
+        esp_restart();
+    });
+    request->send(response);
+    xTaskCreate([](void*){
+        vTaskDelay(pdMS_TO_TICKS(3000));
+        Serial.println("Neustart (Fallback nach 3 s)...");
+        esp_restart();
+    }, "restartFallback", 2048, nullptr, 1, nullptr);
+}
+
+// Uebernimmt den gesammelten Body; der Aufrufer muss ihn mit free() freigeben.
+static char* takeBody(AsyncWebServerRequest* request) {
+    char* body = reinterpret_cast<char*>(request->_tempObject);
+    request->_tempObject = nullptr;
+    return body;
+}
+
 static String sanitizeMdnsHost(const String& raw) {
     String s = raw;
     s.trim();
@@ -685,20 +723,28 @@ document.getElementById('f').onsubmit=function(e){
     // POST /arm/config (speichert die Roboter-Arm-Zuordnung & Sensoren persistent im config.json)
     server.on("/arm/config", HTTP_POST,
         [this](AsyncWebServerRequest *request){
-            request->send(200, "application/json", "{\"status\":\"ok\"}");
+            char* body = takeBody(request);
+            if (!body) {
+                request->send(400, "application/json", "{\"error\":\"no body\"}");
+                return;
+            }
+            JsonDocument doc;
+            DeserializationError err = deserializeJson(doc, (const char*)body);
+            free(body);
+            if (err) {
+                Serial.printf("arm/config: Parse-Fehler: %s\n", err.c_str());
+                request->send(400, "application/json", "{\"error\":\"invalid json\"}");
+                return;
+            }
+            String normalized;
+            serializeJson(doc, normalized);
+            config->setArmConfigJson(normalized);
+            bool ok = config->saveConfig();
+            request->send(ok ? 200 : 500, "application/json", ok ? "{\"status\":\"ok\"}" : "{\"error\":\"save failed\"}");
         },
         NULL,
-        [this](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total){
-            String body;
-            body.reserve(total);
-            body.concat((const char*)data, len);
-            JsonDocument doc;
-            if (deserializeJson(doc, body) == DeserializationError::Ok) {
-                String normalized;
-                serializeJson(doc, normalized);
-                config->setArmConfigJson(normalized);
-                config->saveConfig();
-            }
+        [](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total){
+            accumulateBody(request, data, len, index, total);
         }
     );
 
@@ -709,8 +755,9 @@ document.getElementById('f').onsubmit=function(e){
 
     server.on("/resetconfig", HTTP_GET, [this](AsyncWebServerRequest* request){
         config->resetConfig();
-        request->redirect("/config");
-        ESP.restart();
+        AsyncWebServerResponse* res = request->beginResponse(302);
+        res->addHeader("Location", "/config");
+        sendAndRestart(request, res);
     });
 
     // GET connected controllers (MAC + model)
@@ -744,15 +791,19 @@ document.getElementById('f').onsubmit=function(e){
     // POST whitelist config (body: {"enabled": bool, "addresses": [...]})
     server.on("/bt/whitelist", HTTP_POST,
         [this](AsyncWebServerRequest *request){
-            request->send(200, "text/plain", "OK");
-        },
-        NULL,
-        [this](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total){
-            String body;
-            body.reserve(total);
-            body.concat((const char*)data, len);
+            char* body = takeBody(request);
+            if (!body) {
+                request->send(400, "text/plain", "no body");
+                return;
+            }
             JsonDocument doc;
-            if (deserializeJson(doc, body) != DeserializationError::Ok) return;
+            DeserializationError err = deserializeJson(doc, (const char*)body);
+            free(body);
+            if (err) {
+                Serial.printf("bt/whitelist: Parse-Fehler: %s\n", err.c_str());
+                request->send(400, "text/plain", "invalid json");
+                return;
+            }
             if (!doc["enabled"].isNull()) {
                 config->setBtWhitelistEnabled(doc["enabled"].as<bool>());
             }
@@ -765,15 +816,18 @@ document.getElementById('f').onsubmit=function(e){
                 }
                 config->setBtWhitelist(addrs);
             }
-            config->saveConfig();
+            bool ok = config->saveConfig();
             if (whitelistApplyCallback) whitelistApplyCallback();
+            request->send(ok ? 200 : 500, "text/plain", ok ? "OK" : "save failed");
+        },
+        NULL,
+        [](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total){
+            accumulateBody(request, data, len, index, total);
         }
     );
 
     server.on("/reboot", HTTP_GET, [this](AsyncWebServerRequest* request){
-        request->send(200, "text/plain", "Rebooting...");
-        delay(1000);
-        ESP.restart();
+        sendAndRestart(request, request->beginResponse(200, "text/plain", "Rebooting..."));
     });
 
     // LED-Einstellungen (Helligkeit/Gamma) dauerhaft speichern
@@ -1118,6 +1172,9 @@ void WebServerManager::onWebSocketEvent(AsyncWebSocket *server, AsyncWebSocketCl
                 float rotatedX = -y;
                 float rotatedY = x;
 
+                lastWsDriveMs = millis();
+                wsDriveActive = (x != 0.0f || y != 0.0f);
+
                 board->requestDriveFromWS((int)(rotatedX * 512), (int)(rotatedY * 512));
             }
 
@@ -1178,8 +1235,9 @@ void WebServerManager::onWebSocketEvent(AsyncWebSocket *server, AsyncWebSocketCl
             // LED set (expects {"led_set":{"start":0,"count":1,"color":"#RRGGBB"}})
             if (!doc["led_set"].isNull()) {
                 JsonObject led = doc["led_set"].as<JsonObject>();
-                int start = led["start"] | 0;
-                int count = led["count"] | 1;
+                // Auf die konfigurierten LEDs begrenzen (sonst lange Schleife bei grossem count)
+                int start = constrain((int)(led["start"] | 0), 0, config->getLedCount());
+                int count = constrain((int)(led["count"] | 1), 0, config->getLedCount() - start);
                 const char* color = led["color"] | "#000000";
                 long rgb = strtol(color + 1, nullptr, 16);
                 uint8_t r = (rgb >> 16) & 0xFF;
@@ -1204,9 +1262,10 @@ void WebServerManager::onWebSocketEvent(AsyncWebSocket *server, AsyncWebSocketCl
             // z.B. {"swap":true} oder {"swap":false}
             if (!doc["swap"].isNull()) {
                 bool sw = doc["swap"].as<bool>();
-                // Config entsprechend setzen
+                // Config setzen, speichern und sofort anwenden (sonst erst nach Neustart wirksam)
                 config->setMotorSwap(sw);
                 config->saveConfig();
+                board->reApplyConfig();
             }
         }
     } else if (type == WS_EVT_CONNECT) {
@@ -1242,12 +1301,12 @@ void WebServerManager::sendStatusUpdate() {
         }
     }
 
-    if (millis() - lastPacketTime > 5000) {
-        // Kein Paket seit 1 Sekunde, stoppe alle Motoren
-        for (int i = 0; i < 4; i++) {
-            //TODO: Check if controller is connected or Wifi
-            //board->controlMotorStop(i);
-        }
+    // Fahr-Watchdog: Joystick ausgelenkt, aber seit 1 s kein Fahrbefehl mehr -> Website-Fahrt
+    // neutral setzen. Laeuft ueber den Arbiter, ein aktiver BT-Controller wird nicht gestoppt.
+    if (wsDriveActive && (millis() - lastWsDriveMs > 1000)) {
+        wsDriveActive = false;
+        Serial.println("WS-Fahr-Watchdog: keine Joystick-Daten seit 1 s, stoppe Website-Fahrt");
+        board->requestDriveFromWS(0, 0);
     }
     if (xSemaphoreTake(wsMutex, pdMS_TO_TICKS(50)) == pdTRUE) {
         if (ws.count() > 0) {

@@ -15,6 +15,8 @@ class ServoController {
 public:
     ServoController(ServoMotor servos[], size_t servoCount);
     void init();
+    // Anzahl aktiver Servos aendern (Legacy-Board): Pins ab neuer Anzahl abkoppeln bzw. neu ankoppeln
+    void setActiveCount(size_t newCount);
     void setServoAngle(int index, int angle);
     int getServoAngle(int index);
 

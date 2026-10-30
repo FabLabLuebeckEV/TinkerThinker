@@ -96,7 +96,7 @@ Recent Changes (Important)
    - `data/setup.html` + `data/setup.js`: includes GUI mode selection, skips unconfigured motor steps (`none`), persists `gripper_motor_gui` and `gripper_inverted_gui`.
    - `legacy_board` (`bool` in `/config.json`): restores v1 hardware compatibility:
      - GPIO39 acts as active-low H-bridge fault input (`FAULT`, checked via `board.checkFaults()`) instead of the v2 `MODE` button, and disables the startup 10s factory-reset hold check on GPIO39.
-     - Limits active servos to 2 (`Servo 1` on GPIO32, `Servo 2` on GPIO33) and hides `Servo 3` in the Web UI.
+     - Limits active servos to 3 (`Servo 1..3` on GPIO13, GPIO33, GPIO17) and hides `Servo 4..7` in the Web UI (`ConfigManager::getActiveServoCount()`).
 
 9) Automatic LittleFS Gzip Compression (`tools/gzip_littlefs.py`)
    - Registered via `extra_scripts = pre:tools/gzip_littlefs.py` in `platformio.ini`.
@@ -105,6 +105,15 @@ Recent Changes (Important)
    - Fast standalone build & flash (<1s without ESP-IDF CMake re-evaluation):
      - `python tools/gzip_littlefs.py --build`
      - `python tools/gzip_littlefs.py --build --flash COM19`
+
+10) Review fixes (Oct 2026)
+   - Captive portal: connectivity probes pass automatically 15 s after a client connects, so phones stay on the robot AP. AP uses channel 6, max 4 clients, Wi-Fi power save off.
+   - Static web files are served by an `onNotFound` LittleFS handler (`no-cache` + gzip-CRC ETag) instead of `serveStatic`, so browsers never keep stale UI files after an update.
+   - WS drive watchdog: pages resend `{x,y}` while the joystick is deflected; the firmware neutralizes WS drive after 1 s without joystick data (via the arbiter, BT is not stopped).
+   - All pages reconnect the WebSocket forever (max 5 s backoff).
+   - `reApplyConfig()` creates the motor/servo/LED/monitor objects once and only applies new settings afterwards (no leak; other tasks keep valid pointers).
+   - POST bodies of `/arm/config` and `/bt/whitelist` are assembled across chunks and errors are reported.
+   - GitHub Pages: the CI `pages` job publishes `tools/webserial_installer.html` plus the freshly built binaries under `./release/` (GitHub release downloads are blocked by CORS).
 
 Editing Guidelines
 - Keep changes focused; do not introduce a second Arduino core.

@@ -98,12 +98,12 @@ private:
     void takeOwnership(ControlSource src);
 
     ConfigManager* config;
-    MotorController* motorController;
-    ServoController* servoController;
-    LEDController* ledController;
-    BatteryMonitor* batteryMonitor;
-    SystemMonitor* systemMonitor;
-    WebServerManager* webServerManager;
+    MotorController* motorController = nullptr;
+    ServoController* servoController = nullptr;
+    LEDController* ledController = nullptr;
+    BatteryMonitor* batteryMonitor = nullptr;
+    SystemMonitor* systemMonitor = nullptr;
+    WebServerManager* webServerManager = nullptr;
 
     // Werte aus Config lesen
     static const size_t MOTOR_COUNT = 4;

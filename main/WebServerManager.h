@@ -49,6 +49,10 @@ private:
     SemaphoreHandle_t wsMutex = xSemaphoreCreateMutex();
     //Timeout als millisekunden seit dem letzten paket
     unsigned long lastPacketTime = 0;
+    // Fahr-Watchdog: Joystick-Seiten senden bei Auslenkung laufend. Bleiben die Pakete aus
+    // (Handy aus dem WLAN, Tab im Hintergrund), wird die Website-Fahrt gestoppt.
+    volatile uint32_t lastWsDriveMs = 0;
+    volatile bool wsDriveActive = false;
     bool wifiDisabledUntilRestart = false;
     bool wifiTemporarilyDisabled = false;
     bool wifiShutdownInProgress = false;

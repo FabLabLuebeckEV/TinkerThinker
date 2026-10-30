@@ -80,16 +80,16 @@ let lastSentData = { x: 0, y: 0, servo: 90 };
 // WebSocket Verbindung aufbauen
 let socket;
 let reconnectInterval = 1000; // Initialer Rekonnektion-Intervall in ms
-const maxReconnectInterval = 30000; // Maximales Rekonnektion-Intervall in ms
+const maxReconnectInterval = 5000; // Maximales Rekonnektion-Intervall in ms
 let reconnectAttempts = 0;
 
 // Funktion zum Senden von Nachrichten über WebSocket
 function sendWebSocketMessage(message) {
-  //if (socket && socket.readyState === WebSocket.OPEN) {
+  if (socket && socket.readyState === WebSocket.OPEN) {
     socket.send(JSON.stringify(message));
-  //} else {
+  } else {
     alert("WebSocket ist nicht verbunden. Bitte versuche es später erneut.");
-  //}
+  }
 }
 
 // Funktion zum Herstellen der WebSocket-Verbindung
@@ -100,6 +100,7 @@ function connectWebSocket() {
   socket.onopen = function() {
     console.log("WebSocket verbunden");
     reconnectAttempts = 0; // Zurücksetzen der Versuche nach erfolgreicher Verbindung
+    reconnectInterval = 1000;
     updateConnectionStatus("verbunden");
   };
 
@@ -156,11 +157,7 @@ function connectWebSocket() {
 
 // Funktion zum Versuch der Rekonnektion
 function attemptReconnect() {
-    if (reconnectAttempts * reconnectInterval >= maxReconnectInterval) {
-      console.log("Maximales Rekonnektion-Intervall erreicht. Weitere Versuche werden eingestellt.");
-      return;
-    }
-  
+    // Nie aufgeben: Der Hotspot kann kurz wegbrechen, die Steuerung muss danach von selbst zurueckkommen
     setTimeout(() => {
       console.log(`Versuche, WebSocket erneut zu verbinden... (Versuch ${reconnectAttempts + 1})`);
       reconnectAttempts++;
@@ -298,7 +295,6 @@ function handleSliderChange() {
 
 // Daten senden an den Server
 function sendData() {
-    console.log("SendData: " + socket.readyStat);
     const normalizedHorizontal = (touchX - centerX) / (canvasSize / 2 - 15);
     const normalizedVertical = (centerY - touchY) / (canvasSize / 2 - 15);
     const servoAngle = parseInt(servoSlider.value);
@@ -309,17 +305,18 @@ function sendData() {
         servo0: servoAngle
     };
 
-    //if (socket.readyState === WebSocket.OPEN) {
+    if (!socket || socket.readyState !== WebSocket.OPEN) return;
+    // Waehrend der Joystick ausgelenkt ist, laufend senden (Firmware-Watchdog stoppt sonst nach 1 s)
+    const active = currentData.x !== 0 || currentData.y !== 0;
         if (
+            active ||
             currentData.x !== lastSentData.x ||
             currentData.y !== lastSentData.y ||
             currentData.servo0 !== lastSentData.servo0
         ) {
-            console.log(JSON.stringify(currentData));
             socket.send(JSON.stringify(currentData));
             lastSentData = currentData;
         }
-    //}
 }
 
 function hexToRgb(hex) {
@@ -339,100 +336,41 @@ function sendLedColor(hex) {
     const data = {
         led_set: { start: range.start, count: range.count, color: hex.toLowerCase() }
     };
-    socket.send(JSON.stringify(data));
+    if (socket && socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify(data));
 }
 
-// Motor C Steuerung
-function controlMotorA(direction) {
-    //if (socket.readyState === WebSocket.OPEN) {
-        const data = {
-            motorA: direction
-        };
-        socket.send(JSON.stringify(data));
-        console.log('Sent motorA command:', data);
-    //}
+// Einzelmotor-Tasten (Motor A und B): fahren nur, solange die Taste gedrueckt ist.
+// Auch beim Wegziehen vom Button oder abgebrochenem Touch stoppen, sonst laeuft der Motor weiter.
+function controlMotor(key, direction) {
+    if (!socket || socket.readyState !== WebSocket.OPEN) return;
+    socket.send(JSON.stringify({ [key]: direction }));
 }
 
-// Motor C Steuerung
-function controlMotorB(direction) {
-    //if (socket.readyState === WebSocket.OPEN) {
-        const data = {
-            motorB: direction
-        };
-        socket.send(JSON.stringify(data));
-        console.log('Sent motorB command:', data);
-    //}
+function bindHoldMotorButton(button, key, direction) {
+    if (!button) return;
+    let active = false;
+    const start = (e) => {
+        if (e) e.preventDefault();
+        active = true;
+        controlMotor(key, direction);
+    };
+    const stop = () => {
+        if (!active) return;
+        active = false;
+        controlMotor(key, 'stop');
+    };
+    button.addEventListener('mousedown', start);
+    button.addEventListener('touchstart', start, { passive: false });
+    button.addEventListener('mouseup', stop);
+    button.addEventListener('mouseleave', stop);
+    button.addEventListener('touchend', stop);
+    button.addEventListener('touchcancel', stop);
 }
 
-// Event Listener für Motor B Buttons
-motorBForwardButton.addEventListener('mousedown', () => {
-    controlMotorB('forward');
-});
-
-motorBForwardButton.addEventListener('touchstart', (e) => {
-    e.preventDefault(); // Verhindert Textauswahl und andere Standardaktionen
-    controlMotorB('forward');
-});
-
-motorBForwardButton.addEventListener('mouseup', () => {
-    controlMotorB('stop');
-});
-
-motorBForwardButton.addEventListener('touchend', () => {
-    controlMotorB('stop');
-});
-
-motorBBackwardButton.addEventListener('mousedown', () => {
-    controlMotorB('backward');
-});
-
-motorBBackwardButton.addEventListener('touchstart', (e) => {
-    e.preventDefault(); // Verhindert Textauswahl und andere Standardaktionen
-    controlMotorB('backward');
-});
-
-motorBBackwardButton.addEventListener('mouseup', () => {
-    controlMotorB('stop');
-});
-
-motorBBackwardButton.addEventListener('touchend', () => {
-    controlMotorB('stop');
-});
-
-// Event Listener für Motor C Buttons
-motorAForwardButton.addEventListener('mousedown', () => {
-    controlMotorA('forward');
-});
-
-motorAForwardButton.addEventListener('touchstart', (e) => {
-    e.preventDefault(); // Verhindert Textauswahl und andere Standardaktionen
-    controlMotorA('forward');
-});
-
-motorAForwardButton.addEventListener('mouseup', () => {
-    controlMotorA('stop');
-});
-
-motorAForwardButton.addEventListener('touchend', () => {
-    controlMotorA('stop');
-});
-
-motorABackwardButton.addEventListener('mousedown', () => {
-    controlMotorA('backward');
-});
-
-motorABackwardButton.addEventListener('touchstart', (e) => {
-    e.preventDefault(); // Verhindert Textauswahl und andere Standardaktionen
-    controlMotorA('backward');
-});
-
-motorABackwardButton.addEventListener('mouseup', () => {
-    controlMotorA('stop');
-});
-
-motorABackwardButton.addEventListener('touchend', () => {
-    controlMotorA('stop');
-});
+bindHoldMotorButton(motorAForwardButton, 'motorA', 'forward');
+bindHoldMotorButton(motorABackwardButton, 'motorA', 'backward');
+bindHoldMotorButton(motorBForwardButton, 'motorB', 'forward');
+bindHoldMotorButton(motorBBackwardButton, 'motorB', 'backward');
 
 // Event Listener für Servo Slider
 servoSlider.addEventListener('input', handleSliderChange);

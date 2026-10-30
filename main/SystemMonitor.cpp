@@ -14,6 +14,13 @@ void SystemMonitor::init() {
     pinMode(currentPin2, INPUT);
 }
 
+void SystemMonitor::setFaultPin(int faultPin) {
+    fault1Pin = faultPin;
+    if (fault1Pin >= 0) {
+        pinMode(fault1Pin, INPUT);
+    }
+}
+
 void SystemMonitor::checkMotorDriverFault() {
     if (fault1Pin < 0) return;
     #ifdef DEBUG_OUTPUT
