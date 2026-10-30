@@ -31,6 +31,43 @@ void LEDController::setPixelColor(int led, uint8_t red, uint8_t green, uint8_t b
     ledsArray[led] = c;
 }
 
+void LEDController::setLedCount(int count) {
+    if (count < 0) count = 0;
+    if (count == ledCount) return;
+
+    CRGB* newLeds = new CRGB[count];
+    CRGB* newRaw = new CRGB[count];
+    for (int i = 0; i < count; i++) {
+        newLeds[i] = (i < ledCount) ? ledsArray[i] : CRGB::Black;
+        newRaw[i] = (i < ledCount) ? rawColorsArray[i] : CRGB::Black;
+    }
+
+    CRGB* oldLeds = ledsArray;
+    CRGB* oldRaw = rawColorsArray;
+    // Reihenfolge so, dass setPixelColor() aus einem anderen Task nie ueber das Pufferende
+    // schreibt: beim Verkleinern zuerst die Anzahl senken, beim Vergroessern zuletzt erhoehen.
+    if (count < ledCount) {
+        // Ueberzaehlige LEDs dunkel schalten, bevor der Treiber sie nicht mehr ansteuert
+        for (int i = count; i < ledCount; i++) oldLeds[i] = CRGB::Black;
+        FastLED.show();
+        ledCount = count;
+        FastLED[0].setLeds(newLeds, count);
+        ledsArray = newLeds;
+        rawColorsArray = newRaw;
+    } else {
+        ledsArray = newLeds;
+        rawColorsArray = newRaw;
+        FastLED[0].setLeds(newLeds, count);
+        ledCount = count;
+    }
+
+    // Ein FastLED.show() aus einem anderen Task kann noch kurz den alten Puffer lesen
+    // (300 LEDs ~ 9 ms). Erst danach freigeben.
+    vTaskDelay(pdMS_TO_TICKS(50));
+    delete[] oldLeds;
+    delete[] oldRaw;
+}
+
 void LEDController::showPixels() {
     FastLED.show();
 }

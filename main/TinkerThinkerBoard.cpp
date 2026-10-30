@@ -53,24 +53,44 @@ void TinkerThinkerBoard::reApplyConfig() {
                                                              : MotorController::MotorCurveConfig::Type::Linear;
     curveCfg.strength = config->getMotorCurveStrength();
 
-    motorController = new MotorController(motors, MOTOR_COUNT, freqs, dbs, inv, config->getMotorSwap(), driveCfg, curveCfg);
+    // Die Controller werden nur beim ersten Aufruf angelegt. Danach wird nur die Konfiguration
+    // uebernommen: andere Tasks (BT-Loop, Webserver, Status-Task) halten die Zeiger und
+    // greifen jederzeit darauf zu, ein Neuanlegen wuerde bei jedem Speichern Speicher verlieren.
+    if (!motorController) {
+        motorController = new MotorController(motors, MOTOR_COUNT, freqs, dbs, inv, config->getMotorSwap(), driveCfg, curveCfg);
+        motorController->init();
+    } else {
+        motorController->applyConfig(freqs, dbs, inv, config->getMotorSwap(), driveCfg, curveCfg);
+    }
     // Update GUI-selected motor pair from config
     motorLeftGUI = config->getMotorLeftGUI();
     motorRightGUI = config->getMotorRightGUI();
-    motorController->init();
 
     size_t activeServos = getActiveServoCount();
-    for (size_t i = activeServos; i < SERVO_COUNT; i++) {
-        ledcDetach(servos[i].pin);
+    if (!servoController) {
+        for (size_t i = activeServos; i < SERVO_COUNT; i++) {
+            ledcDetach(servos[i].pin);
+        }
+        servoController = new ServoController(servos, activeServos);
+        for (size_t i = 0; i < activeServos; i++) {
+            servoController->setPulseWidthRange(i, config->getServoMinPulsewidth(i), config->getServoMaxPulsewidth(i));
+        }
+        servoController->init();
+    } else {
+        servoController->setActiveCount(activeServos);
+        for (size_t i = 0; i < activeServos; i++) {
+            servoController->setPulseWidthRange(i, config->getServoMinPulsewidth(i), config->getServoMaxPulsewidth(i));
+            // Aktuellen Winkel mit dem neuen Pulsbereich erneut ausgeben
+            servoController->setServoAngle(i, servoController->getServoAngle(i));
+        }
     }
-    servoController = new ServoController(servos, activeServos);
-    for (size_t i = 0; i < activeServos; i++) {
-        servoController->setPulseWidthRange(i, config->getServoMinPulsewidth(i), config->getServoMaxPulsewidth(i));
-    }
-    servoController->init();
 
-    ledController = new LEDController(config->getLedCount());
-    ledController->init();
+    if (!ledController) {
+        ledController = new LEDController(config->getLedCount());
+        ledController->init();
+    } else {
+        ledController->setLedCount(config->getLedCount());
+    }
     ledController->setGamma(config->getLedGamma());
     FastLED.setBrightness(config->getLedBrightness());
     for (int i = 0; i < config->getLedCount(); i++) {
@@ -78,13 +98,18 @@ void TinkerThinkerBoard::reApplyConfig() {
     }
     FastLED.show();
 
-    batteryMonitor = new BatteryMonitor(BATTERY_PIN);
-    batteryMonitor->init();
+    if (!batteryMonitor) {
+        batteryMonitor = new BatteryMonitor(BATTERY_PIN);
+        batteryMonitor->init();
+    }
 
     int faultPin = config->isLegacyBoard() ? GPIO_FAULT_1 : -1;
-    systemMonitor = new SystemMonitor(GPIO_CURRENT_1, GPIO_CURRENT_2, faultPin);
-    systemMonitor->init();
-    return;
+    if (!systemMonitor) {
+        systemMonitor = new SystemMonitor(GPIO_CURRENT_1, GPIO_CURRENT_2, faultPin);
+        systemMonitor->init();
+    } else {
+        systemMonitor->setFaultPin(faultPin);
+    }
 }
 
 void TinkerThinkerBoard::begin() {

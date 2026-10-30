@@ -96,7 +96,7 @@ Recent Changes (Important)
    - `data/setup.html` + `data/setup.js`: includes GUI mode selection, skips unconfigured motor steps (`none`), persists `gripper_motor_gui` and `gripper_inverted_gui`.
    - `legacy_board` (`bool` in `/config.json`): restores v1 hardware compatibility:
      - GPIO39 acts as active-low H-bridge fault input (`FAULT`, checked via `board.checkFaults()`) instead of the v2 `MODE` button, and disables the startup 10s factory-reset hold check on GPIO39.
-     - Limits active servos to 2 (`Servo 1` on GPIO32, `Servo 2` on GPIO33) and hides `Servo 3` in the Web UI.
+     - Limits active servos to 3 (`Servo 1..3` on GPIO13, GPIO33, GPIO17) and hides `Servo 4..7` in the Web UI (`ConfigManager::getActiveServoCount()`).
 
 9) Automatic LittleFS Gzip Compression (`tools/gzip_littlefs.py`)
    - Registered via `extra_scripts = pre:tools/gzip_littlefs.py` in `platformio.ini`.

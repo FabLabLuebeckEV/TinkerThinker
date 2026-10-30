@@ -7,6 +7,8 @@ class SystemMonitor {
 public:
     SystemMonitor(int currentPin1, int currentPin2, int faultPin1 = -1);
     void init();
+    // Legacy-Board umschalten: Fault-Eingang aktivieren (Pin) oder abschalten (-1)
+    void setFaultPin(int faultPin);
     void checkMotorDriverFault();
     bool isMotorInFault();
     float getHBridgeAmps(int motorIndex);

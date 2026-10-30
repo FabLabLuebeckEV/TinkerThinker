@@ -30,6 +30,9 @@ public:
     MotorController(Motor motors[], size_t motorCount, const int motorFrequencies[], const int motorDeadbands[], const bool motorInvert[], bool motorSwap,
                     const DriveProfileConfig& driveProfile, const MotorCurveConfig& motorCurve);
     void init();
+    // Neue Konfiguration uebernehmen, ohne Objekt und PWM-Kanaele neu anzulegen
+    void applyConfig(const int motorFrequencies[], const int motorDeadbands[], const bool motorInvert[], bool motorSwap,
+                     const DriveProfileConfig& driveProfile, const MotorCurveConfig& motorCurve);
     void controlMotor(int index, int pwmValue);
     void handleMotorControl(int axisX, int axisY, int leftMotorIndex, int rightMotorIndex);
 

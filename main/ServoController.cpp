@@ -15,6 +15,23 @@ void ServoController::init() {
     }
 }
 
+void ServoController::setActiveCount(size_t newCount) {
+    if (newCount == count) return;
+    if (newCount < count) {
+        for (size_t i = newCount; i < count; i++) {
+            ledcDetach(servos[i].pin);
+        }
+        count = newCount;
+        return;
+    }
+    size_t oldCount = count;
+    count = newCount;
+    for (size_t i = oldCount; i < count; i++) {
+        ledcAttach(servos[i].pin, 50, ledc_resolution);
+        setServoAngle(i, servos[i].angle);
+    }
+}
+
 void ServoController::setServoAngle(int index, int angle) {
     if (index < 0 || (size_t)index >= count) return;
 

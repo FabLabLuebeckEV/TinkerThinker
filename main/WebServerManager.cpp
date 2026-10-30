@@ -38,6 +38,23 @@ static void accumulateBody(AsyncWebServerRequest* request, uint8_t* data, size_t
     memcpy(buf + index, data, len);
 }
 
+// Antwort senden und erst danach neu starten: sobald der Browser die Verbindung schliesst,
+// spaetestens aber nach 3 s (falls der Client die Verbindung offen haelt).
+// Kein delay()/ESP.restart() direkt im Handler, sonst kommt die Antwort nie beim Browser an.
+static void sendAndRestart(AsyncWebServerRequest* request, AsyncWebServerResponse* response) {
+    response->addHeader("Connection", "close");
+    request->onDisconnect([](){
+        Serial.println("Neustart nach Antwort an den Browser...");
+        esp_restart();
+    });
+    request->send(response);
+    xTaskCreate([](void*){
+        vTaskDelay(pdMS_TO_TICKS(3000));
+        Serial.println("Neustart (Fallback nach 3 s)...");
+        esp_restart();
+    }, "restartFallback", 2048, nullptr, 1, nullptr);
+}
+
 // Uebernimmt den gesammelten Body; der Aufrufer muss ihn mit free() freigeben.
 static char* takeBody(AsyncWebServerRequest* request) {
     char* body = reinterpret_cast<char*>(request->_tempObject);
@@ -738,8 +755,9 @@ document.getElementById('f').onsubmit=function(e){
 
     server.on("/resetconfig", HTTP_GET, [this](AsyncWebServerRequest* request){
         config->resetConfig();
-        request->redirect("/config");
-        ESP.restart();
+        AsyncWebServerResponse* res = request->beginResponse(302);
+        res->addHeader("Location", "/config");
+        sendAndRestart(request, res);
     });
 
     // GET connected controllers (MAC + model)
@@ -809,9 +827,7 @@ document.getElementById('f').onsubmit=function(e){
     );
 
     server.on("/reboot", HTTP_GET, [this](AsyncWebServerRequest* request){
-        request->send(200, "text/plain", "Rebooting...");
-        delay(1000);
-        ESP.restart();
+        sendAndRestart(request, request->beginResponse(200, "text/plain", "Rebooting..."));
     });
 
     // LED-Einstellungen (Helligkeit/Gamma) dauerhaft speichern

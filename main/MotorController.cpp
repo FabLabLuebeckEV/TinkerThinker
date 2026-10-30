@@ -8,13 +8,21 @@
 
 MotorController::MotorController(Motor motors[], size_t motorCount, const int motorFrequencies[], const int motorDeadbands[], const bool motorInvertArr[], bool motorSwap,
                                  const DriveProfileConfig& driveCfg, const MotorCurveConfig& curveCfg)
-: motors(motors), count(motorCount), motorSwap(motorSwap), driveProfile(driveCfg), motorCurve(curveCfg)
+: motors(motors), count(motorCount)
 {
+    applyConfig(motorFrequencies, motorDeadbands, motorInvertArr, motorSwap, driveCfg, curveCfg);
+}
+
+void MotorController::applyConfig(const int motorFrequencies[], const int motorDeadbands[], const bool motorInvertArr[], bool swap,
+                                  const DriveProfileConfig& driveCfg, const MotorCurveConfig& curveCfg) {
     for (int i = 0; i < (int)count; i++) {
         freq[i] = motorFrequencies[i];
         deadband[i] = motorDeadbands[i];
         motorInvertArray[i] = motorInvertArr[i];
     }
+    motorSwap = swap;
+    driveProfile = driveCfg;
+    motorCurve = curveCfg;
 }
 
 void MotorController::init() {
