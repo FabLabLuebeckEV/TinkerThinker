@@ -205,10 +205,21 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: esp32dev-artifacts
+          path: _artifacts
+
       - name: Assemble site
         run: |
-          mkdir -p _site
-          # Lokales Bundle (veraltet, mehrere MB) weglassen: online wird immer das neueste Release geladen
+          mkdir -p _site/release
+          for f in bootloader.bin partitions.bin firmware.bin littlefs.bin; do
+            src=$(find _artifacts -name "$f" | head -n1)
+            test -n "$src" || { echo "$f fehlt in den Artifacts"; exit 1; }
+            cp "$src" "_site/release/$f"
+          done
+          # Lokales Bundle (veraltet, mehrere MB) weglassen: Release-Metadaten kommen online, Binaries aus ./release/
           sed '/webserial_release_bundle.js/d' tools/webserial_installer.html > _site/index.html
           touch _site/.nojekyll
 

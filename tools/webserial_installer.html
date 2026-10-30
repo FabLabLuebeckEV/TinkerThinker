@@ -925,6 +925,14 @@
     }
 
     async function fetchReleaseAsset(asset) {
+      // Auf der GitHub Page liegen die Binaries same-origin (GitHub-Release-Downloads sind per CORS blockiert)
+      if (window.location.protocol !== "file:") {
+        try {
+          return await fetchUint8Array("./release/" + asset.name + "?v=" + encodeURIComponent(latestRelease?.tag_name || ""));
+        } catch (err) {
+          appendLog("[RELEASE] Kein lokaler Mirror fuer " + asset.name + " (" + err.message + "), versuche GitHub-API.");
+        }
+      }
       try {
         return await fetchUint8Array(asset.url, {
           headers: {
