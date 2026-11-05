@@ -72,6 +72,9 @@ public:
     bool isWifiDisabledUntilRestart();
 
     int getMotorPWM(int motorIndex);
+    int getMotorRequest(int motorIndex);
+    // Aus der Loop aufrufen: beendet abgelaufene Anlauf-Boosts der Motoren
+    void updateMotors();
     void setSpeedMultiplier(float m);
     float getSpeedMultiplier();
 

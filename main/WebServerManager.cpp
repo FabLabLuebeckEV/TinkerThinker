@@ -678,6 +678,9 @@ document.getElementById('f').onsubmit=function(e){
         doc["drive_axis_deadband"] = config->getDriveAxisDeadband();
         doc["motor_curve_type"] = config->getMotorCurveType();
         doc["motor_curve_strength"] = config->getMotorCurveStrength();
+        doc["motor_decay"] = config->getMotorDecay();
+        doc["motor_kick_ms"] = config->getMotorKickMs();
+        doc["motor_kick_pwm"] = config->getMotorKickPwm();
 
         int activeServos = config->getActiveServoCount();
         JsonArray servoArr = doc["servo_settings"].to<JsonArray>();
@@ -1062,6 +1065,19 @@ void WebServerManager::handleConfig(AsyncWebServerRequest* request) {
         if (v.length() > 0) {
             config->setMotorCurveStrength(v.toFloat());
         }
+    }
+    if (request->hasParam("motor_decay", true)) {
+        config->setMotorDecay(request->getParam("motor_decay", true)->value());
+    }
+    if (request->hasParam("motor_kick_ms", true)) {
+        String v = request->getParam("motor_kick_ms", true)->value();
+        v.trim();
+        if (v.length() > 0) config->setMotorKickMs(v.toInt());
+    }
+    if (request->hasParam("motor_kick_pwm", true)) {
+        String v = request->getParam("motor_kick_pwm", true)->value();
+        v.trim();
+        if (v.length() > 0) config->setMotorKickPwm(v.toInt());
     }
 
     // Config speichern

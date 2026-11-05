@@ -53,14 +53,19 @@ void TinkerThinkerBoard::reApplyConfig() {
                                                              : MotorController::MotorCurveConfig::Type::Linear;
     curveCfg.strength = config->getMotorCurveStrength();
 
+    MotorController::OutputConfig outCfg;
+    outCfg.slowDecay = (config->getMotorDecay() != "fast");
+    outCfg.kickMs = config->getMotorKickMs();
+    outCfg.kickPwm = config->getMotorKickPwm();
+
     // Die Controller werden nur beim ersten Aufruf angelegt. Danach wird nur die Konfiguration
     // übernommen: andere Tasks (BT-Loop, Webserver, Status-Task) halten die Zeiger und
     // greifen jederzeit darauf zu, ein Neuanlegen würde bei jedem Speichern Speicher verlieren.
     if (!motorController) {
-        motorController = new MotorController(motors, MOTOR_COUNT, freqs, dbs, inv, config->getMotorSwap(), driveCfg, curveCfg);
+        motorController = new MotorController(motors, MOTOR_COUNT, freqs, dbs, inv, config->getMotorSwap(), driveCfg, curveCfg, outCfg);
         motorController->init();
     } else {
-        motorController->applyConfig(freqs, dbs, inv, config->getMotorSwap(), driveCfg, curveCfg);
+        motorController->applyConfig(freqs, dbs, inv, config->getMotorSwap(), driveCfg, curveCfg, outCfg);
     }
     // Update GUI-selected motor pair from config
     motorLeftGUI = config->getMotorLeftGUI();
@@ -110,6 +115,10 @@ void TinkerThinkerBoard::reApplyConfig() {
     } else {
         systemMonitor->setFaultPin(faultPin);
     }
+    // Strommessung über volle PWM-Perioden mitteln: Sensor 1 (GPIO 34) misst Motor B,
+    // Sensor 2 (GPIO 36) misst Motor A
+    systemMonitor->setPwmFrequency(0, motorController->getMotorFrequency(1));
+    systemMonitor->setPwmFrequency(1, motorController->getMotorFrequency(0));
 }
 
 void TinkerThinkerBoard::begin() {
@@ -221,6 +230,14 @@ float TinkerThinkerBoard::getHBridgeAmps(int motorIndex) {
 
 int TinkerThinkerBoard::getMotorPWM(int motorIndex) {
     return motorController->getMotorPWM(motorIndex);
+}
+
+int TinkerThinkerBoard::getMotorRequest(int motorIndex) {
+    return motorController->getMotorRequest(motorIndex);
+}
+
+void TinkerThinkerBoard::updateMotors() {
+    if (motorController) motorController->update();
 }
 
 void TinkerThinkerBoard::setSpeedMultiplier(float m) {

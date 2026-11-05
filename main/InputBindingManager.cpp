@@ -146,7 +146,8 @@ void InputBindingManager::startMotorRamp(JsonObject action) {
     if (step < 1) step = 1;
     rampTarget[idx]  = constrain(target, -255, 255);
     rampStep[idx]    = step;
-    rampCurrent[idx] = board->getMotorPWM(idx);
+    // Angeforderter Wert (vor Deadband), damit die Rampe ohne Sprung weiterläuft
+    rampCurrent[idx] = board->getMotorRequest(idx);
     rampNextMs[idx]  = millis();
     rampActive[idx]  = true;
 }

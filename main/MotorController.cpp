@@ -5,51 +5,133 @@
 
 #define MAX_PWM_VALUE 255
 #define MAX_JOYSTICK_VALUE 512
+#define PWM_BITS 8
 
 MotorController::MotorController(Motor motors[], size_t motorCount, const int motorFrequencies[], const int motorDeadbands[], const bool motorInvertArr[], bool motorSwap,
-                                 const DriveProfileConfig& driveCfg, const MotorCurveConfig& curveCfg)
+                                 const DriveProfileConfig& driveCfg, const MotorCurveConfig& curveCfg, const OutputConfig& outCfg)
 : motors(motors), count(motorCount)
 {
-    applyConfig(motorFrequencies, motorDeadbands, motorInvertArr, motorSwap, driveCfg, curveCfg);
+    outMutex = xSemaphoreCreateMutex();
+    for (int i = 0; i < 4; i++) freq[i] = 0;
+    applyConfig(motorFrequencies, motorDeadbands, motorInvertArr, motorSwap, driveCfg, curveCfg, outCfg);
 }
 
 void MotorController::applyConfig(const int motorFrequencies[], const int motorDeadbands[], const bool motorInvertArr[], bool swap,
-                                  const DriveProfileConfig& driveCfg, const MotorCurveConfig& curveCfg) {
+                                  const DriveProfileConfig& driveCfg, const MotorCurveConfig& curveCfg, const OutputConfig& outCfg) {
+    xSemaphoreTake(outMutex, portMAX_DELAY);
     for (int i = 0; i < (int)count; i++) {
-        freq[i] = motorFrequencies[i];
+        int f = constrain(motorFrequencies[i], MIN_PWM_FREQ, MAX_PWM_FREQ);
+        bool changed = (f != freq[i]);
+        freq[i] = f;
         deadband[i] = motorDeadbands[i];
         motorInvertArray[i] = motorInvertArr[i];
+        if (initialized && changed) {
+            // Beide Pins eines Motors hängen am selben LEDC-Timer (Kanäle 2n und 2n+1)
+            ledcChangeFrequency(motors[i].pin1, f, PWM_BITS);
+            ledcChangeFrequency(motors[i].pin2, f, PWM_BITS);
+        }
     }
     motorSwap = swap;
     driveProfile = driveCfg;
     motorCurve = curveCfg;
+    output = outCfg;
+    output.kickMs = constrain(outCfg.kickMs, 0, 500);
+    output.kickPwm = constrain(outCfg.kickPwm, 0, MAX_PWM_VALUE);
+    // Laufende Motoren sofort mit der (evtl. geänderten) Decay-Art neu ausgeben
+    if (initialized) {
+        for (int i = 0; i < (int)count; i++) applyPwm(i, state[i].dir, state[i].targetMag);
+    }
+    xSemaphoreGive(outMutex);
 }
 
 void MotorController::init() {
-    constexpr uint32_t PWM_FREQ = 1000;   // 1 kHz (SystemMonitor::pwmPeriodUs muss dazu passen)
-    constexpr uint8_t  PWM_BITS = 8;      // 8 Bit Auflösung
-
     for (size_t i = 0; i < count; ++i) {
         pinMode(motors[i].pin1, OUTPUT);
         pinMode(motors[i].pin2, OUTPUT);
 
-        // ersetzt ledcSetup + ledcAttachPin
-        ledcAttachChannel(motors[i].pin1, PWM_FREQ, PWM_BITS,
+        // ersetzt ledcSetup + ledcAttachPin; Frequenz pro Motor aus der Konfiguration
+        ledcAttachChannel(motors[i].pin1, freq[i], PWM_BITS,
                           motors[i].channel_forward);
-        ledcAttachChannel(motors[i].pin2, PWM_FREQ, PWM_BITS,
+        ledcAttachChannel(motors[i].pin2, freq[i], PWM_BITS,
                           motors[i].channel_reverse);
+        Serial.printf("Motor %u: PWM %d Hz, %s Decay\n", (unsigned)i, freq[i], output.slowDecay ? "Slow" : "Fast");
+    }
+    initialized = true;
+    for (size_t i = 0; i < count; ++i) applyPwm(i, 0, 0);
+}
+
+// Gibt Richtung und Betrag an die H-Brücke aus (AT8833 / DRV8833 Wahrheitstabelle).
+// Aufrufer hält outMutex.
+void MotorController::applyPwm(int index, int dir, int mag) {
+    int a;
+    int b;
+    if (dir == 0 || mag <= 0) {
+        // Stopp: beide Eingänge low = Freilauf
+        a = 0;
+        b = 0;
+    } else if (output.slowDecay) {
+        // Slow Decay: ein Eingang dauerhaft high, der andere mit invertierter PWM.
+        // In der Aus-Phase sind beide high = Bremse, der Motorstrom fließt weiter.
+        if (dir > 0) { a = MAX_PWM_VALUE; b = MAX_PWM_VALUE - mag; }
+        else         { a = MAX_PWM_VALUE - mag; b = MAX_PWM_VALUE; }
+    } else {
+        // Fast Decay: PWM auf einem Eingang, der andere low (Aus-Phase = Freilauf)
+        if (dir > 0) { a = mag; b = 0; }
+        else         { a = 0; b = mag; }
+    }
+    ledcWrite(motors[index].pin1, a);
+    ledcWrite(motors[index].pin2, b);
+}
+
+// value: -255..255 nach Invertierung und Deadband, request: angeforderter Wert davor
+void MotorController::writeOutput(int index, int value, int request) {
+    if (index < 0 || index >= (int)count) return;
+    value = constrain(value, -MAX_PWM_VALUE, MAX_PWM_VALUE);
+    int dir = (value > 0) - (value < 0);
+    int mag = abs(value);
+
+    xSemaphoreTake(outMutex, portMAX_DELAY);
+    MotorState& st = state[index];
+    uint32_t now = millis();
+    if (dir == 0) {
+        st.kicking = false;
+    } else if (dir != st.dir) {
+        // Anfahren aus dem Stand oder Richtungswechsel: Anlauf-Boost, falls er stärker ist
+        st.kicking = (output.kickMs > 0 && output.kickPwm > mag);
+        st.kickUntilMs = now + output.kickMs;
+    }
+    st.dir = dir;
+    st.targetMag = mag;
+    st.request = request;
+
+    int outMag = mag;
+    if (st.kicking) {
+        if ((int32_t)(now - st.kickUntilMs) < 0) outMag = max(mag, output.kickPwm);
+        else st.kicking = false;
+    }
+    applyPwm(index, dir, outMag);
+    xSemaphoreGive(outMutex);
+}
+
+void MotorController::update() {
+    for (int i = 0; i < (int)count; i++) {
+        if (!state[i].kicking) continue;   // ungeschützter Blick, entschieden wird unter dem Mutex
+        xSemaphoreTake(outMutex, portMAX_DELAY);
+        MotorState& st = state[i];
+        if (st.kicking && (int32_t)(millis() - st.kickUntilMs) >= 0) {
+            st.kicking = false;
+            applyPwm(i, st.dir, st.targetMag);
+        }
+        xSemaphoreGive(outMutex);
     }
 }
 
-
 void MotorController::controlMotor(int index, int pwmValue) {
-    if (index >= (int)count) return;
+    if (index < 0 || index >= (int)count) return;
+    int request = constrain(pwmValue, -MAX_PWM_VALUE, MAX_PWM_VALUE);
 
     // Apply per-motor invert first
-    if (motorInvertArray[index]) pwmValue = -pwmValue;
-
-    // Clamp incoming request to valid range
-    pwmValue = constrain(pwmValue, -MAX_PWM_VALUE, MAX_PWM_VALUE);
+    pwmValue = motorInvertArray[index] ? -request : request;
 
     // Compute output magnitude with per-motor deadband once
     int db = constrain(deadband[index], 0, MAX_PWM_VALUE);
@@ -64,13 +146,7 @@ void MotorController::controlMotor(int index, int pwmValue) {
     outMag = (int)(outMag * speedMultiplier);
     outMag = constrain(outMag, 0, MAX_PWM_VALUE);
 
-    if (pwmValue >= 0) {
-        ledcWrite(motors[index].pin1, outMag);
-        ledcWrite(motors[index].pin2, 0);
-    } else {
-        ledcWrite(motors[index].pin1, 0);
-        ledcWrite(motors[index].pin2, outMag);
-    }
+    writeOutput(index, pwmValue >= 0 ? outMag : -outMag, request);
 }
 
 
@@ -116,60 +192,51 @@ void MotorController::handleMotorControl(int axisX, int axisY, int leftMotorInde
 }
 
 void MotorController::controlMotorForward(int motorIndex) {
-    if (motorIndex >= (int)count) return;
-    int val = motorInvertArray[motorIndex] ? 0 : MAX_PWM_VALUE;
-    int rev = motorInvertArray[motorIndex] ? MAX_PWM_VALUE : 0;
-    ledcWrite(motors[motorIndex].pin1, val);
-    ledcWrite(motors[motorIndex].pin2, rev);
+    if (motorIndex < 0 || motorIndex >= (int)count) return;
+    writeOutput(motorIndex, motorInvertArray[motorIndex] ? -MAX_PWM_VALUE : MAX_PWM_VALUE, MAX_PWM_VALUE);
 }
 
 void MotorController::controlMotorBackward(int motorIndex) {
-    if (motorIndex >= (int)count) return;
-    int val = motorInvertArray[motorIndex] ? MAX_PWM_VALUE : 0;
-    int rev = motorInvertArray[motorIndex] ? 0 : MAX_PWM_VALUE;
-    ledcWrite(motors[motorIndex].pin1, val);
-    ledcWrite(motors[motorIndex].pin2, rev);
+    if (motorIndex < 0 || motorIndex >= (int)count) return;
+    writeOutput(motorIndex, motorInvertArray[motorIndex] ? MAX_PWM_VALUE : -MAX_PWM_VALUE, -MAX_PWM_VALUE);
 }
 
 void MotorController::controlMotorStop(int motorIndex) {
     Serial.printf("Stopping motor %d\n", motorIndex);
-    if (motorIndex >= (int)count) return;
-    ledcWrite(motors[motorIndex].pin1, 0);
-    ledcWrite(motors[motorIndex].pin2, 0);
+    if (motorIndex < 0 || motorIndex >= (int)count) return;
+    writeOutput(motorIndex, 0, 0);
 }
 
 void MotorController::controlMotorRaw(int motorIndex, int pwmValue) {
-    if (motorIndex >= (int)count) return;
+    if (motorIndex < 0 || motorIndex >= (int)count) return;
+    int request = constrain(pwmValue, -MAX_PWM_VALUE, MAX_PWM_VALUE);
 
-    // Apply per-motor invert, but skip deadband mapping
-    if (motorInvertArray[motorIndex]) pwmValue = -pwmValue;
-    pwmValue = constrain(pwmValue, -MAX_PWM_VALUE, MAX_PWM_VALUE);
+    // Apply per-motor invert, but skip deadband mapping (Setup misst damit die Anlauf-Schwelle,
+    // der Anlauf-Boost wirkt auch hier, damit die gemessene Schwelle zum Fahrbetrieb passt)
+    pwmValue = motorInvertArray[motorIndex] ? -request : request;
 
     int outMag = abs(pwmValue);
     outMag = (int)(outMag * speedMultiplier);
     outMag = constrain(outMag, 0, MAX_PWM_VALUE);
 
-    if (pwmValue >= 0) {
-        ledcWrite(motors[motorIndex].pin1, outMag);
-        ledcWrite(motors[motorIndex].pin2, 0);
-    } else {
-        ledcWrite(motors[motorIndex].pin1, 0);
-        ledcWrite(motors[motorIndex].pin2, outMag);
-    }
+    writeOutput(motorIndex, pwmValue >= 0 ? outMag : -outMag, request);
 }
 
 int MotorController::getMotorPWM(int motorIndex) {
-    if (motorIndex >= (int)count) return 0;
-    int pwmForward = ledcRead(motors[motorIndex].pin1);
-    int pwmReverse = ledcRead(motors[motorIndex].pin2);
-    int val = 0;
-    if (pwmForward > 0) {
-        val = pwmForward;
-    } else if (pwmReverse > 0) {
-        val = -pwmReverse;
-    }
+    if (motorIndex < 0 || motorIndex >= (int)count) return 0;
+    int val = state[motorIndex].dir * state[motorIndex].targetMag;
     if (motorInvertArray[motorIndex]) val = -val;
     return val;
+}
+
+int MotorController::getMotorRequest(int motorIndex) {
+    if (motorIndex < 0 || motorIndex >= (int)count) return 0;
+    return state[motorIndex].request;
+}
+
+int MotorController::getMotorFrequency(int motorIndex) const {
+    if (motorIndex < 0 || motorIndex >= (int)count) return 0;
+    return freq[motorIndex];
 }
 
 void MotorController::setSpeedMultiplier(float m) {

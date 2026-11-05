@@ -38,21 +38,31 @@ bool SystemMonitor::isMotorInFault() {
     return digitalRead(fault1Pin) == HIGH;
 }
 
-// Funktion zur Mittelung der ADC-Werte
-float SystemMonitor::readAverageCurrent(int adcPin) {
-    long adcSum = 0;
+void SystemMonitor::setPwmFrequency(int sensorIndex, int frequencyHz) {
+    if (sensorIndex < 0 || sensorIndex > 1 || frequencyHz <= 0) return;
+    pwmPeriodUs[sensorIndex] = max(1, 1000000 / frequencyHz);
+}
 
-    // Samples gleichmäßig über genau eine PWM-Periode verteilen. Die Zeitpunkte werden
-    // absolut geplant, damit die Dauer von analogRead() die Periode nicht verlängert.
+// Funktion zur Mittelung der ADC-Werte
+float SystemMonitor::readAverageCurrent(int adcPin, int periodUs) {
+    // Fenster: kleinstes Vielfaches der PWM-Periode, das mindestens 1 ms lang ist.
+    int periods = (1000 + periodUs - 1) / periodUs;
+    uint32_t windowUs = (uint32_t)periods * periodUs;
+    // Sample-Anzahl teilerfremd zur Zahl der Perioden: Die Samples fallen dann auf
+    // gleichmäßig verteilte Phasen der PWM statt immer auf dieselbe Stelle.
+    int samples = (periods % 23 == 0) ? 29 : 23;
+
+    long adcSum = 0;
+    // Zeitpunkte absolut planen, damit die Dauer von analogRead() das Fenster nicht verschiebt
     uint32_t start = micros();
-    for (int i = 0; i < samplesPerCycle; i++) {
-        uint32_t due = start + (uint32_t)(i * pwmPeriodUs / samplesPerCycle);
+    for (int i = 0; i < samples; i++) {
+        uint32_t due = start + (uint32_t)((uint64_t)i * windowUs / samples);
         while ((int32_t)(micros() - due) < 0) {}
         adcSum += analogRead(adcPin);      // ADC-Wert lesen
     }
 
     // Durchschnitt der ADC-Werte berechnen
-    float averageADC = adcSum / (float)samplesPerCycle;
+    float averageADC = adcSum / (float)samples;
 
     // ADC-Wert in Spannung umrechnen (12-Bit-ADC)
     float voltage = averageADC * (3.3 / 4096.0); // 3.3 V Referenz, 12-Bit Auflösung
@@ -66,9 +76,9 @@ float SystemMonitor::readAverageCurrent(int adcPin) {
 float SystemMonitor::getHBridgeAmps(int motorIndex) {
     float current = 0.0;
     if (motorIndex == 0) {
-        current = readAverageCurrent(currentPin1);
+        current = readAverageCurrent(currentPin1, pwmPeriodUs[0]);
     } else if (motorIndex == 1) {
-        current = readAverageCurrent(currentPin2);
+        current = readAverageCurrent(currentPin2, pwmPeriodUs[1]);
     }
     return current;
 }

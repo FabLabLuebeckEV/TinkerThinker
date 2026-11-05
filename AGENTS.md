@@ -56,9 +56,8 @@ Recent Changes (Important)
    - Neutral threshold: 16 (see TinkerThinkerBoard::neutralThreshold).
 
 3) Web UI additions
-   - config.html: Added inputs for the six BT scan timing values.
-   - config.js: Loads these values from /getConfig, included in POST /config via form submission.
-   - WebServerManager: /getConfig and /config were updated to expose/accept these fields.
+   - The six BT scan timing inputs were removed again (Nov 2026, see 1); config.html now has the
+     controller search ("Controller suchen") with an "Erlauben" button in the whitelist section.
 
 4) sdkconfig cleanup (Jan 2026)
    - env:esp32dev now points to sdkconfig.esp32dev aligned with the working skip_power_pin build.
@@ -117,15 +116,29 @@ Recent Changes (Important)
      entries added via the UI never matched).
    - GitHub Pages: the CI `pages` job publishes `tools/webserial_installer.html` plus the freshly built binaries under `./release/` (GitHub release downloads are blocked by CORS).
 
+11) Motor drive (Nov 2026)
+   - H-bridges are AT8833 (DRV8833 clone). `MotorController::applyPwm()` uses slow decay by default
+     (one input high, the other inverted PWM, off-phase = brake): torque at low PWM, near-linear speed.
+     `motor_decay: "fast"` restores the old coast-PWM behavior.
+   - PWM frequency per motor from `motor_frequency[]` (clamped 100-40000 Hz, default 20 kHz), applied at
+     runtime via `ledcChangeFrequency` (channels 2n/2n+1 share one LEDC timer).
+   - Kick-start: on start from standstill or direction change the output is `motor_kick_pwm` for
+     `motor_kick_ms` (default 255 / 40 ms); `board.updateMotors()` in `loop()` ends the kick. Applies to
+     `controlMotor` and `controlMotorRaw` (setup deadband test), not counted in `getMotorPWM()`.
+   - All motor writes go through `writeOutput()` under a mutex (WS, BT loop and ramps write concurrently).
+   - Current sensing averages over whole PWM periods (window >= 1 ms, 23/29 samples, coprime to the
+     period count), period per sensor set from the motor frequency. Sensor 0 (GPIO34) = Motor B, sensor 1 (GPIO36) = Motor A.
+   - Slow decay changes measured currents at partial PWM; re-check arm `stallLimit` values if homing misbehaves.
+
 Editing Guidelines
 - Keep changes focused; do not introduce a second Arduino core.
 - Respect the control arbiter API; route all new control surfaces through TinkerThinkerBoard request* methods.
-- When touching Wi-Fi/BT behavior, prefer adjusting the duty-cycle scheduler in sketch.cpp.
+- When touching Wi-Fi/BT behavior, adjust the search window logic in sketch.cpp (`setInquiry`, `prepareBluetoothStack`) and `BtPairing`; do not reintroduce Wi-Fi shutdowns or fast inquiry toggling.
 - UI fields: add in data/config.html and wire to data/config.js; expose via WebServerManager.
 - Always keep all source and documentation files in clean UTF-8 (without BOM) with intact German umlauts (`ä`, `ö`, `ü`, `ß`) and Unicode symbols (`°`, `↑`, `↓`, `►`, `▼`, `✓`). Never use PowerShell 5.1 `Get-Content`/`Set-Content` without explicit UTF-8 handling.
 
 Common Tasks
-- Adjust BT/Wi-Fi timings: update defaults in ConfigManager or tweak at runtime via the config UI.
+- Adjust BT search: window length `searchWindowMs` in sketch.cpp, inquiry block/gap lengths in `prepareBluetoothStack()`.
 - Add a new control source: implement request methods in TinkerThinkerBoard and call them from the source.
 - Expand config: extend ConfigManager load/save; expose in WebServerManager; add UI inputs.
 

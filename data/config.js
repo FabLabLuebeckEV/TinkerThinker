@@ -347,9 +347,9 @@ async function loadConfig() {
         <div class="row">
           <label>Frequenz:
             <span class="tooltip">i
-              <span class="tooltiptext">PWM-Frequenz in Hz. Niedriger = mehr Kraft, aber hoerbarer. Hoeher = leiser, ggf. weniger Drehmoment.</span>
+              <span class="tooltiptext">PWM-Frequenz in Hz (100-40000). Empfohlen 20000: unhörbar und mit Slow Decay gleichmäßiger Motorstrom. Niedrige Werte brummen hörbar.</span>
             </span>
-          </label> <input type="number" name="motor_frequency_${i}" value="${motor_frequency[i]}" min="100" max="100000">
+          </label> <input type="number" name="motor_frequency_${i}" value="${motor_frequency[i]}" min="100" max="40000">
         </div>
         <div class="row test-buttons">
           <button type="button" onclick="testMotor(${i}, 'forward')">Vorwärts</button>
@@ -397,6 +397,15 @@ async function loadConfig() {
     }
     setCurveStrengthUI(data.motor_curve_strength !== undefined ? data.motor_curve_strength : 0.0);
     updateCurveStrengthDisabled();
+    if (document.getElementById('motor_decay')) {
+      document.getElementById('motor_decay').value = data.motor_decay === 'fast' ? 'fast' : 'slow';
+    }
+    if (document.getElementById('motor_kick_ms') && data.motor_kick_ms !== undefined) {
+      document.getElementById('motor_kick_ms').value = data.motor_kick_ms;
+    }
+    if (document.getElementById('motor_kick_pwm') && data.motor_kick_pwm !== undefined) {
+      document.getElementById('motor_kick_pwm').value = data.motor_kick_pwm;
+    }
 
     // Servos
     const servosDiv = document.getElementById('servos');

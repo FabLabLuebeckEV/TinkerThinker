@@ -331,6 +331,17 @@ Das liegt am eingebauten **Captive-Portal-Minibrowser** von iOS und Android: Sob
 </details>
 
 <details>
+<summary><strong>⚙️ Getriebemotoren fahren erst nicht an und sind dann plötzlich zu schnell.</strong></summary>
+
+Dafür gibt es in **`/config`** unter den Fahreinstellungen drei Hebel (die Standardwerte passen für die meisten Getriebemotoren):
+- **Motor-Ansteuerung „Slow Decay“** (Standard): Der Motor wird in der PWM-Pause gebremst statt frei zu laufen. Dadurch hat er schon bei wenig Gas Kraft und die Drehzahl folgt dem Joystick gleichmäßig.
+- **Anlauf-Boost** (Standard 40 ms mit voller Leistung): Beim Anfahren aus dem Stand oder beim Richtungswechsel bekommt der Motor einen kurzen Stoß, damit er die Haftreibung überwindet. Danach gilt sofort die normale Geschwindigkeit.
+- **Deadband pro Motor**: die kleinste PWM, bei der der Motor noch weiterdreht. Am einfachsten im Setup-Assistenten neu einstellen, der Test nutzt den Anlauf-Boost bereits.
+
+Die **PWM-Frequenz** steht standardmäßig auf 20 kHz (unhörbar). Niedrigere Werte brummen hörbar.
+</details>
+
+<details>
 <summary><strong>🔄 Ein Motor dreht falsch herum oder die falschen Räder bewegen sich.</strong></summary>
 
 Starte einfach den geführten Assistenten unter **`http://192.168.4.1/setup`** oder kehre die Drehrichtung einzelner Motoren per Klick unter **`http://192.168.4.1/config`** um. Du musst dafür keine Kabel umlöten!

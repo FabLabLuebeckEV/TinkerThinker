@@ -12,18 +12,17 @@ public:
     void checkMotorDriverFault();
     bool isMotorInFault();
     float getHBridgeAmps(int motorIndex);
-    float readAverageCurrent(int adcPin);
+    // PWM-Frequenz des Motors am Sensor (0 = GPIO 34 / Motor B, 1 = GPIO 36 / Motor A)
+    void setPwmFrequency(int sensorIndex, int frequencyHz);
+    float readAverageCurrent(int adcPin, int pwmPeriodUs);
     
 private:
     int fault1Pin = -1;
     int currentPin1;
     int currentPin2;
-    // Muss zur Motor-PWM in MotorController::init() passen (PWM_FREQ = 1000 Hz).
-    // Der Strom fließt nur in der Ein-Phase der PWM durch den Shunt, deshalb wird
-    // gleichmäßig über genau eine volle PWM-Periode gemittelt.
-    int pwmFrequency = 1000;        // PWM-Frequenz in Hz
-    int samplesPerCycle = 20;       // Anzahl der ADC-Samples pro PWM-Zyklus
-    int pwmPeriodUs = 1000;         // PWM-Periode in Mikrosekunden (1/1000 Hz = 1000 µs)
+    // Der Strom fließt nur in der Ein-Phase der PWM durch den Shunt. Gemittelt wird deshalb
+    // über ganze PWM-Perioden (mindestens 1 ms), passend zur Frequenz des jeweiligen Motors.
+    int pwmPeriodUs[2] = {50, 50};  // Standard: 20 kHz
 };
 
 #endif

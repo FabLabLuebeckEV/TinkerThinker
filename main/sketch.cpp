@@ -169,6 +169,9 @@ static void fillSerialConfig(JsonDocument& doc) {
     doc["drive_axis_deadband"] = configManager.getDriveAxisDeadband();
     doc["motor_curve_type"] = configManager.getMotorCurveType();
     doc["motor_curve_strength"] = configManager.getMotorCurveStrength();
+    doc["motor_decay"] = configManager.getMotorDecay();
+    doc["motor_kick_ms"] = configManager.getMotorKickMs();
+    doc["motor_kick_pwm"] = configManager.getMotorKickPwm();
 
     doc["bt_scan_on_normal_ms"] = configManager.getBtScanOnNormal();
     doc["bt_scan_off_normal_ms"] = configManager.getBtScanOffNormal();
@@ -435,6 +438,21 @@ static void handleSerialCommandLine(const char* rawLine) {
         }
         if (!cfg["motor_curve_strength"].isNull()) {
             configManager.setMotorCurveStrength(cfg["motor_curve_strength"].as<float>());
+            touched = true;
+            reapplyHardware = true;
+        }
+        if (!cfg["motor_decay"].isNull()) {
+            configManager.setMotorDecay(String((const char*)(cfg["motor_decay"] | "slow")));
+            touched = true;
+            reapplyHardware = true;
+        }
+        if (!cfg["motor_kick_ms"].isNull()) {
+            configManager.setMotorKickMs(cfg["motor_kick_ms"].as<int>());
+            touched = true;
+            reapplyHardware = true;
+        }
+        if (!cfg["motor_kick_pwm"].isNull()) {
+            configManager.setMotorKickPwm(cfg["motor_kick_pwm"].as<int>());
             touched = true;
             reapplyHardware = true;
         }
@@ -828,6 +846,7 @@ void loop() {
     if (dataUpdated)
         processControllers();
     inputBindings.tick();
+    board.updateMotors();
 
     uint32_t now = millis();
 

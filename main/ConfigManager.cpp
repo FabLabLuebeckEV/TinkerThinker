@@ -43,16 +43,21 @@ void ConfigManager::setDefaults() {
     bt_invert_y = false;
     bt_swap_axes = false;
     ota_enabled = false;
-    for (int i=0; i<4; i++) motor_frequency[i] = 5000;
+    // 20 kHz: unhörbar, mit Slow Decay gleichmäßiger Motorstrom (AT8833 schafft bis ca. 50 kHz)
+    for (int i=0; i<4; i++) motor_frequency[i] = 20000;
     for (int i=0; i<7; i++) {
         servos[i].min_pw = 500;
         servos[i].max_pw = 2500;
     }
     drive_mixer = "arcade";
-    drive_turn_gain = 1.0f;
+    drive_turn_gain = 0.7f;
     drive_axis_deadband = 16;
-    motor_curve_type = "linear";
-    motor_curve_strength = 0.0f;
+    // Leichte Expo-Kurve: feinfühlig bei kleinen Ausschlägen, volle Leistung am Anschlag
+    motor_curve_type = "expo";
+    motor_curve_strength = 0.5f;
+    motor_decay = "slow";
+    motor_kick_ms = 40;
+    motor_kick_pwm = 255;
     // BT scan defaults already initialized in header
     // Control bindings default: mirrors current hardcoded behavior
     control_bindings_json = String(getDefaultControlBindingsJson());
@@ -113,7 +118,7 @@ bool ConfigManager::loadConfig() {
 
     JsonArray motorFreqArr = doc["motor_frequency"].as<JsonArray>();
     for (int i=0; i<4; i++) {
-        motor_frequency[i] = motorFreqArr[i] | 5000;
+        motor_frequency[i] = motorFreqArr[i] | 20000;
     }
 
     JsonArray servoArr = doc["servo_settings"].as<JsonArray>();
@@ -144,6 +149,15 @@ bool ConfigManager::loadConfig() {
     }
     if (!doc["motor_curve_strength"].isNull()) {
         setMotorCurveStrength(doc["motor_curve_strength"].as<float>());
+    }
+    if (!doc["motor_decay"].isNull()) {
+        setMotorDecay(String((const char*)doc["motor_decay"]));
+    }
+    if (!doc["motor_kick_ms"].isNull()) {
+        setMotorKickMs(doc["motor_kick_ms"].as<int>());
+    }
+    if (!doc["motor_kick_pwm"].isNull()) {
+        setMotorKickPwm(doc["motor_kick_pwm"].as<int>());
     }
 
     // Control bindings (store raw JSON)
@@ -224,6 +238,9 @@ bool ConfigManager::saveConfig() {
     doc["drive_axis_deadband"] = drive_axis_deadband;
     doc["motor_curve_type"] = motor_curve_type;
     doc["motor_curve_strength"] = motor_curve_strength;
+    doc["motor_decay"] = motor_decay;
+    doc["motor_kick_ms"] = motor_kick_ms;
+    doc["motor_kick_pwm"] = motor_kick_pwm;
 
     // BT scan settings
     doc["bt_scan_on_normal_ms"]  = bt_scan_on_normal_ms;
@@ -402,6 +419,15 @@ void ConfigManager::setMotorCurveStrength(float strength){
     if (strength < -0.8f) strength = -0.8f;
     if (strength > 3.0f) strength = 3.0f;
     motor_curve_strength = strength;
+}
+void ConfigManager::setMotorDecay(const String& decay){
+    motor_decay = (decay == "fast") ? "fast" : "slow";
+}
+void ConfigManager::setMotorKickMs(int ms){
+    motor_kick_ms = constrain(ms, 0, 500);
+}
+void ConfigManager::setMotorKickPwm(int pwm){
+    motor_kick_pwm = constrain(pwm, 0, 255);
 }
 
 // BT scan setters

@@ -237,6 +237,40 @@
         <input type="range" id="motor_curve_strength_slider" min="-80" max="300" step="10" value="0">
         <span id="motor_curve_strength_val">0.0</span>
       </div>
+      <div class="row" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+        <label for="motor_decay">
+          Motor-Ansteuerung:
+          <span class="tooltip">i
+            <span class="tooltiptext">
+              Slow Decay (empfohlen): Motor wird in der PWM-Pause gebremst, Drehzahl folgt dem Joystick gleichmäßig und der Motor hat schon bei wenig Gas Kraft. Fast Decay: Motor läuft in der Pause frei (altes Verhalten).
+            </span>
+          </span>
+        </label>
+        <select id="motor_decay" name="motor_decay">
+          <option value="slow">Slow Decay (empfohlen)</option>
+          <option value="fast">Fast Decay</option>
+        </select>
+      </div>
+      <div class="row" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+        <label for="motor_kick_ms">
+          Anlauf-Boost (ms):
+          <span class="tooltip">i
+            <span class="tooltiptext">
+              Beim Anfahren aus dem Stand oder bei Richtungswechsel fährt der Motor so viele Millisekunden mit der Boost-Leistung, damit Getriebemotoren losbrechen. Danach gilt die normale PWM. 0 = aus, typisch 30-60 ms.
+            </span>
+          </span>
+        </label>
+        <input type="number" id="motor_kick_ms" name="motor_kick_ms" min="0" max="500" style="width:100px;" value="40">
+        <label for="motor_kick_pwm">
+          Boost-Leistung (0-255):
+          <span class="tooltip">i
+            <span class="tooltiptext">
+              PWM während des Anlauf-Boosts. 255 = volle Kraft.
+            </span>
+          </span>
+        </label>
+        <input type="number" id="motor_kick_pwm" name="motor_kick_pwm" min="0" max="255" style="width:100px;" value="255">
+      </div>
     </section>
 
     <!-- LED Einstellungen -->

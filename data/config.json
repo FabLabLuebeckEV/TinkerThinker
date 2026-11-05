@@ -1,6 +1,6 @@
 {
    "wifi_mode":"AP",
-   "wifi_ssid":"MyAP",
+   "wifi_ssid":"",
    "wifi_password":"",
    "hotspot_ssid":"TinkerThinker",
    "hotspot_password":"",
@@ -20,28 +20,22 @@
    "motor_deadband":[
       50,
       50,
-      100,
-      100
+      50,
+      50
    ],
    "motor_frequency":[
-      5000,
-      5000,
-      5000,
-      5000
+      20000,
+      20000,
+      20000,
+      20000
    ],
    "led_count":30,
    "ota_enabled":false,
    "drive_mixer":"arcade",
-   "drive_turn_gain":0.6,
-   "drive_axis_deadband":10,
+   "drive_turn_gain":0.7,
+   "drive_axis_deadband":16,
    "motor_curve_type":"expo",
-   "motor_curve_strength":0,
-   "bt_scan_on_normal_ms":500,
-   "bt_scan_off_normal_ms":500,
-   "bt_scan_on_sta_ms":150,
-   "bt_scan_off_sta_ms":850,
-   "bt_scan_on_ap_ms":100,
-   "bt_scan_off_ap_ms":1900,
+   "motor_curve_strength":0.5,
    "servo_settings":[
       {
          "min_pulsewidth":500,
@@ -173,5 +167,8 @@
             "delta":-0.1
          }
       }
-   ]
+   ],
+   "motor_decay":"slow",
+   "motor_kick_ms":40,
+   "motor_kick_pwm":255
 }

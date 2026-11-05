@@ -53,6 +53,9 @@ public:
     int getDriveAxisDeadband() const { return drive_axis_deadband; }
     String getMotorCurveType() const { return motor_curve_type; }
     float getMotorCurveStrength() const { return motor_curve_strength; }
+    String getMotorDecay() const { return motor_decay; }
+    int getMotorKickMs() const { return motor_kick_ms; }
+    int getMotorKickPwm() const { return motor_kick_pwm; }
 
     // BT scan duty-cycle (ms)
     int getBtScanOnNormal();
@@ -96,6 +99,9 @@ public:
     void setDriveAxisDeadband(int deadband);
     void setMotorCurveType(const String& type);
     void setMotorCurveStrength(float strength);
+    void setMotorDecay(const String& decay);
+    void setMotorKickMs(int ms);
+    void setMotorKickPwm(int pwm);
 
     void setBtScanOnNormal(int v);
     void setBtScanOffNormal(int v);
@@ -157,10 +163,13 @@ private:
     ServoConfig servos[7];
 
     String drive_mixer = "arcade";
-    float drive_turn_gain = 1.0f;
+    float drive_turn_gain = 0.7f;
     int drive_axis_deadband = 16;
-    String motor_curve_type = "linear";
-    float motor_curve_strength = 0.0f;
+    String motor_curve_type = "expo";
+    float motor_curve_strength = 0.5f;
+    String motor_decay = "slow";
+    int motor_kick_ms = 40;
+    int motor_kick_pwm = 255;
 
     // Bluetooth scan duty-cycle settings
     int bt_scan_on_normal_ms = 500;
