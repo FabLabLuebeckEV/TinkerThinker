@@ -44,10 +44,10 @@ void LEDController::setLedCount(int count) {
 
     CRGB* oldLeds = ledsArray;
     CRGB* oldRaw = rawColorsArray;
-    // Reihenfolge so, dass setPixelColor() aus einem anderen Task nie ueber das Pufferende
-    // schreibt: beim Verkleinern zuerst die Anzahl senken, beim Vergroessern zuletzt erhoehen.
+    // Reihenfolge so, dass setPixelColor() aus einem anderen Task nie über das Pufferende
+    // schreibt: beim Verkleinern zuerst die Anzahl senken, beim Vergrößern zuletzt erhöhen.
     if (count < ledCount) {
-        // Ueberzaehlige LEDs dunkel schalten, bevor der Treiber sie nicht mehr ansteuert
+        // Überzählige LEDs dunkel schalten, bevor der Treiber sie nicht mehr ansteuert
         for (int i = count; i < ledCount; i++) oldLeds[i] = CRGB::Black;
         FastLED.show();
         ledCount = count;

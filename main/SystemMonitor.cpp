@@ -42,10 +42,13 @@ bool SystemMonitor::isMotorInFault() {
 float SystemMonitor::readAverageCurrent(int adcPin) {
     long adcSum = 0;
 
-    // Innerhalb eines PWM-Zyklus 20 Samples sammeln
+    // Samples gleichmäßig über genau eine PWM-Periode verteilen. Die Zeitpunkte werden
+    // absolut geplant, damit die Dauer von analogRead() die Periode nicht verlängert.
+    uint32_t start = micros();
     for (int i = 0; i < samplesPerCycle; i++) {
+        uint32_t due = start + (uint32_t)(i * pwmPeriodUs / samplesPerCycle);
+        while ((int32_t)(micros() - due) < 0) {}
         adcSum += analogRead(adcPin);      // ADC-Wert lesen
-        delayMicroseconds(pwmPeriodUs / samplesPerCycle); // Abtastintervall
     }
 
     // Durchschnitt der ADC-Werte berechnen

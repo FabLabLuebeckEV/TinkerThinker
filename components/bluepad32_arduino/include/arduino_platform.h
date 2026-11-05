@@ -87,6 +87,14 @@ int arduino_play_dual_rumble(int idx,
 int arduino_disconnect_controller(int idx);
 int arduino_forget_bluetooth_keys(void);
 
+// TinkerThinker: Hook der Anwendung fuer eigene Whitelist und BT-Suche.
+// Wird im BTstack-Thread aufgerufen: einmal, wenn die Suche ein Geraet findet (ready=false,
+// rssi gueltig), und noch einmal, bevor ein Controller einen Platz bekommt (ready=true,
+// rssi=0; gilt auch fuer eingehende Verbindungen bereits gekoppelter Controller).
+// Rueckgabe false lehnt das Geraet ab. Muss schnell sein und darf nicht blockieren.
+typedef bool (*arduino_device_filter_cb_t)(const uint8_t addr[6], const char* name, uint8_t rssi, bool ready);
+void arduino_set_device_filter(arduino_device_filter_cb_t cb);
+
 // Returns a uni_hid_device_t* for a giving Controller index. Must be called from the BP32/BTstack thread.
 // Any function that manipulates "uni_hid_device_t" MUST be called from the BTP32/BTstack thread.
 // This function is ONLY for advanced users!

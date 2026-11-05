@@ -284,51 +284,6 @@
           <!-- Dynamisch per JS befüllt -->
         </div>
 
-        <h3>Bluetooth Scan Timings (ms)
-          <span class="tooltip">i
-            <span class="tooltiptext">
-              Schaltet die BT-Suche im Wechsel ein/aus, damit WLAN stabil bleibt. Werte in Millisekunden.
-            </span>
-          </span>
-        </h3>
-        <div class="bt-scan">
-          <label>Normal ON:
-            <span class="tooltip">i
-              <span class="tooltiptext">Scan-Zeit im normalen Betrieb.</span>
-            </span>
-          </label>
-          <input type="number" name="bt_scan_on_normal_ms" id="bt_scan_on_normal_ms" min="0" max="5000"><br>
-          <label>Normal OFF:
-            <span class="tooltip">i
-              <span class="tooltiptext">Pause im normalen Betrieb.</span>
-            </span>
-          </label>
-          <input type="number" name="bt_scan_off_normal_ms" id="bt_scan_off_normal_ms" min="0" max="5000"><br>
-          <label>STA Connect ON:
-            <span class="tooltip">i
-              <span class="tooltiptext">Scan-Zeit waehrend WLAN-Verbindung (Client).</span>
-            </span>
-          </label>
-          <input type="number" name="bt_scan_on_sta_ms" id="bt_scan_on_sta_ms" min="0" max="5000"><br>
-          <label>STA Connect OFF:
-            <span class="tooltip">i
-              <span class="tooltiptext">Pause waehrend WLAN-Verbindung (Client).</span>
-            </span>
-          </label>
-          <input type="number" name="bt_scan_off_sta_ms" id="bt_scan_off_sta_ms" min="0" max="5000"><br>
-          <label>AP Active ON:
-            <span class="tooltip">i
-              <span class="tooltiptext">Scan-Zeit, wenn der Hotspot aktiv genutzt wird.</span>
-            </span>
-          </label>
-          <input type="number" name="bt_scan_on_ap_ms" id="bt_scan_on_ap_ms" min="0" max="5000"><br>
-          <label>AP Active OFF:
-            <span class="tooltip">i
-              <span class="tooltiptext">Pause, wenn der Hotspot aktiv genutzt wird.</span>
-            </span>
-          </label>
-          <input type="number" name="bt_scan_off_ap_ms" id="bt_scan_off_ap_ms" min="0" max="5000"><br>
-        </div>
       </div>
     </section>
 
@@ -349,6 +304,22 @@
           </span>
         </label>
         <input type="checkbox" id="bt_whitelist_enabled">
+      </div>
+
+      <!-- Controller-Suche: findet Controller im Pairing-Modus, auch nicht erlaubte -->
+      <div id="bt-scan-panel" style="margin-bottom:16px;">
+        <h3>Controller suchen</h3>
+        <p style="color:#555; font-size:0.9em;">
+          Controller in den Pairing-Modus versetzen und auf <strong>Suche starten</strong> klicken.
+          Die Suche läuft 60 Sekunden, das WLAN bleibt dabei an (Verbindung kann etwas langsamer werden).
+          Ist die Whitelist aktiv, erscheinen nicht erlaubte Controller mit dem Button <strong>Erlauben</strong>.
+          Bereits gekoppelte Controller verbinden sich auch ohne Suche von selbst.
+        </p>
+        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+          <button type="button" id="bt-scan-btn" onclick="btScanToggle()">Suche starten</button>
+          <span id="bt-scan-status" style="font-size:0.9em;"></span>
+        </div>
+        <div id="bt-scan-list" style="margin-top:8px;"></div>
       </div>
 
       <!-- Verbundene Controller - immer sichtbar, zeigt MACs zum Kopieren -->

@@ -189,7 +189,27 @@ static void arduino_on_device_disconnected(uni_hid_device_t* d) {
     }
 }
 
+static arduino_device_filter_cb_t device_filter_cb_ = NULL;
+
+void arduino_set_device_filter(arduino_device_filter_cb_t cb) {
+    device_filter_cb_ = cb;
+}
+
+static uni_error_t arduino_on_device_discovered(bd_addr_t addr, const char* name, uint16_t cod, uint8_t rssi) {
+    ARG_UNUSED(cod);
+    if (device_filter_cb_ && !device_filter_cb_(addr, name, rssi, false)) {
+        logi("Arduino: device %s rejected by application filter\n", bd_addr_to_str(addr));
+        return UNI_ERROR_IGNORE_DEVICE;
+    }
+    return UNI_ERROR_SUCCESS;
+}
+
 static uni_error_t arduino_on_device_ready(uni_hid_device_t* d) {
+    if (device_filter_cb_ && !device_filter_cb_(d->conn.btaddr, d->name, 0, true)) {
+        logi("Arduino: controller %s rejected by application filter\n", bd_addr_to_str(d->conn.btaddr));
+        return UNI_ERROR_IGNORE_DEVICE;
+    }
+
     if (used_controllers_ == CONFIG_BLUEPAD32_MAX_DEVICES) {
         // No more available seats, reject connection
         logi("Arduino: More available seats\n");
@@ -465,6 +485,7 @@ struct uni_platform* get_arduino_platform(void) {
         .on_init_complete = arduino_on_init_complete,
         .on_device_connected = arduino_on_device_connected,
         .on_device_disconnected = arduino_on_device_disconnected,
+        .on_device_discovered = arduino_on_device_discovered,
         .on_device_ready = arduino_on_device_ready,
         .on_oob_event = arduino_on_device_oob_event,
         .on_controller_data = arduino_on_controller_data,

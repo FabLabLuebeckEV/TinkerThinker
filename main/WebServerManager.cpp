@@ -2,6 +2,7 @@
 #include "TinkerThinkerBoard.h"
 #include "ConfigManager.h"
 #include <esp_wifi.h>
+#include "BtPairing.h"
 #include <utility>
 
 WebServerManager::WebServerManager(TinkerThinkerBoard* board, ConfigManager* config)
@@ -24,7 +25,7 @@ void WebServerManager::init() {
 
 #include <lwip/def.h>
 
-// POST-Bodies kommen bei groesseren Daten in mehreren Stuecken (index/total). Sie werden in
+// POST-Bodies kommen bei größeren Daten in mehreren Stücken (index/total). Sie werden in
 // einem malloc-Puffer gesammelt (free-kompatibel mit ~AsyncWebServerRequest, falls die
 // Verbindung vor onRequest abbricht) und erst im onRequest-Handler ausgewertet.
 static void accumulateBody(AsyncWebServerRequest* request, uint8_t* data, size_t len, size_t index, size_t total) {
@@ -38,8 +39,8 @@ static void accumulateBody(AsyncWebServerRequest* request, uint8_t* data, size_t
     memcpy(buf + index, data, len);
 }
 
-// Antwort senden und erst danach neu starten: sobald der Browser die Verbindung schliesst,
-// spaetestens aber nach 3 s (falls der Client die Verbindung offen haelt).
+// Antwort senden und erst danach neu starten: sobald der Browser die Verbindung schließt,
+// spätestens aber nach 3 s (falls der Client die Verbindung offen hält).
 // Kein delay()/ESP.restart() direkt im Handler, sonst kommt die Antwort nie beim Browser an.
 static void sendAndRestart(AsyncWebServerRequest* request, AsyncWebServerResponse* response) {
     response->addHeader("Connection", "close");
@@ -55,7 +56,7 @@ static void sendAndRestart(AsyncWebServerRequest* request, AsyncWebServerRespons
     }, "restartFallback", 2048, nullptr, 1, nullptr);
 }
 
-// Uebernimmt den gesammelten Body; der Aufrufer muss ihn mit free() freigeben.
+// Übernimmt den gesammelten Body; der Aufrufer muss ihn mit free() freigeben.
 static char* takeBody(AsyncWebServerRequest* request) {
     char* body = reinterpret_cast<char*>(request->_tempObject);
     request->_tempObject = nullptr;
@@ -95,9 +96,10 @@ static String sanitizeMdnsHost(const String& raw) {
 void WebServerManager::startWifi() {
     if (config->getWifiMode() == "AP") {
         WiFi.mode(WIFI_AP);
-        // Fester Kanal, max. 4 Clients; kein Power-Save gegen Timeouts/Abbrueche
+        // Fester Kanal, max. 4 Clients. Kein esp_wifi_set_ps(WIFI_PS_NONE): Bei aktivem
+        // Bluetooth lehnt ESP-IDF das ab (die Koexistenz braucht Modem-Sleep), und ein
+        // Access Point schläft ohnehin nicht.
         WiFi.softAP(config->getHotspotSSID().c_str(), config->getHotspotPassword().c_str(), 6, 0, 4);
-        esp_wifi_set_ps(WIFI_PS_NONE);
         IPAddress IP = WiFi.softAPIP();
         Serial.print("AP IP address: ");
         Serial.println(IP);
@@ -122,7 +124,6 @@ void WebServerManager::startWifi() {
                 WiFi.disconnect(true);
                 WiFi.mode(WIFI_AP);
                 WiFi.softAP(config->getHotspotSSID().c_str(), config->getHotspotPassword().c_str(), 6, 0, 4);
-                esp_wifi_set_ps(WIFI_PS_NONE);
                 Serial.print("Fallback AP IP: ");
                 Serial.println(WiFi.softAPIP());
                 startMdnsAndLocalDns();
@@ -472,9 +473,9 @@ void WebServerManager::setupRoutes() {
     });
 
     // Statische Dateien aus LittleFS. Bewusst kein serveStatic: Dessen ETag besteht nur aus der
-    // Dateigroesse, eine Änderung gleicher Größe wuerde nach einem Update als "304 unveraendert"
-    // gelten. send(LittleFS, ...) nutzt fuer .gz den CRC32 aus dem gzip-Trailer als ETag und setzt
-    // "Cache-Control: no-cache" - der Browser fragt jedes Mal nach und laedt bei neuer Version neu.
+    // Dateigröße, eine Änderung gleicher Größe würde nach einem Update als "304 unverändert"
+    // gelten. send(LittleFS, ...) nutzt für .gz den CRC32 aus dem gzip-Trailer als ETag und setzt
+    // "Cache-Control: no-cache" - der Browser fragt jedes Mal nach und lädt bei neuer Version neu.
     server.onNotFound([](AsyncWebServerRequest *request){
         String path = request->url();
         if (request->method() != HTTP_GET || path.endsWith("/") || path.indexOf("..") >= 0) {
@@ -678,14 +679,6 @@ document.getElementById('f').onsubmit=function(e){
         doc["motor_curve_type"] = config->getMotorCurveType();
         doc["motor_curve_strength"] = config->getMotorCurveStrength();
 
-        // Bluetooth scan duty-cycle
-        doc["bt_scan_on_normal_ms"]  = config->getBtScanOnNormal();
-        doc["bt_scan_off_normal_ms"] = config->getBtScanOffNormal();
-        doc["bt_scan_on_sta_ms"]     = config->getBtScanOnSta();
-        doc["bt_scan_off_sta_ms"]    = config->getBtScanOffSta();
-        doc["bt_scan_on_ap_ms"]      = config->getBtScanOnAp();
-        doc["bt_scan_off_ap_ms"]     = config->getBtScanOffAp();
-
         int activeServos = config->getActiveServoCount();
         JsonArray servoArr = doc["servo_settings"].to<JsonArray>();
         for (int i=0; i<activeServos; i++) {
@@ -758,6 +751,33 @@ document.getElementById('f').onsubmit=function(e){
         AsyncWebServerResponse* res = request->beginResponse(302);
         res->addHeader("Location", "/config");
         sendAndRestart(request, res);
+    });
+
+    // Controller-Suche: POST startet ein Such-Fenster (60 s, ?stop=1 beendet es),
+    // GET liefert Restzeit und gefundene Controller inkl. Whitelist-Status
+    server.on("/bt/scan", HTTP_POST, [this](AsyncWebServerRequest *request){
+        if (request->hasParam("stop")) {
+            BtPairing::stopSearch();
+        } else {
+            BtPairing::startSearch(60000);
+        }
+        request->send(200, "application/json", "{\"status\":\"ok\"}");
+    });
+    server.on("/bt/scan", HTTP_GET, [this](AsyncWebServerRequest *request){
+        JsonDocument doc;
+        BtPairing::fillStatus(doc);
+        for (JsonObject dev : doc["devices"].as<JsonArray>()) {
+            bool connected = false;
+            for (int i = 0; i < 4; i++) {
+                if (connectedControllers[i].connected && dev["mac"] == connectedControllers[i].mac) {
+                    connected = true;
+                }
+            }
+            dev["connected"] = connected;
+        }
+        String json;
+        serializeJson(doc, json);
+        request->send(200, "application/json", json);
     });
 
     // GET connected controllers (MAC + model)
@@ -1000,20 +1020,6 @@ void WebServerManager::handleConfig(AsyncWebServerRequest* request) {
         config->setOTAEnabled(false);
     }
 
-    // BT scan timings (optional fields)
-    auto setIntIf = [&](const char* name, void(*setter)(ConfigManager*, int)){
-        if (request->hasParam(name, true)) {
-            int v = request->getParam(name, true)->value().toInt();
-            setter(config, v);
-        }
-    };
-    setIntIf("bt_scan_on_normal_ms",  [](ConfigManager* c,int v){ c->setBtScanOnNormal(v); });
-    setIntIf("bt_scan_off_normal_ms", [](ConfigManager* c,int v){ c->setBtScanOffNormal(v); });
-    setIntIf("bt_scan_on_sta_ms",     [](ConfigManager* c,int v){ c->setBtScanOnSta(v); });
-    setIntIf("bt_scan_off_sta_ms",    [](ConfigManager* c,int v){ c->setBtScanOffSta(v); });
-    setIntIf("bt_scan_on_ap_ms",      [](ConfigManager* c,int v){ c->setBtScanOnAp(v); });
-    setIntIf("bt_scan_off_ap_ms",     [](ConfigManager* c,int v){ c->setBtScanOffAp(v); });
-
     // Servos (alle bis zu 7 speichern, falls uebergeben)
     for (int i = 0; i < 7; i++) {
         String minField = "servo" + String(i) + "_min";
@@ -1064,7 +1070,7 @@ void WebServerManager::handleConfig(AsyncWebServerRequest* request) {
     board->reApplyConfig();
 
     if (wifiChanged) {
-        // Sende eine Nachricht ueber WebSocket, dass ein Neustart erfolgt
+        // Sende eine Nachricht über WebSocket, dass ein Neustart erfolgt
         JsonDocument doc;
         doc["restart"] = true;
         String json;
@@ -1106,7 +1112,7 @@ void registerBindingsRoutes(AsyncWebServer& server, ConfigManager* config) {
         request->send(200, "application/json", binds);
     });
     server.on("/control_bindings", HTTP_POST,
-        // onRequest laeuft NACH dem Body-Handler: hier parsen, speichern und antworten.
+        // onRequest läuft NACH dem Body-Handler: hier parsen, speichern und antworten.
         [config](AsyncWebServerRequest* request){
             char* body = reinterpret_cast<char*>(request->_tempObject);
             if (!body) {
@@ -1163,7 +1169,7 @@ void WebServerManager::onWebSocketEvent(AsyncWebSocket *server, AsyncWebSocketCl
         JsonDocument doc;
         DeserializationError error = deserializeJson(doc, message);
         if (!error) {
-            // Vorhandene Steuerung fuer Joystick & Servo
+            // Vorhandene Steuerung für Joystick & Servo
             if (!doc["x"].isNull() && !doc["y"].isNull()) {
                 float x = doc["x"].as<float>();
                 float y = doc["y"].as<float>();
@@ -1178,7 +1184,7 @@ void WebServerManager::onWebSocketEvent(AsyncWebSocket *server, AsyncWebSocketCl
                 board->requestDriveFromWS((int)(rotatedX * 512), (int)(rotatedY * 512));
             }
 
-            // Greifer-Steuerung ueber konfigurierten motor_gripper_gui
+            // Greifer-Steuerung über konfigurierten motor_gripper_gui
             if (!doc["gripper"].isNull()) {
                 String cmd = doc["gripper"].as<String>();
                 int gripIdx = constrain(config->getMotorGripperGUI(), 0, 3);
@@ -1235,7 +1241,7 @@ void WebServerManager::onWebSocketEvent(AsyncWebSocket *server, AsyncWebSocketCl
             // LED set (expects {"led_set":{"start":0,"count":1,"color":"#RRGGBB"}})
             if (!doc["led_set"].isNull()) {
                 JsonObject led = doc["led_set"].as<JsonObject>();
-                // Auf die konfigurierten LEDs begrenzen (sonst lange Schleife bei grossem count)
+                // Auf die konfigurierten LEDs begrenzen (sonst lange Schleife bei großem count)
                 int start = constrain((int)(led["start"] | 0), 0, config->getLedCount());
                 int count = constrain((int)(led["count"] | 1), 0, config->getLedCount() - start);
                 const char* color = led["color"] | "#000000";
@@ -1302,7 +1308,7 @@ void WebServerManager::sendStatusUpdate() {
     }
 
     // Fahr-Watchdog: Joystick ausgelenkt, aber seit 1 s kein Fahrbefehl mehr -> Website-Fahrt
-    // neutral setzen. Laeuft ueber den Arbiter, ein aktiver BT-Controller wird nicht gestoppt.
+    // neutral setzen. Läuft über den Arbiter, ein aktiver BT-Controller wird nicht gestoppt.
     if (wsDriveActive && (millis() - lastWsDriveMs > 1000)) {
         wsDriveActive = false;
         Serial.println("WS-Fahr-Watchdog: keine Joystick-Daten seit 1 s, stoppe Website-Fahrt");

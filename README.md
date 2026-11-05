@@ -44,7 +44,7 @@ Egal ob **Workshop-Kettenroboter**, **Sumo-Bot** oder **4-Achs-Roboter-Arm**: Du
 
 ### 1. Platine einschalten
 1. Schieb den physischen **Ein-/Ausschalter** am Platinenrand (neben dem Antennengehäuse) auf **EIN**.
-2. Die **Status-LED** auf dem Board leuchtet **schwach weiß** (= Board ist bereit für WLAN und Bluetooth).
+2. Die **Status-LED** auf dem Board blinkt zuerst **blau** (60 Sekunden Controller-Suche) und leuchtet danach **schwach weiß** (= bereit). Das WLAN ist von Anfang an da.
 
 Jetzt kannst du frei wählen: **Steuerung per Smartphone/Browser (Option A)** oder **per Bluetooth-Controller (Option B)** - oder beides gleichzeitig!
 
@@ -81,7 +81,7 @@ Jetzt kannst du frei wählen: **Steuerung per Smartphone/Browser (Option A)** od
 
 ### Option B: Steuerung per Bluetooth-Gamepad
 
-1. Schalte das Board ein (LED leuchtet **schwach weiß**).
+1. Schalte das Board ein. Die Status-LED **blinkt blau**: Das Board sucht nach dem Start 60 Sekunden lang nach neuen Controllern.
 2. Versetze deinen Controller in den **Pairing-Modus** (Kopplungsmodus):
    - **PS4 / PS5 Controller**: `SHARE` (bzw. `CREATE`) + `PS-Taste` gleichzeitig gedrückt halten, bis die Lichtleiste schnell blitzt.
    - **PS3 Controller (auch Clones)**: Controller ohne USB-Kabel über die `PS-Taste` einschalten.
@@ -89,8 +89,9 @@ Jetzt kannst du frei wählen: **Steuerung per Smartphone/Browser (Option A)** od
    - **Switch Pro / 8BitDo**: Pairing-Taste oben am Controller gedrückt halten.
 3. Nach wenigen Sekunden verbindet sich der Controller automatisch und die Status-LED auf dem Board leuchtet **dauerhaft grün** 🟢!
 
-> **💡 Profi-Tipp bei schwierigem Pairing:**
-> Halte auf dem Board die **MODE-Taste** zweimal jeweils ca. 1 Sekunde gedrückt (Weiß -> Orange -> Blau), bis die Status-LED **blau** 🔵 leuchtet (*Bluetooth-Scan-Modus*). Dann sucht das Board ununterbrochen mit voller Leistung nach Controllern.
+> **💡 Später einen neuen Controller koppeln:**
+> Halte die **MODE-Taste** ca. 1 Sekunde gedrückt (oder klicke in `/config` auf **„Controller suchen“**). Die LED blinkt blau, und das Board sucht 60 Sekunden lang. Das WLAN bleibt dabei an.
+> **Bereits gekoppelte Controller** brauchen keine Suche: Einfach einschalten, sie verbinden sich jederzeit von selbst.
 
 ---
 
@@ -100,13 +101,13 @@ Auf der Platine befinden sich zwei kleine Tasten (**`RESET`** und **`MODE`**) so
 
 | LED-Farbe | Funkmodus / Zustand | Bedeutung |
 | :--- | :--- | :--- |
-| ⚪ **Schwach Weiß** | `Normal` (Standard) | WLAN-Hotspot **und** Bluetooth-Suche sind gleichzeitig aktiv. |
-| 🟢 **Grün** | `Controller verbunden` | Ein Bluetooth-Gamepad ist aktiv gekoppelt und steuerbereit (Anzeige im Modus `Normal`). |
-| 🟠 **Orange** | `Nur WLAN` | Bluetooth ist pausiert, 100 % Funkleistung für die Weboberfläche. |
-| 🔵 **Blau** | `Nur Bluetooth-Scan` | Durchgehende Bluetooth-Suche zum schnellen Koppeln neuer Controller. |
+| ⚪ **Schwach Weiß** | `Bereit` | WLAN ist an, gekoppelte Controller können sich jederzeit verbinden. |
+| 🔵 **Blau blinkend** | `Controller-Suche` | Sucht 60 Sekunden lang nach neuen Controllern (nach dem Start, per `MODE`-Taste oder per Browser). WLAN bleibt an. |
+| 🟢 **Grün** | `Controller verbunden` | Ein Bluetooth-Gamepad ist gekoppelt und steuerbereit. |
+| 🔴 **Rot** | `Controller getrennt` | Der Controller hat die Verbindung beendet (Motoren werden gestoppt). |
 | 🔴⚪🟠 **Wechselblinken** | `Werksreset läuft` | `MODE`-Taste wird beim Start für 10 Sekunden gedrückt gehalten. |
 
-Halte die **`MODE`-Taste** im Betrieb ca. **1 Sekunde** gedrückt, um den Funkmodus zu wechseln. Die Reihenfolge ist **Weiß (Normal)** -> **Orange (Nur WLAN)** -> **Blau (Nur Bluetooth)** -> **Orange (Nur WLAN)** -> **Weiß (Normal)**. Auf v1-Platinen gibt es keine `MODE`-Taste, dort bleibt das Board immer im Modus `Normal`.
+Halte die **`MODE`-Taste** im Betrieb ca. **1 Sekunde** gedrückt, um die **Controller-Suche** zu starten (60 Sekunden). Nochmal halten beendet eine laufende Suche. Auf v1-Platinen gibt es keine `MODE`-Taste, dort startest du die Suche in `/config` unter **„Controller suchen“**.
 
 ---
 
@@ -323,7 +324,8 @@ Das liegt am eingebauten **Captive-Portal-Minibrowser** von iOS und Android: Sob
 <details>
 <summary><strong>🎮 Mein Bluetooth-Controller (oder PS3-Clone) verbindet sich nicht.</strong></summary>
 
-1. Halte die **`MODE`-Taste** am Board zweimal jeweils ca. 1 Sekunde gedrückt, bis die Status-LED **blau** 🔵 leuchtet (dauerhafter Bluetooth-Scan-Modus).
+1. Halte die **`MODE`-Taste** am Board ca. 1 Sekunde gedrückt, bis die Status-LED **blau blinkt** (Controller-Suche für 60 Sekunden), oder starte die Suche in `/config` unter **„Controller suchen“**.
+   - Ist in `/config` die **Whitelist** aktiv, verbinden sich nur eingetragene Controller. Die Suche zeigt nicht erlaubte Controller mit dem Button **„Erlauben“** an.
 2. Versetze den Controller erneut in den Pairing-Modus.
 3. **Günstige PS3-/DualShock-3-Clone-Controller** (MAC-Präfix `A0:5A:5E` / `A0:5A:5F`) werden von unserer Firmware speziell unterstützt. Falls dein Clone eine andere MAC-Adresse hat, erstelle gern ein GitHub-Issue mit den ersten 3 Bytes der MAC-Adresse.
 </details>

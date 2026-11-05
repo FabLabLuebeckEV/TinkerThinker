@@ -8,7 +8,7 @@ class LEDController {
 public:
     LEDController(int ledCount); // Neuer Konstruktor mit Parameter
     void init();
-    // LED-Anzahl zur Laufzeit aendern, ohne den FastLED-Treiber neu zu registrieren
+    // LED-Anzahl zur Laufzeit ändern, ohne den FastLED-Treiber neu zu registrieren
     void setLedCount(int count);
     void setPixelColor(int led, uint8_t red, uint8_t green, uint8_t blue);
     void showPixels();

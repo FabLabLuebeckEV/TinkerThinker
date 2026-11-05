@@ -12,6 +12,7 @@
 #include "soc/rtc_cntl_reg.h"
 #include "esp_bt.h"
 #include <uni.h>
+#include "BtPairing.h"
 
 // Removed DFPlayer and HardwareSerial includes
 #define MODE_BUTTON_PIN 39
@@ -34,21 +35,19 @@ static InputBindingManager inputBindings(&board, &configManager);
 long timestampServo = 0;
 static uint32_t lastHeartbeatMs = 0;
 
-enum class RadioMode { Normal, BluetoothOnly, WifiOnly };
-static RadioMode radioMode = RadioMode::Normal;
-static RadioMode lastAppliedMode = RadioMode::Normal;
-static bool radioModeAppliedOnce = false;
-static int modeStep = 0;
+// Controller-Suche: Die Gerätesuche (Inquiry) läuft nur in einem Such-Fenster (nach dem Start,
+// per MODE-Taste oder per Browser). WLAN bleibt dabei an, die Koexistenz des ESP32 teilt die
+// Funkzeit auf. Gekoppelte Controller verbinden sich jederzeit ohne Suche (Page Scan ist immer an).
+static const uint32_t searchWindowMs = 60000;
 static uint32_t modeButtonPressStartMs = 0;
 static bool modeButtonLongPressHandled = false;
 static const uint32_t modeButtonHoldToSwitchMs = 700;
-static uint32_t wifiPauseUntilMs = 0;
-static bool wifiPausedForBt = false;
-static const uint32_t wifiPauseOnConnectMs = 3000;
+static bool modeButtonSeenReleased = false;
+static bool inquiryRunning = false;
 static uint32_t scanRestartAfterMs = 0;   // Pause nach Disconnect bevor Scan neu startet
+static bool statusLedShowsSearch = false;
 
 static void setStatusLed(uint8_t r, uint8_t g, uint8_t b);
-static void applyRadioMode(RadioMode mode);
 static bool handleStartupReset();
 static bool isModePressedStable();
 static bool boardReady = false;
@@ -60,15 +59,39 @@ static size_t serialCmdLen = 0;
 static bool serialCmdOverflow = false;
 
 static void applyWhitelistFromConfig() {
-    uni_bt_allowlist_remove_all();
-    const std::vector<String>& addrs = configManager.getBtWhitelist();
-    for (const auto& mac : addrs) {
-        bd_addr_t addr;
-        if (sscanf_bd_addr(mac.c_str(), addr)) {
-            uni_bt_allowlist_add_addr(addr);
+    // Geprüft wird in BtPairing (eigener Filter), nicht in der Bluepad32-Allowlist:
+    // keine NVS-Schreibzugriffe, und die Browser-Suche sieht auch nicht erlaubte Controller.
+    BtPairing::applyWhitelist(configManager.getBtWhitelistEnabled(), configManager.getBtWhitelist());
+}
+
+// Bluepad32-Einstellungen, die im NVS liegen, nur schreiben, wenn sie abweichen.
+static void prepareBluetoothStack() {
+    // Alte Allowlist aus früheren Firmware-Versionen abschalten, sie würde die Suche filtern
+    if (uni_bt_allowlist_is_enabled()) {
+        uni_bt_allowlist_set_enabled(false);
+    }
+    const bd_addr_t* addrs = nullptr;
+    int total = 0;
+    uni_bt_allowlist_get_all(&addrs, &total);
+    static const bd_addr_t zeroAddr = {0, 0, 0, 0, 0, 0};
+    for (int i = 0; i < total; i++) {
+        if (memcmp(addrs[i], zeroAddr, sizeof(bd_addr_t)) != 0) {
+            uni_bt_allowlist_remove_all();
+            break;
         }
     }
-    uni_bt_allowlist_set_enabled(configManager.getBtWhitelistEnabled());
+
+    // Periodische Suche in Blöcken: 2,56 s suchen, dann 2,5-3,8 s Pause (Perioden 5,12-6,4 s).
+    // 2,56 s reichen, um einen Controller im Pairing-Modus zu finden (beide Inquiry-Trains),
+    // und die Pausen geben dem WLAN zusammenhängende Funkzeit für Anmeldung und DHCP.
+    if (uni_bt_get_gap_inquiry_length() != 2) uni_bt_set_gap_inquiry_length(2);
+    if (uni_bt_get_gap_min_periodic_length() != 4) uni_bt_set_gap_min_peridic_length(4);
+    if (uni_bt_get_gap_max_periodic_length() != 5) uni_bt_set_gap_max_peridic_length(5);
+}
+
+static void startControllerSearch(uint32_t durationMs) {
+    BtPairing::startSearch(durationMs);
+    Console.printf("Controller-Suche gestartet (%lu s)\n", (unsigned long)(durationMs / 1000));
 }
 
 static String formatBtMac() {
@@ -575,20 +598,18 @@ void onConnectedController(ControllerPtr ctl) {
             String modelName = ctl->getModelName();
             Console.printf("Controller model: %s, VID=0x%04x, PID=0x%04x\n", modelName.c_str(), properties.vendor_id,
                            properties.product_id);
-            // Format MAC in standard Bluetooth notation (MSB first = index 5..0)
-            char mac[18];
-            snprintf(mac, sizeof(mac), "%02X:%02X:%02X:%02X:%02X:%02X",
-                properties.btaddr[5], properties.btaddr[4], properties.btaddr[3],
-                properties.btaddr[2], properties.btaddr[1], properties.btaddr[0]);
-            Console.printf("Controller MAC: %s\n", mac);
+            // BTstack speichert die Adresse MSB zuerst (Index 0..5), genau so wie die
+            // Whitelist sie vergleicht. Früher wurde hier rückwärts formatiert.
+            String mac = BtPairing::formatMac(properties.btaddr);
+            Console.printf("Controller MAC: %s\n", mac.c_str());
             myControllers[i] = ctl;
             foundEmptySlot = true;
-            board.notifyControllerConnected(i, mac, modelName.c_str());
+            board.notifyControllerConnected(i, mac.c_str(), modelName.c_str());
+            // Ziel erreicht: Such-Fenster beenden, damit das WLAN wieder die volle Funkzeit hat
+            BtPairing::stopSearch();
+            statusLedShowsSearch = false;
             board.setLED(0, 0, 255, 0); // Green
             board.showLEDs();
-            if (radioMode == RadioMode::Normal) {
-                wifiPauseUntilMs = millis() + wifiPauseOnConnectMs;
-            }
             break;
         }
     }
@@ -696,6 +717,8 @@ void setup() {
     BP32.enableBLEService(false);
     BP32.enableNewBluetoothConnections(false);
     sm_set_secure_connections_only_mode(false);                        // SC ausschalten
+    prepareBluetoothStack();
+    BtPairing::begin();
     applyWhitelistFromConfig();
 
     board.setWhitelistApplyCallback(applyWhitelistFromConfig);
@@ -711,26 +734,13 @@ void setup() {
     // Load input bindings from config
     inputBindings.reload();
 
-    applyRadioMode(radioMode);
+    setStatusLed(60, 60, 60); // dim white
+    // Nach dem Start einmal nach neuen Controllern suchen
+    startControllerSearch(searchWindowMs);
     emitSerialReady();
 }
 
-// Arduino loop function. Runs in CPU 1.
-// Duty-cycle configuration for BT scanning (defaults overridden by ConfigManager)
-static uint32_t SCAN_ON_MS_NORMAL = 500;    // balanced when WiFi is idle
-static uint32_t SCAN_OFF_MS_NORMAL = 500;
-static uint32_t SCAN_ON_MS_STA_CONNECT = 150;  // give STA connect more airtime
-static uint32_t SCAN_OFF_MS_STA_CONNECT = 850;
-static uint32_t SCAN_ON_MS_AP_ACTIVE = 100;     // AP serving clients: keep scanning minimal
-static uint32_t SCAN_OFF_MS_AP_ACTIVE = 1900;
-
-static bool scanEnabled = false;
-static uint32_t nextToggleAt = 0;
-static uint32_t curOnMs = SCAN_ON_MS_NORMAL;
-static uint32_t curOffMs = SCAN_OFF_MS_NORMAL;
-static enum { PHASE_ON, PHASE_OFF } phase = PHASE_OFF;
-static bool modeButtonSeenReleased = false;
-
+// Status-LED (LED 0)
 static void setStatusLed(uint8_t r, uint8_t g, uint8_t b) {
     if (!boardReady) return;
     board.setLED(0, r, g, b);
@@ -801,37 +811,13 @@ static bool isModePressedStable() {
     return lowCount >= 5;
 }
 
-static void applyRadioMode(RadioMode mode) {
-    if (radioModeAppliedOnce && mode == lastAppliedMode) return;
-    radioModeAppliedOnce = true;
-    lastAppliedMode = mode;
-
-    if (mode == RadioMode::Normal) {
-        board.requestWifiEnable();
-        BP32.enableNewBluetoothConnections(false);
-        scanEnabled = false;
-        phase = PHASE_OFF;
-        nextToggleAt = millis();
-        setStatusLed(60, 60, 60); // dim white
-    } else if (mode == RadioMode::BluetoothOnly) {
-        board.requestWifiDisable(false);
-        BP32.enableNewBluetoothConnections(true);
-        scanEnabled = true;
-        phase = PHASE_ON;
-        setStatusLed(0, 0, 255);
-    } else if (mode == RadioMode::WifiOnly) {
-        // First drop BT connections, then disable scanning, then set color
-        for (int i = 0; i < BP32_MAX_GAMEPADS; i++) {
-            if (myControllers[i] && myControllers[i]->isConnected()) {
-                myControllers[i]->disconnect();
-            }
-        }
-        BP32.enableNewBluetoothConnections(false);
-        scanEnabled = false;
-        phase = PHASE_OFF;
-        board.requestWifiEnable();
-        setStatusLed(255, 120, 0);
-    }
+// Suche (Inquiry) an- oder abschalten, nur bei Zustandswechsel. Die Blöcke und Pausen
+// (siehe prepareBluetoothStack) plant der Bluetooth-Controller selbst, die Firmware
+// schaltet nicht mehr im Sekundentakt um.
+static void setInquiry(bool on) {
+    if (on == inquiryRunning) return;
+    inquiryRunning = on;
+    BP32.enableNewBluetoothConnections(on);
 }
 
 void loop() {
@@ -842,35 +828,29 @@ void loop() {
     if (dataUpdated)
         processControllers();
     inputBindings.tick();
-    // Refresh scan timings from config (lightweight)
-    SCAN_ON_MS_NORMAL       = configManager.getBtScanOnNormal();
-    SCAN_OFF_MS_NORMAL      = configManager.getBtScanOffNormal();
-    SCAN_ON_MS_STA_CONNECT  = configManager.getBtScanOnSta();
-    SCAN_OFF_MS_STA_CONNECT = configManager.getBtScanOffSta();
-    SCAN_ON_MS_AP_ACTIVE    = configManager.getBtScanOnAp();
-    SCAN_OFF_MS_AP_ACTIVE   = configManager.getBtScanOffAp();
+
+    uint32_t now = millis();
 
     if (configManager.isLegacyBoard()) {
         // Legacy board v1: GPIO39 is Motor Driver Fault (not MODE button)
         board.checkFaults();
-        radioMode = RadioMode::Normal;
     } else {
-        // Mode button handling (active-low, hold-to-switch for noise immunity)
+        // MODE-Taste ca. 0,7 s halten: Controller-Suche starten (oder laufende Suche beenden)
         bool modeNow = (digitalRead(MODE_BUTTON_PIN) == LOW);
         if (!modeNow) {
             modeButtonSeenReleased = true;
         }
-        uint32_t nowMs = millis();
         if (modeNow && modeButtonSeenReleased) {
             if (modeButtonPressStartMs == 0) {
-                modeButtonPressStartMs = nowMs;
+                modeButtonPressStartMs = now;
                 modeButtonLongPressHandled = false;
-            } else if (!modeButtonLongPressHandled && (nowMs - modeButtonPressStartMs) >= modeButtonHoldToSwitchMs) {
-                modeStep = (modeStep + 1) % 4;
-                if (modeStep == 0) radioMode = RadioMode::Normal;
-                else if (modeStep == 1) radioMode = RadioMode::WifiOnly;
-                else if (modeStep == 2) radioMode = RadioMode::BluetoothOnly;
-                else radioMode = RadioMode::WifiOnly;
+            } else if (!modeButtonLongPressHandled && (now - modeButtonPressStartMs) >= modeButtonHoldToSwitchMs) {
+                if (BtPairing::isSearching()) {
+                    BtPairing::stopSearch();
+                    Console.println("Controller-Suche per MODE-Taste beendet");
+                } else {
+                    startControllerSearch(searchWindowMs);
+                }
                 modeButtonLongPressHandled = true;
             }
         } else {
@@ -878,131 +858,39 @@ void loop() {
             modeButtonLongPressHandled = false;
         }
     }
-    applyRadioMode(radioMode);
 
-    // Temporary WiFi pause to boost BT during connect (only in Normal mode)
-    // Kein enableNewBluetoothConnections(true) wenn Controller bereits verbunden -
-    // das Toggling stört BTstack und kann den PS3/DS3 zum Disconnect bringen.
-    bool anyControllerNow = false;
+    bool anyController = false;
     for (int i = 0; i < BP32_MAX_GAMEPADS; i++) {
-        if (myControllers[i] && myControllers[i]->isConnected()) { anyControllerNow = true; break; }
+        if (myControllers[i] && myControllers[i]->isConnected()) { anyController = true; break; }
     }
-    if (radioMode == RadioMode::Normal) {
-        uint32_t now = millis();
-        if (wifiPauseUntilMs > now) {
-            if (!wifiPausedForBt) {
-                board.requestWifiDisable(false);
-                if (!anyControllerNow)
-                    BP32.enableNewBluetoothConnections(true);
-                wifiPausedForBt = true;
-            }
-        } else if (wifiPausedForBt) {
-            board.requestWifiEnable();
-            wifiPausedForBt = false;
+
+    // Ist das WLAN bis zum Neustart abgeschaltet, gehört die Funkzeit ganz dem Bluetooth:
+    // dann ohne Controller dauerhaft suchen.
+    bool searching = BtPairing::isSearching();
+    bool wantInquiry = searching || (board.isWifiDisabledUntilRestart() && !anyController);
+    // BTstack braucht nach einem Disconnect ~500 ms, sonst kommt error=0x0c (Command Disallowed)
+    if (wantInquiry && (int32_t)(now - scanRestartAfterMs) < 0) {
+        wantInquiry = false;
+    }
+    setInquiry(wantInquiry);
+
+    // Status-LED: blau blinkend während der Suche, danach grün (Controller) oder schwach weiß
+    static int lastBlinkState = -1;
+    if (searching) {
+        int on = ((now / 500) % 2) == 0 ? 1 : 0;
+        if (on != lastBlinkState) {
+            lastBlinkState = on;
+            if (on) setStatusLed(0, 0, 255);
+            else setStatusLed(0, 0, 0);
         }
-    } else if (wifiPausedForBt) {
-        wifiPausedForBt = false;
-        wifiPauseUntilMs = 0;
+        statusLedShowsSearch = true;
+    } else if (statusLedShowsSearch) {
+        lastBlinkState = -1;
+        statusLedShowsSearch = false;
+        if (anyController) setStatusLed(0, 255, 0);
+        else setStatusLed(60, 60, 60);
     }
 
-    // Determine current scenario and duty cycle settings
-    bool anyController = anyControllerNow;
-
-    wifi_mode_t mode = WiFi.getMode();
-    bool staConnecting = (mode == WIFI_STA || mode == WIFI_AP_STA) && (WiFi.status() != WL_CONNECTED);
-    bool apActive = (mode == WIFI_AP || mode == WIFI_AP_STA) && (WiFi.softAPgetStationNum() > 0);
-    bool wifiDisabledUntilRestart = board.isWifiDisabledUntilRestart();
-
-    if (radioMode == RadioMode::BluetoothOnly) {
-        if (!scanEnabled) {
-            BP32.enableNewBluetoothConnections(true);
-            scanEnabled = true;
-        }
-        vTaskDelay(10);
-        return;
-    }
-
-    if (radioMode == RadioMode::WifiOnly) {
-        if (scanEnabled) {
-            BP32.enableNewBluetoothConnections(false);
-            scanEnabled = false;
-            phase = PHASE_OFF;
-        }
-        vTaskDelay(10);
-        return;
-    }
-
-    if (wifiDisabledUntilRestart) {
-        // Keep Bluetooth scanning fully enabled while Wi-Fi is down.
-        if (!anyController) {
-            if (!scanEnabled) {
-                BP32.enableNewBluetoothConnections(true);
-                scanEnabled = true;
-                phase = PHASE_ON;
-            }
-        } else if (scanEnabled) {
-            BP32.enableNewBluetoothConnections(false);
-            scanEnabled = false;
-            phase = PHASE_OFF;
-        }
-        vTaskDelay(10);
-        return;
-    }
-
-    // Policy:
-    // - If a controller is already connected: don't scan.
-    // - Else if AP has clients: very low-duty scan.
-    // - Else if STA is connecting: low-duty scan.
-    // - Else: balanced scan.
-    uint32_t targetOn = SCAN_ON_MS_NORMAL;
-    uint32_t targetOff = SCAN_OFF_MS_NORMAL;
-    if (anyController) {
-        targetOn = 0; targetOff = 1000;  // keep scanning off
-    } else if (apActive) {
-        targetOn = SCAN_ON_MS_AP_ACTIVE; targetOff = SCAN_OFF_MS_AP_ACTIVE;
-    } else if (staConnecting) {
-        targetOn = SCAN_ON_MS_STA_CONNECT; targetOff = SCAN_OFF_MS_STA_CONNECT;
-    }
-
-    if (targetOn != curOnMs || targetOff != curOffMs) {
-        // Scenario changed: reset scheduler
-        curOnMs = targetOn; curOffMs = targetOff;
-        phase = PHASE_OFF;
-        scanEnabled = false;
-        BP32.enableNewBluetoothConnections(false);
-        nextToggleAt = millis() + curOffMs;
-    }
-
-    // Toggle scanning according to duty cycle (unless anyController)
-    uint32_t now = millis();
-    if (!anyController && now < scanRestartAfterMs) {
-        // Kurz nach Disconnect warten bevor Scan startet (verhindert 0x0c error)
-        vTaskDelay(10);
-        return;
-    }
-    if (!anyController) {
-        if (now >= nextToggleAt) {
-            if (phase == PHASE_OFF) {
-                // Turn scanning on for the on-duration
-                scanEnabled = (curOnMs > 0);
-                BP32.enableNewBluetoothConnections(scanEnabled);
-                phase = PHASE_ON;
-                nextToggleAt = now + (curOnMs > 0 ? curOnMs : curOffMs);
-            } else {
-                // Turn scanning off for the off-duration
-                scanEnabled = false;
-                BP32.enableNewBluetoothConnections(false);
-                phase = PHASE_OFF;
-                nextToggleAt = now + curOffMs;
-            }
-        }
-    } else if (scanEnabled) {
-        // Ensure scanning is off while a controller is connected
-        BP32.enableNewBluetoothConnections(false);
-        scanEnabled = false;
-        phase = PHASE_OFF;
-        nextToggleAt = now + 1000;
-    }
     //board.updateWebClients();
 
     // Heartbeat alle 5s - zeigt dass der ESP läuft

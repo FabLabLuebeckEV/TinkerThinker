@@ -54,8 +54,8 @@ void TinkerThinkerBoard::reApplyConfig() {
     curveCfg.strength = config->getMotorCurveStrength();
 
     // Die Controller werden nur beim ersten Aufruf angelegt. Danach wird nur die Konfiguration
-    // uebernommen: andere Tasks (BT-Loop, Webserver, Status-Task) halten die Zeiger und
-    // greifen jederzeit darauf zu, ein Neuanlegen wuerde bei jedem Speichern Speicher verlieren.
+    // übernommen: andere Tasks (BT-Loop, Webserver, Status-Task) halten die Zeiger und
+    // greifen jederzeit darauf zu, ein Neuanlegen würde bei jedem Speichern Speicher verlieren.
     if (!motorController) {
         motorController = new MotorController(motors, MOTOR_COUNT, freqs, dbs, inv, config->getMotorSwap(), driveCfg, curveCfg);
         motorController->init();

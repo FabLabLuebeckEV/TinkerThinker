@@ -44,7 +44,7 @@ Whether you are building a **workshop tracked robot**, a **Sumo bot**, or a **4-
 
 ### 1. Power On
 1. Flip the physical **power switch** on the board edge (next to the antenna housing) to **ON**.
-2. The onboard **status LED** lights up **dim white** (= ready for both Wi-Fi and Bluetooth).
+2. The onboard **status LED** first **blinks blue** (60 seconds controller search) and then lights up **dim white** (= ready). Wi-Fi is available right away.
 
 Now choose how you want to control your robot: **Smartphone/Browser (Option A)** or **Bluetooth Gamepad (Option B)** - or both at the same time!
 
@@ -69,7 +69,7 @@ Now choose how you want to control your robot: **Smartphone/Browser (Option A)**
 
 ### Option B: Control via Bluetooth Gamepad
 
-1. Turn on the board (LED is **dim white**).
+1. Turn on the board. The status LED **blinks blue**: after startup the board searches for new controllers for 60 seconds.
 2. Put your controller into **pairing mode**:
    - **PS4 / PS5 Controller**: Hold `SHARE` (or `CREATE`) + `PS button` simultaneously until the lightbar flashes rapidly.
    - **PS3 Controller (including clones)**: Turn on the controller unplugged by pressing the `PS button`.
@@ -78,7 +78,8 @@ Now choose how you want to control your robot: **Smartphone/Browser (Option A)**
 3. Once connected, the onboard status LED turns **solid green** 🟢!
 
 > **💡 Tip if pairing fails:**
-> Hold the **`MODE` button** for about 1 second, twice (white -> orange -> blue), until the status LED turns **blue** 🔵 (*Bluetooth Scan Only mode*). This dedicates 100% of the radio to continuous Bluetooth scanning.
+> Hold the **`MODE` button** for about 1 second (or click **Controller suchen** in `/config`). The LED blinks blue and the board searches for 60 seconds while Wi-Fi stays on.
+> **Already paired controllers** need no search: just turn them on, they reconnect at any time.
 
 ---
 
@@ -86,13 +87,13 @@ Now choose how you want to control your robot: **Smartphone/Browser (Option A)**
 
 | LED Color | Radio Mode / State | Meaning |
 | :--- | :--- | :--- |
-| ⚪ **Dim White** | `Normal` (Default) | Both Wi-Fi hotspot **and** duty-cycled Bluetooth scanning are active. |
-| 🟢 **Green** | `Controller Connected` | A Bluetooth gamepad is connected and ready to drive (shown in `Normal` mode). |
-| 🟠 **Orange** | `Wi-Fi Only` | Bluetooth scanning is paused; 100% radio airtime for Wi-Fi. |
-| 🔵 **Blue** | `Bluetooth Scan Only` | Continuous Bluetooth scanning for fast controller pairing. |
+| ⚪ **Dim White** | `Ready` | Wi-Fi is on, paired controllers can connect at any time. |
+| 🔵 **Blinking Blue** | `Controller Search` | Searches for new controllers for 60 seconds (after startup, via `MODE` button or browser). Wi-Fi stays on. |
+| 🟢 **Green** | `Controller Connected` | A Bluetooth gamepad is connected and ready to drive. |
+| 🔴 **Red** | `Controller Disconnected` | The controller disconnected (motors are stopped). |
 | 🔴⚪🟠 **Cycling** | `Factory Reset` | `MODE` button is held for 10 seconds during startup. |
 
-Hold the **`MODE` button** for about **1 second** during operation to switch the radio mode. The order is **White (Normal)** -> **Orange (Wi-Fi Only)** -> **Blue (Bluetooth Scan Only)** -> **Orange (Wi-Fi Only)** -> **White (Normal)**. v1 boards have no `MODE` button and always stay in `Normal` mode.
+Hold the **`MODE` button** for about **1 second** during operation to start the **controller search** (60 seconds). Holding it again stops a running search. v1 boards have no `MODE` button; start the search in `/config` under **Controller suchen** instead.
 
 ---
 

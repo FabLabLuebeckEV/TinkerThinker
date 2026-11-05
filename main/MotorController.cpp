@@ -26,7 +26,7 @@ void MotorController::applyConfig(const int motorFrequencies[], const int motorD
 }
 
 void MotorController::init() {
-    constexpr uint32_t PWM_FREQ = 1000;   // 5 kHz
+    constexpr uint32_t PWM_FREQ = 1000;   // 1 kHz (SystemMonitor::pwmPeriodUs muss dazu passen)
     constexpr uint8_t  PWM_BITS = 8;      // 8 Bit Auflösung
 
     for (size_t i = 0; i < count; ++i) {

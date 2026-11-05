@@ -130,7 +130,7 @@ function connectWebSocket() {
 }
 
 function attemptReconnect() {
-    // Nie aufgeben: Der Hotspot kann kurz wegbrechen, die Steuerung muss danach von selbst zurueckkommen
+    // Nie aufgeben: Der Hotspot kann kurz wegbrechen, die Steuerung muss danach von selbst zurückkommen
     setTimeout(() => {
         reconnectAttempts++;
         connectWebSocket();

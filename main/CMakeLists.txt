@@ -10,6 +10,7 @@ set(srcs
     "TinkerThinkerBoard.cpp"
     "WebServerManager.cpp"
     "InputBindingManager.cpp"
+    "BtPairing.cpp"
 )
 
 set(includes

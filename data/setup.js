@@ -493,7 +493,7 @@ function motorMoved(letter, side) {
 }
 
 function directionChosen(letter, dir) {
-    // Der Testlauf nutzt die aktuell gespeicherte Invertierung. Lief er rueckwaerts,
+    // Der Testlauf nutzt die aktuell gespeicherte Invertierung. Lief er rückwärts,
     // muss die gespeicherte Einstellung umgedreht werden, sonst bleibt sie.
     const idx = letterToIndex(letter);
     const currentInvert = !!(configData.motor_invert && configData.motor_invert[idx]);

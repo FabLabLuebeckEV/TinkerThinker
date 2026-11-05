@@ -398,16 +398,6 @@ async function loadConfig() {
     setCurveStrengthUI(data.motor_curve_strength !== undefined ? data.motor_curve_strength : 0.0);
     updateCurveStrengthDisabled();
 
-    // BT scan timings
-    if (typeof data.bt_scan_on_normal_ms !== 'undefined') {
-      document.getElementById('bt_scan_on_normal_ms').value = data.bt_scan_on_normal_ms;
-      document.getElementById('bt_scan_off_normal_ms').value = data.bt_scan_off_normal_ms;
-      document.getElementById('bt_scan_on_sta_ms').value = data.bt_scan_on_sta_ms;
-      document.getElementById('bt_scan_off_sta_ms').value = data.bt_scan_off_sta_ms;
-      document.getElementById('bt_scan_on_ap_ms').value = data.bt_scan_on_ap_ms;
-      document.getElementById('bt_scan_off_ap_ms').value = data.bt_scan_off_ap_ms;
-    }
-
     // Servos
     const servosDiv = document.getElementById('servos');
     servosDiv.innerHTML = '';
@@ -602,6 +592,12 @@ async function btWhitelistSave() {
   const status = document.getElementById('bt-whitelist-status');
   status.textContent = 'Speichern...';
   status.style.color = '#333';
+  if (document.getElementById('bt_whitelist_enabled').checked && btWhitelistAddresses.length === 0) {
+    if (!confirm('Die Whitelist ist aktiv, aber leer. Dann kann sich kein Controller mehr verbinden. Trotzdem speichern?')) {
+      status.textContent = 'Nicht gespeichert.';
+      return;
+    }
+  }
   try {
     const body = {
       enabled: document.getElementById('bt_whitelist_enabled').checked,
@@ -651,6 +647,108 @@ async function btLoadControllers() {
   } catch (e) {
     div.innerHTML = '<p style="color:red;">Fehler beim Laden der Controller-Liste.</p>';
   }
+}
+
+// -- Controller-Suche ------------------------------------------------------------
+
+let btScanTimer = null;
+let btScanActive = false;
+
+function btEscape(text) {
+  const div = document.createElement('div');
+  div.textContent = text == null ? '' : String(text);
+  return div.innerHTML;
+}
+
+async function btScanToggle() {
+  const status = document.getElementById('bt-scan-status');
+  try {
+    const url = btScanActive ? '/bt/scan?stop=1' : '/bt/scan';
+    const res = await fetch(url, { method: 'POST' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    await btScanPoll();
+  } catch (e) {
+    status.textContent = 'Fehler: ' + e.message;
+    status.style.color = 'red';
+  }
+}
+
+async function btScanPoll() {
+  const status = document.getElementById('bt-scan-status');
+  const btn = document.getElementById('bt-scan-btn');
+  const list = document.getElementById('bt-scan-list');
+  let data;
+  try {
+    const res = await fetch('/bt/scan');
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    data = await res.json();
+  } catch (e) {
+    status.textContent = 'Fehler beim Abfragen der Suche: ' + e.message;
+    status.style.color = 'red';
+    btScanSchedule(3000);
+    return;
+  }
+
+  btScanActive = !!data.active;
+  btn.textContent = btScanActive ? 'Suche beenden' : 'Suche starten';
+  if (btScanActive) {
+    status.textContent = 'Suche läuft, noch ' + Math.ceil((data.remaining_ms || 0) / 1000) + ' s';
+    status.style.color = '#0069d9';
+  } else {
+    status.textContent = '';
+  }
+
+  const devices = Array.isArray(data.devices) ? data.devices : [];
+  if (devices.length === 0) {
+    list.innerHTML = btScanActive
+      ? '<p style="color:#888; font-style:italic;">Noch kein Controller gefunden.</p>'
+      : '';
+  } else {
+    let html = '<table style="border-collapse:collapse; width:100%; max-width:640px;">';
+    html += '<tr><th style="text-align:left; padding:4px 8px;">Name</th>'
+          + '<th style="text-align:left; padding:4px 8px;">MAC-Adresse</th>'
+          + '<th style="text-align:left; padding:4px 8px;">Signal</th>'
+          + '<th style="text-align:left; padding:4px 8px;">Status</th><th></th></tr>';
+    devices.forEach(dev => {
+      let state;
+      if (dev.connected) state = '<span style="color:green;">verbunden</span>';
+      else if (!dev.allowed) state = '<span style="color:#c62828;">nicht erlaubt</span>';
+      else if (dev.ready) state = 'verbindet ...';
+      else state = 'gefunden';
+      const inList = btWhitelistAddresses.includes(dev.mac);
+      const action = (!dev.allowed && !inList)
+        ? `<button type="button" onclick="btAllowAndSave('${btEscape(dev.mac)}')"
+             style="background:#28a745; padding:4px 10px; font-size:0.8em;">Erlauben</button>`
+        : '';
+      html += `<tr style="border-top:1px solid #eee;">
+        <td style="padding:4px 8px;">${btEscape(dev.name || '(unbekannt)')}</td>
+        <td style="padding:4px 8px; font-family:monospace;">${btEscape(dev.mac)}</td>
+        <td style="padding:4px 8px;">${dev.rssi !== undefined ? btEscape(dev.rssi) + ' dBm' : '-'}</td>
+        <td style="padding:4px 8px;">${state}</td>
+        <td style="padding:4px 8px;">${action}</td>
+      </tr>`;
+    });
+    html += '</table>';
+    list.innerHTML = html;
+  }
+
+  if (btScanActive) {
+    btScanSchedule(1000);
+  } else {
+    // Nach dem Ende einmal die verbundenen Controller aktualisieren
+    btLoadControllers();
+  }
+}
+
+function btScanSchedule(ms) {
+  if (btScanTimer) clearTimeout(btScanTimer);
+  btScanTimer = setTimeout(btScanPoll, ms);
+}
+
+async function btAllowAndSave(mac) {
+  if (!btWhitelistAddMac(mac)) return;
+  await btWhitelistSave();
+  btScanPoll();
 }
 
 function btAddFromController(mac) {
@@ -729,4 +827,5 @@ window.onload = function() {
   loadConfig();
   btLoadWhitelist();
   btLoadControllers();
+  btScanPoll();
 };

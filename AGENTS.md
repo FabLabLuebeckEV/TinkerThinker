@@ -31,18 +31,17 @@ Key Modules
 - data/: LittleFS web app (index/config/setup pages + JS/CSS).
 
 Recent Changes (Important)
-1) BT/Wi-Fi coexistence - duty-cycled Bluetooth scanning
-   - The ESP32 shares a single 2.4 GHz radio; continuous BT inquiry/page can starve Wi-Fi.
-   - Implementation: main/sketch.cpp toggles BP32.enableNewBluetoothConnections() via a simple scheduler.
-   - Scenarios & defaults (configurable via ConfigManager and the UI):
-     - Normal: 500/500 ms (on/off)
-     - STA connecting: 150/850 ms
-     - AP with clients: 100/1900 ms
-     - Controller connected: scanning off
-   - Config keys (persisted in /config.json):
-     - bt_scan_on_normal_ms, bt_scan_off_normal_ms
-     - bt_scan_on_sta_ms, bt_scan_off_sta_ms
-     - bt_scan_on_ap_ms, bt_scan_off_ap_ms
+1) BT/Wi-Fi coexistence - search windows instead of duty cycling (Nov 2026)
+   - The ESP32 shares a single 2.4 GHz radio. Only BT inquiry (searching for new devices) is expensive;
+     page scan (paired controllers reconnecting) is always on and cheap (`gap_connectable_control(1)`).
+   - Inquiry runs only in a 60 s search window: after boot, MODE button hold (~0.7 s) or `POST /bt/scan`.
+     The window ends early when a controller connects. Wi-Fi stays on the whole time.
+   - Inquiry is periodic with 2.56 s blocks and 2.5-3.8 s gaps (Bluepad32 properties: inquiry length 2,
+     min/max period 4/5, set once in `prepareBluetoothStack()` only if different), so Wi-Fi gets
+     contiguous airtime for association/DHCP. The old 100-500 ms host toggling never completed an inquiry.
+   - Wi-Fi is no longer paused on controller connect (it dropped all phones for 3 s).
+   - Do not call `esp_wifi_set_ps(WIFI_PS_NONE)`: with BT enabled ESP-IDF rejects it (coexistence needs modem sleep).
+   - The old `bt_scan_*` keys remain in ConfigManager/serial for compatibility but are unused.
 
 2) Control arbitration - last-writer-wins
    - Both BT gamepad and WebSocket can send drive commands.
@@ -67,15 +66,13 @@ Recent Changes (Important)
    - Disabled unused stacks to free IRAM/flash: RainMaker, Insights, Matter/OpenThread, Ethernet/PPP; GDB stub and all coredumps off.
 - Rationale: Only BT Classic via Bluepad32 and Wi-Fi AP/STA are used; IRAM was tight. Re-enable BLE/RainMaker if needed.
 
-5) MODE button + radio modes (Jan 2026) **BREAKING**
+5) MODE button (Jan 2026, changed Nov 2026) **BREAKING**
    - The former H-bridge fault pin is now a MODE button on GPIO39 (active-low, pulled to GND on press).
    - GPIO39 is input-only and has no internal pull-up; use external pull-up in hardware.
    - Fault monitoring was removed; any code relying on motorFaults/checkFaults must be updated.
    - Startup factory reset (hold MODE for 10s) is checked before Wi-Fi initialization, so reset still works even if STA cannot connect.
-   - Startup default mode is `Normal`.
-   - Mode cycle: Normal → Wi-Fi only → BT scan only → Wi-Fi only → Normal.
-   - Status LED (LED0): Normal = dim white, Wi-Fi = orange, BT scan = blue.
-   - On controller connect, Wi-Fi is paused for 3000 ms to boost BT pairing.
+   - Holding MODE (~0.7 s) starts/stops the controller search window (the radio modes Wi-Fi only / BT only were removed).
+   - Status LED (LED0): ready = dim white, search = blinking blue, controller = green, disconnected = red.
 
 6) Battery percentage curve (Jan 2026)
    - Voltage measurement reverted to the original analogRead method.
@@ -113,6 +110,11 @@ Recent Changes (Important)
    - All pages reconnect the WebSocket forever (max 5 s backoff).
    - `reApplyConfig()` creates the motor/servo/LED/monitor objects once and only applies new settings afterwards (no leak; other tasks keep valid pointers).
    - POST bodies of `/arm/config` and `/bt/whitelist` are assembled across chunks and errors are reported.
+   - BT whitelist is enforced by `main/BtPairing.*` via a filter hook in `components/bluepad32_arduino`
+     (`arduino_set_device_filter`, called on discovery and before a controller gets a seat), not by the
+     Bluepad32 allowlist (no NVS writes, browser search also lists non-allowed controllers).
+     Controller MACs are formatted in BTstack order [0]..[5] (they were reversed before, so old whitelist
+     entries added via the UI never matched).
    - GitHub Pages: the CI `pages` job publishes `tools/webserial_installer.html` plus the freshly built binaries under `./release/` (GitHub release downloads are blocked by CORS).
 
 Editing Guidelines

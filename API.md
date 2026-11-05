@@ -136,6 +136,8 @@ Der ESP32 sendet zyklisch ein Status-JSON an alle verbundenen WebSocket-Clients:
   Schaltet den v1-Legacy-Board-Modus (`legacy_board`) zur Laufzeit um.
 - **`GET /getBindings`** & **`POST /control_bindings`**:
   Liest bzw. speichert die Bluetooth-Controller-Belegungen als JSON-Array.
+- **`POST /bt/scan`**: Startet die Controller-Suche für 60 Sekunden (`POST /bt/scan?stop=1` beendet sie). Das WLAN bleibt dabei an.
+- **`GET /bt/scan`**: Status der Suche: `{"active": bool, "remaining_ms": n, "whitelist_enabled": bool, "devices": [{"mac", "name", "rssi" (dBm, falls bekannt), "allowed", "ready", "connected"}]}`. Enthält auch nicht erlaubte Controller (Whitelist aktiv), damit man sie per `POST /bt/whitelist` erlauben kann.
 - **`GET /bt/controllers`**: Liste der verbundenen Bluetooth-Controller (`slot`, `mac`, `model`).
 - **`GET /bt/whitelist`** & **`POST /bt/whitelist`**: Liest bzw. speichert die Controller-Whitelist (`{"enabled": bool, "addresses": ["AA:BB:CC:DD:EE:FF"]}`). Antwort `400` bei ungültigem JSON.
 - **`GET /saveLedSettings?brightness=0..255&gamma=0|1`**: Speichert LED-Helligkeit und Gamma-Korrektur dauerhaft.

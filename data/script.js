@@ -157,7 +157,7 @@ function connectWebSocket() {
 
 // Funktion zum Versuch der Rekonnektion
 function attemptReconnect() {
-    // Nie aufgeben: Der Hotspot kann kurz wegbrechen, die Steuerung muss danach von selbst zurueckkommen
+    // Nie aufgeben: Der Hotspot kann kurz wegbrechen, die Steuerung muss danach von selbst zurückkommen
     setTimeout(() => {
       console.log(`Versuche, WebSocket erneut zu verbinden... (Versuch ${reconnectAttempts + 1})`);
       reconnectAttempts++;
@@ -306,7 +306,7 @@ function sendData() {
     };
 
     if (!socket || socket.readyState !== WebSocket.OPEN) return;
-    // Waehrend der Joystick ausgelenkt ist, laufend senden (Firmware-Watchdog stoppt sonst nach 1 s)
+    // Während der Joystick ausgelenkt ist, laufend senden (Firmware-Watchdog stoppt sonst nach 1 s)
     const active = currentData.x !== 0 || currentData.y !== 0;
         if (
             active ||
@@ -339,8 +339,8 @@ function sendLedColor(hex) {
     if (socket && socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify(data));
 }
 
-// Einzelmotor-Tasten (Motor A und B): fahren nur, solange die Taste gedrueckt ist.
-// Auch beim Wegziehen vom Button oder abgebrochenem Touch stoppen, sonst laeuft der Motor weiter.
+// Einzelmotor-Tasten (Motor A und B): fahren nur, solange die Taste gedrückt ist.
+// Auch beim Wegziehen vom Button oder abgebrochenem Touch stoppen, sonst läuft der Motor weiter.
 function controlMotor(key, direction) {
     if (!socket || socket.readyState !== WebSocket.OPEN) return;
     socket.send(JSON.stringify({ [key]: direction }));

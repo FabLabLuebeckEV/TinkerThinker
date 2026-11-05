@@ -20,8 +20,9 @@ bool ConfigManager::init() {
 
 void ConfigManager::setDefaults() {
     wifi_mode = "AP";
-    wifi_ssid = "fablab";
-    wifi_password = "fablabfdm";
+    // Keine echten Zugangsdaten im (öffentlichen) Code: Heimnetz wird im Setup/Config eingetragen
+    wifi_ssid = "";
+    wifi_password = "";
     hotspot_ssid = "TinkerThinkerAP";
     hotspot_password = "";
     for (int i = 0; i < 4; i++) motor_invert[i] = false;
@@ -78,8 +79,8 @@ bool ConfigManager::loadConfig() {
     }
 
     wifi_mode = doc["wifi_mode"] | "AP";
-    wifi_ssid = doc["wifi_ssid"] | "MyAP";
-    wifi_password = doc["wifi_password"] | "Password";
+    wifi_ssid = doc["wifi_ssid"] | "";
+    wifi_password = doc["wifi_password"] | "";
     hotspot_ssid = doc["hotspot_ssid"] | "TinkerThinkerAP";
     hotspot_password = doc["hotspot_password"] | "";
 
