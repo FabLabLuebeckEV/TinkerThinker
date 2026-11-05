@@ -96,6 +96,7 @@ Der ESP32 sendet zyklisch ein Status-JSON an alle verbundenen WebSocket-Clients:
   "servos": [90, 90, 90, 90, 90, 90, 90],
   "motorPWMs": [0, 0, 0, 0],
   "motorCurrents": [0.12, 0.10],
+  "motorBlocked": [false, false, false, false],
   "firstLED": { "r": 0, "g": 255, "b": 0 },
   "controllers": [
     { "idx": 0, "buttons": 0, "dpad": 0, "x": 0, "y": 0, "rx": 0, "ry": 0 }
@@ -105,6 +106,7 @@ Der ESP32 sendet zyklisch ein Status-JSON an alle verbundenen WebSocket-Clients:
 
 - **`motorCurrents`**: Array mit 2 Messwerten in Ampere `[Sensor 1 (GPIO 34 / Motor B), Sensor 2 (GPIO 36 / Motor A)]`.
 - **`wifiRssi`**: Empfangsstärke in dBm (im Heimnetz die Verbindung zum Router, im Hotspot-Modus der stärkste verbundene Client; `0` = kein Wert).
+- **`motorBlocked`**: Array mit 4 Werten, `true` = Motor wurde vom Blockierschutz abgeschaltet (nur Motor A/B mit Stromsensor) und bleibt aus, bis der Befehl losgelassen oder die Richtung gewechselt wird.
 - **`firstLED`**: Aktuelle RGB-Farbe der ersten WS2812-LED (`LED 0`), damit alle verbundenen Browser ihren Farbwähler synchronisieren können.
 - **`controllers`**: Rohwerte aller verbundenen Bluetooth-Gamepads (Tasten-Bitmaske, Steuerkreuz, Achsen), genutzt vom Steuerungs-Editor `/controls`.
 - Auf alten v1-Platinen (`legacy_board: true`) enthält das JSON zusätzlich `"motorFaults": false|true` (Status von `GPIO_FAULT_1` auf GPIO 39) und `servos` umfasst 3 Einträge.
@@ -124,7 +126,7 @@ Der ESP32 sendet zyklisch ein Status-JSON an alle verbundenen WebSocket-Clients:
 
 ### Konfiguration lesen & schreiben
 - **`GET /getConfig`**:
-  Liefert die gesamte aktive Konfiguration als JSON (inkl. `gui_mode`, `legacy_board`, `servo_count`, WLAN-Einstellungen, `motor_invert[]`, `motor_deadband[]`, `motor_frequency[]` (PWM in Hz, 100-40000), `motor_decay` (`slow`/`fast`), `motor_kick_ms` und `motor_kick_pwm` (Anlauf-Boost), `arm_config` und `control_bindings`).
+  Liefert die gesamte aktive Konfiguration als JSON (inkl. `gui_mode`, `legacy_board`, `servo_count`, WLAN-Einstellungen, `motor_invert[]`, `motor_deadband[]`, `motor_frequency[]` (PWM in Hz, 100-40000), `motor_decay` (`slow`/`fast`), `motor_kick_ms` und `motor_kick_pwm` (Anlauf-Boost), `motor_stop_mode` (`brake`/`coast`), `motor_stall_amps` und `motor_stall_ms` (Blockierschutz Motor A/B, `0` A = aus), `arm_config` und `control_bindings`).
 - **`POST /config`**:
   Speichert alle Konfigurationsfelder (inkl. optionalem JSON-Feld `arm_config`) dauerhaft in `/config.json` auf LittleFS.
 - **`POST /arm/config`**:

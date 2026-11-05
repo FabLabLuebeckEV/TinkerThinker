@@ -58,6 +58,11 @@ void ConfigManager::setDefaults() {
     motor_decay = "slow";
     motor_kick_ms = 40;
     motor_kick_pwm = 255;
+    motor_stop_mode = "brake";
+    // Blockierschutz Motor A/B: Der Sensor misst bis ca. 1,3 A, die Arm-Erkennung (stallLimit
+    // ~1 A) reagiert nach ~0,3 s und damit vor dem Blockierschutz.
+    motor_stall_amps = 1.1f;
+    motor_stall_ms = 1000;
     // BT scan defaults already initialized in header
     // Control bindings default: mirrors current hardcoded behavior
     control_bindings_json = String(getDefaultControlBindingsJson());
@@ -159,6 +164,15 @@ bool ConfigManager::loadConfig() {
     if (!doc["motor_kick_pwm"].isNull()) {
         setMotorKickPwm(doc["motor_kick_pwm"].as<int>());
     }
+    if (!doc["motor_stop_mode"].isNull()) {
+        setMotorStopMode(String((const char*)doc["motor_stop_mode"]));
+    }
+    if (!doc["motor_stall_amps"].isNull()) {
+        setMotorStallAmps(doc["motor_stall_amps"].as<float>());
+    }
+    if (!doc["motor_stall_ms"].isNull()) {
+        setMotorStallMs(doc["motor_stall_ms"].as<int>());
+    }
 
     // Control bindings (store raw JSON)
     if (!doc["control_bindings"].isNull()) {
@@ -241,6 +255,9 @@ bool ConfigManager::saveConfig() {
     doc["motor_decay"] = motor_decay;
     doc["motor_kick_ms"] = motor_kick_ms;
     doc["motor_kick_pwm"] = motor_kick_pwm;
+    doc["motor_stop_mode"] = motor_stop_mode;
+    doc["motor_stall_amps"] = motor_stall_amps;
+    doc["motor_stall_ms"] = motor_stall_ms;
 
     // BT scan settings
     doc["bt_scan_on_normal_ms"]  = bt_scan_on_normal_ms;
@@ -428,6 +445,18 @@ void ConfigManager::setMotorKickMs(int ms){
 }
 void ConfigManager::setMotorKickPwm(int pwm){
     motor_kick_pwm = constrain(pwm, 0, 255);
+}
+void ConfigManager::setMotorStopMode(const String& mode){
+    motor_stop_mode = (mode == "coast") ? "coast" : "brake";
+}
+void ConfigManager::setMotorStallAmps(float amps){
+    // 0 = Blockierschutz aus
+    if (amps < 0.0f) amps = 0.0f;
+    if (amps > 3.0f) amps = 3.0f;
+    motor_stall_amps = amps;
+}
+void ConfigManager::setMotorStallMs(int ms){
+    motor_stall_ms = constrain(ms, 100, 10000);
 }
 
 // BT scan setters

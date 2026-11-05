@@ -56,6 +56,9 @@ public:
     String getMotorDecay() const { return motor_decay; }
     int getMotorKickMs() const { return motor_kick_ms; }
     int getMotorKickPwm() const { return motor_kick_pwm; }
+    String getMotorStopMode() const { return motor_stop_mode; }
+    float getMotorStallAmps() const { return motor_stall_amps; }
+    int getMotorStallMs() const { return motor_stall_ms; }
 
     // BT scan duty-cycle (ms)
     int getBtScanOnNormal();
@@ -102,6 +105,9 @@ public:
     void setMotorDecay(const String& decay);
     void setMotorKickMs(int ms);
     void setMotorKickPwm(int pwm);
+    void setMotorStopMode(const String& mode);
+    void setMotorStallAmps(float amps);
+    void setMotorStallMs(int ms);
 
     void setBtScanOnNormal(int v);
     void setBtScanOffNormal(int v);
@@ -170,6 +176,9 @@ private:
     String motor_decay = "slow";
     int motor_kick_ms = 40;
     int motor_kick_pwm = 255;
+    String motor_stop_mode = "brake";
+    float motor_stall_amps = 1.1f;
+    int motor_stall_ms = 1000;
 
     // Bluetooth scan duty-cycle settings
     int bt_scan_on_normal_ms = 500;

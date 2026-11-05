@@ -406,6 +406,15 @@ async function loadConfig() {
     if (document.getElementById('motor_kick_pwm') && data.motor_kick_pwm !== undefined) {
       document.getElementById('motor_kick_pwm').value = data.motor_kick_pwm;
     }
+    if (document.getElementById('motor_stop_mode')) {
+      document.getElementById('motor_stop_mode').value = data.motor_stop_mode === 'coast' ? 'coast' : 'brake';
+    }
+    if (document.getElementById('motor_stall_amps') && data.motor_stall_amps !== undefined) {
+      document.getElementById('motor_stall_amps').value = data.motor_stall_amps;
+    }
+    if (document.getElementById('motor_stall_ms') && data.motor_stall_ms !== undefined) {
+      document.getElementById('motor_stall_ms').value = data.motor_stall_ms;
+    }
 
     // Servos
     const servosDiv = document.getElementById('servos');

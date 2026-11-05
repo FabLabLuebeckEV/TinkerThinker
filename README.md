@@ -342,6 +342,16 @@ Die **PWM-Frequenz** steht standardmäßig auf 20 kHz (unhörbar). Niedrigere We
 </details>
 
 <details>
+<summary><strong>🛑 Ein Motor bleibt plötzlich stehen, obwohl ich weiter Gas gebe.</strong></summary>
+
+Das ist der **Blockierschutz** für `Motor A` und `Motor B` (nur diese beiden haben Stromsensoren): Zieht der Motor länger als 1 Sekunde mindestens 1,1 A, ist er sehr wahrscheinlich blockiert (Wand, verklemmtes Rad, Endanschlag). Er wird dann abgeschaltet, um Getriebe und Akku zu schonen.
+- **Wieder freigeben**: Joystick bzw. Taste kurz loslassen oder in die Gegenrichtung fahren.
+- **Anpassen**: In **`/config`** unter **„Blockierschutz Motor A/B“** Stromgrenze und Zeit einstellen, `0` schaltet ihn ab.
+
+Beim Loslassen **bremsen** die Motoren standardmäßig (stehen sofort und halten). Wer lieber ausrollen will, stellt in `/config` **„Beim Loslassen: Ausrollen“** ein.
+</details>
+
+<details>
 <summary><strong>🔄 Ein Motor dreht falsch herum oder die falschen Räder bewegen sich.</strong></summary>
 
 Starte einfach den geführten Assistenten unter **`http://192.168.4.1/setup`** oder kehre die Drehrichtung einzelner Motoren per Klick unter **`http://192.168.4.1/config`** um. Du musst dafür keine Kabel umlöten!

@@ -66,9 +66,9 @@ void MotorController::applyPwm(int index, int dir, int mag) {
     int a;
     int b;
     if (dir == 0 || mag <= 0) {
-        // Stopp: beide Eingänge low = Freilauf
-        a = 0;
-        b = 0;
+        // Stopp: beide Eingänge high = Bremse, beide low = Freilauf
+        a = output.brakeOnStop ? MAX_PWM_VALUE : 0;
+        b = a;
     } else if (output.slowDecay) {
         // Slow Decay: ein Eingang dauerhaft high, der andere mit invertierter PWM.
         // In der Aus-Phase sind beide high = Bremse, der Motorstrom fließt weiter.
@@ -93,6 +93,16 @@ void MotorController::writeOutput(int index, int value, int request) {
     xSemaphoreTake(outMutex, portMAX_DELAY);
     MotorState& st = state[index];
     uint32_t now = millis();
+    if (st.blockedDir != 0) {
+        if (dir == 0 || dir != st.blockedDir) {
+            // Losgelassen oder Gegenrichtung (zum Freifahren): Sperre aufheben
+            st.blockedDir = 0;
+        } else {
+            // Weiter in die blockierte Richtung gedrückt: Motor bleibt aus
+            dir = 0;
+            mag = 0;
+        }
+    }
     if (dir == 0) {
         st.kicking = false;
     } else if (dir != st.dir) {
@@ -232,6 +242,25 @@ int MotorController::getMotorPWM(int motorIndex) {
 int MotorController::getMotorRequest(int motorIndex) {
     if (motorIndex < 0 || motorIndex >= (int)count) return 0;
     return state[motorIndex].request;
+}
+
+void MotorController::tripStall(int motorIndex) {
+    if (motorIndex < 0 || motorIndex >= (int)count) return;
+    xSemaphoreTake(outMutex, portMAX_DELAY);
+    MotorState& st = state[motorIndex];
+    if (st.dir != 0) {
+        st.blockedDir = st.dir;
+        st.dir = 0;
+        st.targetMag = 0;
+        st.kicking = false;
+        applyPwm(motorIndex, 0, 0);
+    }
+    xSemaphoreGive(outMutex);
+}
+
+bool MotorController::isBlocked(int motorIndex) const {
+    if (motorIndex < 0 || motorIndex >= (int)count) return false;
+    return state[motorIndex].blockedDir != 0;
 }
 
 int MotorController::getMotorFrequency(int motorIndex) const {

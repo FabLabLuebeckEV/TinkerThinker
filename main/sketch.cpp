@@ -172,6 +172,9 @@ static void fillSerialConfig(JsonDocument& doc) {
     doc["motor_decay"] = configManager.getMotorDecay();
     doc["motor_kick_ms"] = configManager.getMotorKickMs();
     doc["motor_kick_pwm"] = configManager.getMotorKickPwm();
+    doc["motor_stop_mode"] = configManager.getMotorStopMode();
+    doc["motor_stall_amps"] = configManager.getMotorStallAmps();
+    doc["motor_stall_ms"] = configManager.getMotorStallMs();
 
     doc["bt_scan_on_normal_ms"] = configManager.getBtScanOnNormal();
     doc["bt_scan_off_normal_ms"] = configManager.getBtScanOffNormal();
@@ -455,6 +458,19 @@ static void handleSerialCommandLine(const char* rawLine) {
             configManager.setMotorKickPwm(cfg["motor_kick_pwm"].as<int>());
             touched = true;
             reapplyHardware = true;
+        }
+        if (!cfg["motor_stop_mode"].isNull()) {
+            configManager.setMotorStopMode(String((const char*)(cfg["motor_stop_mode"] | "brake")));
+            touched = true;
+            reapplyHardware = true;
+        }
+        if (!cfg["motor_stall_amps"].isNull()) {
+            configManager.setMotorStallAmps(cfg["motor_stall_amps"].as<float>());
+            touched = true;
+        }
+        if (!cfg["motor_stall_ms"].isNull()) {
+            configManager.setMotorStallMs(cfg["motor_stall_ms"].as<int>());
+            touched = true;
         }
         if (!cfg["servo_settings"].isNull()) {
             JsonArray servoArr = cfg["servo_settings"].as<JsonArray>();

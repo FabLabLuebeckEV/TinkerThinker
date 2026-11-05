@@ -129,6 +129,13 @@ Recent Changes (Important)
    - Current sensing averages over whole PWM periods (window >= 1 ms, 23/29 samples, coprime to the
      period count), period per sensor set from the motor frequency. Sensor 0 (GPIO34) = Motor B, sensor 1 (GPIO36) = Motor A.
    - Slow decay changes measured currents at partial PWM; re-check arm `stallLimit` values if homing misbehaves.
+   - Stop mode `motor_stop_mode`: `brake` (default, both inputs high) or `coast` (both low).
+   - Stall protection (Motor A/B only): `board.monitorMotors()` runs every 100 ms in the WebClientTask (also
+     without browser), measures both sensors (telemetry reuses `getLastHBridgeAmps()`), and calls
+     `MotorController::tripStall()` when a driven motor draws >= `motor_stall_amps` (default 1.1 A, sensor
+     saturates ~1.3 A) for `motor_stall_ms` (default 1000 ms). The motor stays blocked in that direction until
+     the command returns to 0 or reverses. Telemetry field `motorBlocked[4]`. Arm stall detection (~0.3 s,
+     ~1 A) reacts first.
 
 Editing Guidelines
 - Keep changes focused; do not introduce a second Arduino core.

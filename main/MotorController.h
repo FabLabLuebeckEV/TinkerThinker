@@ -38,6 +38,9 @@ public:
         // kickPwm fahren, damit Getriebemotoren die Haftreibung überwinden. 0 ms = aus.
         int kickMs = 40;
         int kickPwm = 255;
+        // Stopp: true = Bremse (beide Eingänge high, Motor steht sofort und hält),
+        // false = Freilauf (Motor rollt aus)
+        bool brakeOnStop = true;
     };
 
     static constexpr int MIN_PWM_FREQ = 100;
@@ -63,6 +66,10 @@ public:
     // Zuletzt angeforderter Wert (vor Deadband), z. B. als Startwert für Rampen
     int getMotorRequest(int motorIndex);
     int getMotorFrequency(int motorIndex) const;
+    // Blockierschutz: Motor abschalten und sperren, bis der Befehl losgelassen (0) oder die
+    // Richtung gewechselt wird. Wird aus der Stromüberwachung aufgerufen.
+    void tripStall(int motorIndex);
+    bool isBlocked(int motorIndex) const;
     void setSpeedMultiplier(float m);
     float getSpeedMultiplier() const { return speedMultiplier; }
 
@@ -73,6 +80,7 @@ private:
         int request = 0;          // angeforderter Wert vor Deadband
         bool kicking = false;
         uint32_t kickUntilMs = 0;
+        int blockedDir = 0;       // != 0: in dieser Richtung nach Blockade gesperrt
     };
 
     Motor* motors;

@@ -64,6 +64,11 @@ public:
     void checkFaults();
     bool isMotorInFault();
     float getHBridgeAmps(int motorIndex);
+    // Zuletzt gemessener Strom (Sensor 0 = Motor B, Sensor 1 = Motor A), ohne neu zu messen
+    float getLastHBridgeAmps(int sensorIndex) const;
+    // Strom messen und Blockierschutz auswerten, alle 100 ms aus dem Status-Task
+    void monitorMotors();
+    bool isMotorBlocked(int motorIndex);
 
     // Webserver-Update
     void updateWebClients();
@@ -89,6 +94,8 @@ private:
     enum class ControlSource { None, Bluetooth, WebSocket };
     ControlSource lastSource = ControlSource::None;
     uint32_t lastActiveMs = 0;
+    volatile float lastAmps[2] = {0.0f, 0.0f};
+    uint32_t stallSinceMs[2] = {0, 0};
     const int neutralThreshold = 16; // axis deadband for arbitration
 
     bool isNeutralAxes(int x, int y) {

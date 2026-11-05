@@ -681,6 +681,9 @@ document.getElementById('f').onsubmit=function(e){
         doc["motor_decay"] = config->getMotorDecay();
         doc["motor_kick_ms"] = config->getMotorKickMs();
         doc["motor_kick_pwm"] = config->getMotorKickPwm();
+        doc["motor_stop_mode"] = config->getMotorStopMode();
+        doc["motor_stall_amps"] = config->getMotorStallAmps();
+        doc["motor_stall_ms"] = config->getMotorStallMs();
 
         int activeServos = config->getActiveServoCount();
         JsonArray servoArr = doc["servo_settings"].to<JsonArray>();
@@ -1079,6 +1082,19 @@ void WebServerManager::handleConfig(AsyncWebServerRequest* request) {
         v.trim();
         if (v.length() > 0) config->setMotorKickPwm(v.toInt());
     }
+    if (request->hasParam("motor_stop_mode", true)) {
+        config->setMotorStopMode(request->getParam("motor_stop_mode", true)->value());
+    }
+    if (request->hasParam("motor_stall_amps", true)) {
+        String v = request->getParam("motor_stall_amps", true)->value();
+        v.trim();
+        if (v.length() > 0) config->setMotorStallAmps(v.toFloat());
+    }
+    if (request->hasParam("motor_stall_ms", true)) {
+        String v = request->getParam("motor_stall_ms", true)->value();
+        v.trim();
+        if (v.length() > 0) config->setMotorStallMs(v.toInt());
+    }
 
     // Config speichern
     config->saveConfig();
@@ -1371,7 +1387,14 @@ void WebServerManager::sendStatusUpdate() {
 
             JsonArray motorCurrents = doc["motorCurrents"].to<JsonArray>();
             for (int i = 0; i < 2; i++) {
-                motorCurrents.add(board->getHBridgeAmps(i));
+                // Wird alle 100 ms von monitorMotors() gemessen, hier nicht erneut messen
+                motorCurrents.add(board->getLastHBridgeAmps(i));
+            }
+
+            // Blockierschutz: true = Motor nach Blockade gesperrt, bis losgelassen
+            JsonArray motorBlocked = doc["motorBlocked"].to<JsonArray>();
+            for (int i = 0; i < 4; i++) {
+                motorBlocked.add(board->isMotorBlocked(i));
             }
 
             CRGB ledColor = board->getLEDColor(0);

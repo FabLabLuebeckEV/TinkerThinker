@@ -57,6 +57,7 @@ void TinkerThinkerBoard::reApplyConfig() {
     outCfg.slowDecay = (config->getMotorDecay() != "fast");
     outCfg.kickMs = config->getMotorKickMs();
     outCfg.kickPwm = config->getMotorKickPwm();
+    outCfg.brakeOnStop = (config->getMotorStopMode() != "coast");
 
     // Die Controller werden nur beim ersten Aufruf angelegt. Danach wird nur die Konfiguration
     // übernommen: andere Tasks (BT-Loop, Webserver, Status-Task) halten die Zeiger und
@@ -138,6 +139,7 @@ void TinkerThinkerBoard::startServices() {
     xTaskCreatePinnedToCore([](void* obj) {
         TinkerThinkerBoard* board = (TinkerThinkerBoard*)obj;
         for (;;) {
+            board->monitorMotors();
             board->updateWebClients();
             vTaskDelay(100 / portTICK_PERIOD_MS);
         }
@@ -226,6 +228,41 @@ bool TinkerThinkerBoard::isMotorInFault() {
 
 float TinkerThinkerBoard::getHBridgeAmps(int motorIndex) {
     return systemMonitor->getHBridgeAmps(motorIndex);
+}
+
+float TinkerThinkerBoard::getLastHBridgeAmps(int sensorIndex) const {
+    if (sensorIndex < 0 || sensorIndex > 1) return 0.0f;
+    return lastAmps[sensorIndex];
+}
+
+bool TinkerThinkerBoard::isMotorBlocked(int motorIndex) {
+    return motorController ? motorController->isBlocked(motorIndex) : false;
+}
+
+void TinkerThinkerBoard::monitorMotors() {
+    if (!systemMonitor || !motorController) return;
+    float stallAmps = config->getMotorStallAmps();
+    uint32_t stallMs = (uint32_t)config->getMotorStallMs();
+    for (int s = 0; s < 2; s++) {
+        float amps = systemMonitor->getHBridgeAmps(s);
+        lastAmps[s] = amps;
+        // Sensor 0 (GPIO 34) misst Motor B, Sensor 1 (GPIO 36) misst Motor A
+        int motor = (s == 0) ? 1 : 0;
+        bool driving = motorController->getMotorPWM(motor) != 0;
+        uint32_t now = millis();
+        if (stallAmps > 0.0f && driving && amps >= stallAmps) {
+            if (stallSinceMs[s] == 0) {
+                stallSinceMs[s] = now ? now : 1;
+            } else if (now - stallSinceMs[s] >= stallMs) {
+                Serial.printf("Blockierschutz: Motor %c zieht %.2f A seit %lu ms, abgeschaltet bis losgelassen\n",
+                              'A' + motor, amps, (unsigned long)(now - stallSinceMs[s]));
+                motorController->tripStall(motor);
+                stallSinceMs[s] = 0;
+            }
+        } else {
+            stallSinceMs[s] = 0;
+        }
+    }
 }
 
 int TinkerThinkerBoard::getMotorPWM(int motorIndex) {
