@@ -150,6 +150,9 @@ static void fillSerialConfig(JsonDocument& doc) {
     JsonArray dbArr = doc["motor_deadband"].to<JsonArray>();
     for (int i = 0; i < 4; i++) dbArr.add(configManager.getMotorDeadband(i));
 
+    JsonArray trimArr = doc["motor_trim"].to<JsonArray>();
+    for (int i = 0; i < 4; i++) trimArr.add(configManager.getMotorTrim(i));
+
     JsonArray freqArr = doc["motor_frequency"].to<JsonArray>();
     for (int i = 0; i < 4; i++) freqArr.add(configManager.getMotorFrequency(i));
 
@@ -383,6 +386,14 @@ static void handleSerialCommandLine(const char* rawLine) {
             JsonArray dbArr = cfg["motor_deadband"].as<JsonArray>();
             for (int i = 0; i < 4 && i < (int)dbArr.size(); i++) {
                 configManager.setMotorDeadband(i, dbArr[i].as<int>());
+            }
+            touched = true;
+            reapplyHardware = true;
+        }
+        if (!cfg["motor_trim"].isNull()) {
+            JsonArray trimArr = cfg["motor_trim"].as<JsonArray>();
+            for (int i = 0; i < 4 && i < (int)trimArr.size(); i++) {
+                configManager.setMotorTrim(i, trimArr[i].as<int>());
             }
             touched = true;
             reapplyHardware = true;

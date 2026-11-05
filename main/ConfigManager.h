@@ -43,6 +43,7 @@ public:
     bool getBtSwapAxes();
     bool getOTAEnabled();
     int getMotorDeadband(int index);
+    int getMotorTrim(int index);
     int getMotorFrequency(int index);
 
     int getServoMinPulsewidth(int index);
@@ -89,6 +90,7 @@ public:
     void setOTAEnabled(bool enabled);
     void setMotorFrequency(int index, int val);
     void setMotorDeadband(int index, int val);
+    void setMotorTrim(int index, int percent);
     void setMotorLeftGUI(int motorIndex);
     void setMotorRightGUI(int motorIndex);
     void setMotorGripperGUI(int motorIndex);
@@ -138,6 +140,8 @@ private:
     bool motor_invert[4];
     bool motor_swap;
     int motor_deadband[4];
+    // Geradeauslauf-Trimmung: Geschwindigkeit pro Motor in Prozent (50-100)
+    int motor_trim[4] = {100, 100, 100, 100};
     int motor_frequency[4];
     int motorLeftGUI = 2;
     int motorRightGUI = 3;

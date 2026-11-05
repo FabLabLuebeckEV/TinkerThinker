@@ -58,6 +58,7 @@ void TinkerThinkerBoard::reApplyConfig() {
     outCfg.kickMs = config->getMotorKickMs();
     outCfg.kickPwm = config->getMotorKickPwm();
     outCfg.brakeOnStop = (config->getMotorStopMode() != "coast");
+    for (int i = 0; i < 4; i++) outCfg.trimPct[i] = config->getMotorTrim(i);
 
     // Die Controller werden nur beim ersten Aufruf angelegt. Danach wird nur die Konfiguration
     // übernommen: andere Tasks (BT-Loop, Webserver, Status-Task) halten die Zeiger und

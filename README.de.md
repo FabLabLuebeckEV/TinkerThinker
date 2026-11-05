@@ -342,6 +342,14 @@ Die **PWM-Frequenz** steht standardmäßig auf 20 kHz (unhörbar). Niedrigere We
 </details>
 
 <details>
+<summary><strong>↗️ Der Roboter fährt nicht geradeaus, sondern zieht zu einer Seite.</strong></summary>
+
+Günstige Getriebemotoren (z. B. TT-Motoren) streuen stark: Ein Motor dreht oft etwas schneller als der andere.
+- **Langsames Anfahren ungleich?** Das Deadband im Setup für jeden Motor einzeln messen.
+- **Bei voller Fahrt schief?** In **`/config`** beim schnelleren Motor die **„Geschwindigkeit (%)“** etwas senken, z. B. auf `95`. Fährt der Roboter nach links, ist der **rechte** Motor schneller. Die Anlauf-Schwelle bleibt dabei gleich.
+</details>
+
+<details>
 <summary><strong>🛑 Ein Motor bleibt plötzlich stehen, obwohl ich weiter Gas gebe.</strong></summary>
 
 Das ist der **Blockierschutz** für `Motor A` und `Motor B` (nur diese beiden haben Stromsensoren): Zieht der Motor länger als 1 Sekunde mindestens 1,1 A, ist er sehr wahrscheinlich blockiert (Wand, verklemmtes Rad, Endanschlag). Er wird dann abgeschaltet, um Getriebe und Akku zu schonen.

@@ -126,7 +126,7 @@ Der ESP32 sendet zyklisch ein Status-JSON an alle verbundenen WebSocket-Clients:
 
 ### Konfiguration lesen & schreiben
 - **`GET /getConfig`**:
-  Liefert die gesamte aktive Konfiguration als JSON (inkl. `gui_mode`, `legacy_board`, `servo_count`, WLAN-Einstellungen, `motor_invert[]`, `motor_deadband[]`, `motor_frequency[]` (PWM in Hz, 100-40000), `motor_decay` (`slow`/`fast`), `motor_kick_ms` und `motor_kick_pwm` (Anlauf-Boost), `motor_stop_mode` (`brake`/`coast`), `motor_stall_amps` und `motor_stall_ms` (Blockierschutz Motor A/B, `0` A = aus), `arm_config` und `control_bindings`).
+  Liefert die gesamte aktive Konfiguration als JSON (inkl. `gui_mode`, `legacy_board`, `servo_count`, WLAN-Einstellungen, `motor_invert[]`, `motor_deadband[]`, `motor_trim[]` (Geradeauslauf-Trimmung in %, 50-100), `motor_frequency[]` (PWM in Hz, 100-40000), `motor_decay` (`slow`/`fast`), `motor_kick_ms` und `motor_kick_pwm` (Anlauf-Boost), `motor_stop_mode` (`brake`/`coast`), `motor_stall_amps` und `motor_stall_ms` (Blockierschutz Motor A/B, `0` A = aus), `arm_config` und `control_bindings`).
 - **`POST /config`**:
   Speichert alle Konfigurationsfelder (inkl. optionalem JSON-Feld `arm_config`) dauerhaft in `/config.json` auf LittleFS.
 - **`POST /arm/config`**:

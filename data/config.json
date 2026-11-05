@@ -173,5 +173,11 @@
    "motor_kick_pwm":255,
    "motor_stop_mode":"brake",
    "motor_stall_amps":1.1,
-   "motor_stall_ms":1000
+   "motor_stall_ms":1000,
+   "motor_trim":[
+      100,
+      100,
+      100,
+      100
+   ]
 }

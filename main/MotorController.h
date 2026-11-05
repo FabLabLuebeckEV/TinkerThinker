@@ -41,6 +41,9 @@ public:
         // Stopp: true = Bremse (beide Eingänge high, Motor steht sofort und hält),
         // false = Freilauf (Motor rollt aus)
         bool brakeOnStop = true;
+        // Geradeauslauf-Trimmung pro Motor in Prozent (50-100). Skaliert nur den Bereich über
+        // dem Deadband, die Anlauf-Schwelle bleibt gleich.
+        int trimPct[4] = {100, 100, 100, 100};
     };
 
     static constexpr int MIN_PWM_FREQ = 100;

@@ -130,6 +130,8 @@ Recent Changes (Important)
      period count), period per sensor set from the motor frequency. Sensor 0 (GPIO34) = Motor B, sensor 1 (GPIO36) = Motor A.
    - Slow decay changes measured currents at partial PWM; re-check arm `stallLimit` values if homing misbehaves.
    - Stop mode `motor_stop_mode`: `brake` (default, both inputs high) or `coast` (both low).
+   - Straight-line trim `motor_trim[4]` (50-100 %, default 100) scales only the range above the deadband
+     in `controlMotor()` (not in `controlMotorRaw`), so the start threshold stays calibrated.
    - Stall protection (Motor A/B only): `board.monitorMotors()` runs every 100 ms in the WebClientTask (also
      without browser), measures both sensors (telemetry reuses `getLastHBridgeAmps()`), and calls
      `MotorController::tripStall()` when a driven motor draws >= `motor_stall_amps` (default 1.1 A, sensor

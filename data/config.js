@@ -313,6 +313,7 @@ async function loadConfig() {
     let motor_invert = data.motor_invert;
     let motor_deadband = data.motor_deadband;
     let motor_frequency = data.motor_frequency;
+    let motor_trim = Array.isArray(data.motor_trim) ? data.motor_trim : [100, 100, 100, 100];
 
     let motorLabels = ['A', 'B', 'C', 'D'];
     for (let i=0; i<4; i++) {
@@ -343,6 +344,13 @@ async function loadConfig() {
         <div class="row test-buttons">
           <button type="button" onclick="testMotorPWM(${i}, document.getElementById('motor_deadband_${i}').value)">Test Vorwärts (DB)</button>
           <button type="button" onclick="testMotorPWM(${i}, -document.getElementById('motor_deadband_${i}').value)">Test Rückwärts (DB)</button>
+        </div>
+        <div class="row">
+          <label>Geschwindigkeit (%):
+            <span class="tooltip">i
+              <span class="tooltiptext">Geradeauslauf-Trimmung (50-100 %). Zieht der Roboter bei voller Fahrt zu einer Seite, den schnelleren Motor etwas herunterstellen (z. B. 95). Fährt er nach links, ist der rechte Motor schneller. Die Anlauf-Schwelle (Deadband) bleibt gleich.</span>
+            </span>
+          </label> <input type="number" name="motor_trim_${i}" value="${motor_trim[i] !== undefined ? motor_trim[i] : 100}" min="50" max="100" style="width:90px;">
         </div>
         <div class="row">
           <label>Frequenz:

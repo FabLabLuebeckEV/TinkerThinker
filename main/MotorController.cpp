@@ -37,6 +37,7 @@ void MotorController::applyConfig(const int motorFrequencies[], const int motorD
     output = outCfg;
     output.kickMs = constrain(outCfg.kickMs, 0, 500);
     output.kickPwm = constrain(outCfg.kickPwm, 0, MAX_PWM_VALUE);
+    for (int i = 0; i < 4; i++) output.trimPct[i] = constrain(outCfg.trimPct[i], 50, 100);
     // Laufende Motoren sofort mit der (evtl. geänderten) Decay-Art neu ausgeben
     if (initialized) {
         for (int i = 0; i < (int)count; i++) applyPwm(i, state[i].dir, state[i].targetMag);
@@ -148,8 +149,9 @@ void MotorController::controlMotor(int index, int pwmValue) {
     int inMag = abs(pwmValue);
     int outMag = 0;
     if (inMag > 0) {
-        // Map 1..255 → db..255 linearly (0 stays 0)
-        outMag = db + (inMag * (MAX_PWM_VALUE - db)) / MAX_PWM_VALUE;
+        // Map 1..255 → db..(db + Trimmung * (255 - db)) linearly (0 stays 0)
+        int trim = (index < 4) ? output.trimPct[index] : 100;
+        outMag = db + (inMag * trim * (MAX_PWM_VALUE - db)) / (MAX_PWM_VALUE * 100);
     }
 
     // Apply global speed multiplier

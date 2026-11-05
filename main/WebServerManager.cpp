@@ -659,6 +659,9 @@ document.getElementById('f').onsubmit=function(e){
         JsonArray dbArr = doc["motor_deadband"].to<JsonArray>();
         for (int i=0; i<4; i++) dbArr.add(config->getMotorDeadband(i));
 
+        JsonArray trimArr = doc["motor_trim"].to<JsonArray>();
+        for (int i=0; i<4; i++) trimArr.add(config->getMotorTrim(i));
+
         JsonArray freqArr = doc["motor_frequency"].to<JsonArray>();
         for (int i=0; i<4; i++) freqArr.add(config->getMotorFrequency(i));
 
@@ -1000,6 +1003,14 @@ void WebServerManager::handleConfig(AsyncWebServerRequest* request) {
                 dbVal = request->getParam(field, true)->value().toInt();
             }
             config->setMotorDeadband(i, dbVal);
+        }
+
+        // Motor Trimmung (nur wenn mitgeschickt, z. B. vom Setup nicht)
+        {
+            String field = "motor_trim_" + String(i);
+            if (request->hasParam(field, true)) {
+                config->setMotorTrim(i, request->getParam(field, true)->value().toInt());
+            }
         }
 
         // Motor Frequency

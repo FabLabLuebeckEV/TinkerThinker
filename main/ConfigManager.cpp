@@ -33,6 +33,7 @@ void ConfigManager::setDefaults() {
     gui_mode = "basic";
     legacy_board = LEGACY_BOARD_DEFAULT;
     for (int i = 0; i < 4; i++) motor_deadband[i] = 50;
+    for (int i = 0; i < 4; i++) motor_trim[i] = 100;
     led_count = 30;
     led_brightness = 50;
     led_gamma = false;
@@ -119,6 +120,10 @@ bool ConfigManager::loadConfig() {
     JsonArray motorDeadbandArr = doc["motor_deadband"].as<JsonArray>();
     for (int i=0; i<4; i++) {
         motor_deadband[i] = motorDeadbandArr[i] | 50;
+    }
+    JsonArray motorTrimArr = doc["motor_trim"].as<JsonArray>();
+    for (int i=0; i<4; i++) {
+        setMotorTrim(i, motorTrimArr[i] | 100);
     }
 
     JsonArray motorFreqArr = doc["motor_frequency"].as<JsonArray>();
@@ -224,6 +229,8 @@ bool ConfigManager::saveConfig() {
 
     JsonArray dbArr = doc["motor_deadband"].to<JsonArray>();
     for (int i=0; i<4; i++) dbArr.add(motor_deadband[i]);
+    JsonArray trimArr = doc["motor_trim"].to<JsonArray>();
+    for (int i=0; i<4; i++) trimArr.add(motor_trim[i]);
 
     JsonArray freqArr = doc["motor_frequency"].to<JsonArray>();
     for (int i=0; i<4; i++) freqArr.add(motor_frequency[i]);
@@ -357,6 +364,7 @@ bool ConfigManager::getBtInvertX() { return bt_invert_x; }
 bool ConfigManager::getBtInvertY() { return bt_invert_y; }
 bool ConfigManager::getBtSwapAxes() { return bt_swap_axes; }
 int ConfigManager::getMotorDeadband(int index) {return motor_deadband[index];}
+int ConfigManager::getMotorTrim(int index) {return motor_trim[index];}
 int ConfigManager::getMotorFrequency(int index){return motor_frequency[index];}
 bool ConfigManager::getOTAEnabled() { return ota_enabled; }
 int ConfigManager::getServoMinPulsewidth(int index) { return servos[index].min_pw; }
@@ -407,6 +415,10 @@ void ConfigManager::setServoPulsewidthRange(int index, int min_pw, int max_pw){
     servos[index].max_pw = max_pw;
 }
 void ConfigManager::setMotorDeadband(int index, int val){ motor_deadband[index] = val;}
+void ConfigManager::setMotorTrim(int index, int percent){
+    if (index < 0 || index >= 4) return;
+    motor_trim[index] = constrain(percent, 50, 100);
+}
 void ConfigManager::setMotorFrequency(int index, int val){ motor_frequency[index]=val;}
 void ConfigManager::setDriveMixer(const String& mixer){
     if (mixer == "tank") {
