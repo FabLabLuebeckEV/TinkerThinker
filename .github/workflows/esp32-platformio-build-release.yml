@@ -191,7 +191,7 @@ jobs:
             partitions_dual3mb_1m5spiffs.csv
 
   pages:
-    # Web-Flasher (WebSerial) als GitHub Page; holt zur Laufzeit das neueste Release
+    # Web-Flasher (WebSerial) als GitHub Page mit Auswahl der letzten Releases
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     needs: build
     runs-on: ubuntu-latest
@@ -219,9 +219,17 @@ jobs:
             test -n "$src" || { echo "$f fehlt in den Artifacts"; exit 1; }
             cp "$src" "_site/release/$f"
           done
-          # Lokales Bundle (veraltet, mehrere MB) weglassen: Release-Metadaten kommen online, Binaries aus ./release/
+          # Lokales Bundle (veraltet, mehrere MB) weglassen: Releases kommen aus ./releases/
           sed '/webserial_release_bundle.js/d' tools/webserial_installer.html > _site/index.html
           touch _site/.nojekyll
+
+      - name: Mirror recent releases for the release picker
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Letzte 15 Releases nach _site/releases/<tag>/ plus releases/index.json
+          # (Browser dürfen GitHub-Release-Dateien wegen CORS nicht direkt laden)
+          python3 tools/mirror_releases.py _site 15
 
       - uses: actions/configure-pages@v5
 
