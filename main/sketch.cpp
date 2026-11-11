@@ -55,6 +55,15 @@ static const uint8_t kInquiryLength = 2;       // 2,56 s suchen
 static const uint16_t kInquiryMinPeriod = 4;   // Periode 5,12 s ...
 static const uint16_t kInquiryMaxPeriod = 5;   // ... bis 6,4 s
 static uint32_t scanRestartAfterMs = 0;   // Pause nach Disconnect bevor Scan neu startet
+// Suchtakt im Such-Fenster wie in der Firmware vom 12.10.2026 (dort mit Handy im WLAN erprobt):
+// Die Suche läuft nur in kurzen Stücken, dazwischen gehört die Funkzeit dem WLAN. Eine längere
+// Suche am Stück (z. B. 2,56 s alle 5 s) macht die Weboberfläche praktisch unbenutzbar.
+static const uint16_t kSearchOnMsIdle = 500;        // kein WLAN-Client
+static const uint16_t kSearchOffMsIdle = 500;
+static const uint16_t kSearchOnMsWifiBusy = 100;    // Handy/PC im Hotspot oder STA verbunden
+static const uint16_t kSearchOffMsWifiBusy = 1900;
+static const uint16_t kSearchOnMsStaConnecting = 150;  // STA baut Verbindung auf
+static const uint16_t kSearchOffMsStaConnecting = 850;
 static bool statusLedShowsSearch = false;
 
 static void setStatusLed(uint8_t r, uint8_t g, uint8_t b);
@@ -881,9 +890,8 @@ static bool isModePressedStable() {
     return lowCount >= 5;
 }
 
-// Suche (Inquiry) an- oder abschalten, nur bei Zustandswechsel. Die Blöcke und Pausen
-// (siehe prepareBluetoothStack) plant der Bluetooth-Controller selbst, die Firmware
-// schaltet nicht mehr im Sekundentakt um.
+// Suche (Inquiry) an- oder abschalten, nur bei Zustandswechsel. Im Such-Fenster gibt
+// searchDutyCycle() den Takt vor (kurze Such-Stücke, dazwischen WLAN).
 static void setInquiry(bool on) {
     if (on == inquiryRunning) return;
     inquiryRunning = on;
@@ -914,6 +922,51 @@ static void inquiryReconcileOnBtThread(void* context) {
             Console.println("BT-Suche per Abgleich gestoppt");
         }
     }
+}
+
+// Liefert für das Such-Fenster, ob gerade ein Such-Stück läuft (an/aus im Takt, siehe oben).
+// active=false setzt den Takt zurück, damit die nächste Suche sofort mit einem Such-Stück beginnt.
+static bool searchDutyCycle(bool active, uint32_t now) {
+    static bool running = false;
+    static bool onPhase = false;
+    static uint32_t nextToggleMs = 0;
+    static uint16_t curOnMs = 0, curOffMs = 0;
+    static uint32_t lastWifiCheckMs = 0;
+    static bool wifiBusy = false, staConnecting = false;
+
+    if (!active) {
+        running = false;
+        onPhase = false;
+        return false;
+    }
+    if (!running || (now - lastWifiCheckMs) >= 250) {
+        lastWifiCheckMs = now;
+        wifi_mode_t mode = WiFi.getMode();
+        bool apClients = (mode == WIFI_AP || mode == WIFI_AP_STA) && WiFi.softAPgetStationNum() > 0;
+        bool staUp = (mode == WIFI_STA || mode == WIFI_AP_STA);
+        bool staConnected = staUp && WiFi.status() == WL_CONNECTED;
+        wifiBusy = apClients || staConnected;
+        staConnecting = staUp && !staConnected;
+    }
+    uint16_t onMs = kSearchOnMsIdle, offMs = kSearchOffMsIdle;
+    if (wifiBusy) {
+        onMs = kSearchOnMsWifiBusy;
+        offMs = kSearchOffMsWifiBusy;
+    } else if (staConnecting) {
+        onMs = kSearchOnMsStaConnecting;
+        offMs = kSearchOffMsStaConnecting;
+    }
+    if (!running || onMs != curOnMs || offMs != curOffMs) {
+        running = true;
+        curOnMs = onMs;
+        curOffMs = offMs;
+        onPhase = true;
+        nextToggleMs = now + curOnMs;
+    } else if ((int32_t)(now - nextToggleMs) >= 0) {
+        onPhase = !onPhase;
+        nextToggleMs = now + (onPhase ? curOnMs : curOffMs);
+    }
+    return onPhase;
 }
 
 static void reconcileInquiry(uint32_t now) {
@@ -972,9 +1025,16 @@ void loop() {
     }
 
     // Ist das WLAN bis zum Neustart abgeschaltet, gehört die Funkzeit ganz dem Bluetooth:
-    // dann ohne Controller dauerhaft suchen.
+    // dann ohne Controller dauerhaft suchen. Sonst im Such-Fenster nur im Takt suchen.
     bool searching = BtPairing::isSearching();
-    bool wantInquiry = searching || (board.isWifiDisabledUntilRestart() && !anyController);
+    bool wifiOff = board.isWifiDisabledUntilRestart();
+    bool wantInquiry;
+    if (wifiOff) {
+        searchDutyCycle(false, now);
+        wantInquiry = searching || !anyController;
+    } else {
+        wantInquiry = searchDutyCycle(searching, now);
+    }
     // BTstack braucht nach einem Disconnect ~500 ms, sonst kommt error=0x0c (Command Disallowed)
     if (wantInquiry && (int32_t)(now - scanRestartAfterMs) < 0) {
         wantInquiry = false;
