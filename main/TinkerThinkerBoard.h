@@ -95,6 +95,10 @@ private:
     ControlSource lastSource = ControlSource::None;
     uint32_t lastActiveMs = 0;
     volatile float lastAmps[2] = {0.0f, 0.0f};
+    // Akku: nur monitorMotors() misst (alle 500 ms), alle anderen lesen den gespeicherten Wert
+    volatile float lastBatteryVoltage = 0.0f;
+    volatile float lastBatteryPercent = 0.0f;
+    uint32_t lastBatteryReadMs = 0;
     uint32_t stallSinceMs[2] = {0, 0};
     const int neutralThreshold = 16; // axis deadband for arbitration
 

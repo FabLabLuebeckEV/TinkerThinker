@@ -2,6 +2,7 @@
 #include "TinkerThinkerBoard.h"
 #include "ConfigManager.h"
 #include <esp_wifi.h>
+#include <sys/stat.h>
 #include "BtPairing.h"
 #include <utility>
 
@@ -53,7 +54,75 @@ static void sendAndRestart(AsyncWebServerRequest* request, AsyncWebServerRespons
         vTaskDelay(pdMS_TO_TICKS(3000));
         Serial.println("Neustart (Fallback nach 3 s)...");
         esp_restart();
-    }, "restartFallback", 2048, nullptr, 1, nullptr);
+    }, "restartFallback", 3072, nullptr, 1, nullptr);
+}
+
+static const char* contentTypeFor(const String& path) {
+    if (path.endsWith(".html") || path.endsWith(".htm")) return "text/html";
+    if (path.endsWith(".js")) return "application/javascript";
+    if (path.endsWith(".css")) return "text/css";
+    if (path.endsWith(".json")) return "application/json";
+    if (path.endsWith(".svg")) return "image/svg+xml";
+    if (path.endsWith(".png")) return "image/png";
+    if (path.endsWith(".jpg") || path.endsWith(".jpeg")) return "image/jpeg";
+    if (path.endsWith(".ico")) return "image/x-icon";
+    if (path.endsWith(".txt")) return "text/plain";
+    return "application/octet-stream";
+}
+
+// Existenz per stat() prüfen: LittleFS.exists()/open() auf eine fehlende Datei schreibt
+// jedes Mal "[E] ... does not exist, no permits for creation" ins Log.
+static bool littleFsFileExists(const String& path) {
+    struct stat st;
+    String full = String("/littlefs") + path;
+    return stat(full.c_str(), &st) == 0 && S_ISREG(st.st_mode);
+}
+
+// Datei aus LittleFS ausliefern, bevorzugt die vorkomprimierte .gz-Variante.
+// - Content-Type wird selbst gesetzt: AsyncFileResponse setzt ihn ohne explizite Angabe gar nicht.
+// - .gz: ETag aus dem CRC32 im gzip-Trailer, dazu "Cache-Control: no-cache". Der Browser fragt
+//   jedes Mal nach und lädt nach einem Update geänderte Dateien neu, sonst kommt ein kleines 304.
+// - Fehlt die Datei, antwortet der Helfer mit 404.
+static void sendLittleFsFile(AsyncWebServerRequest* request, const String& path) {
+    const char* type = contentTypeFor(path);
+    String gzPath = path + ".gz";
+    if (littleFsFileExists(gzPath)) {
+        File f = LittleFS.open(gzPath, "r");
+        if (!f) {
+            request->send(500, "text/plain", String("Datei kann nicht geöffnet werden: ") + gzPath);
+            return;
+        }
+        uint8_t crc[4] = {0, 0, 0, 0};
+        size_t size = f.size();
+        if (size >= 8 && f.seek(size - 8)) f.read(crc, sizeof(crc));
+        f.close();
+        char etag[12];
+        snprintf(etag, sizeof(etag), "\"%02x%02x%02x%02x\"", crc[3], crc[2], crc[1], crc[0]);
+
+        if (request->hasHeader("If-None-Match") && request->header("If-None-Match") == etag) {
+            AsyncWebServerResponse* notModified = request->beginResponse(304);
+            notModified->addHeader("ETag", etag);
+            notModified->addHeader("Cache-Control", "no-cache");
+            request->send(notModified);
+            return;
+        }
+        AsyncWebServerResponse* response = request->beginResponse(LittleFS, gzPath, String(type));
+        response->setContentType(type);
+        response->addHeader("Content-Encoding", "gzip");
+        response->addHeader("ETag", etag);
+        response->addHeader("Cache-Control", "no-cache");
+        request->send(response);
+        return;
+    }
+    if (littleFsFileExists(path)) {
+        // Unkomprimierte Dateien (config.json, Bilder): nie veraltet ausliefern
+        AsyncWebServerResponse* response = request->beginResponse(LittleFS, path, String(type));
+        response->setContentType(type);
+        response->addHeader("Cache-Control", "no-cache, must-revalidate");
+        request->send(response);
+        return;
+    }
+    request->send(404, "text/plain", String("Nicht gefunden: ") + path);
 }
 
 // Übernimmt den gesammelten Body; der Aufrufer muss ihn mit free() freigeben.
@@ -396,29 +465,29 @@ void WebServerManager::setupRoutes() {
     server.on("/", HTTP_GET, [this](AsyncWebServerRequest *request){
         String mode = config->getGuiMode();
         if (mode == "drive") {
-            request->send(LittleFS, "/index.html", "text/html");
+            sendLittleFsFile(request, "/index.html");
         } else if (mode == "arm") {
-            request->send(LittleFS, "/arm.html", "text/html");
+            sendLittleFsFile(request, "/arm.html");
         } else {
-            request->send(LittleFS, "/basic.html", "text/html");
+            sendLittleFsFile(request, "/basic.html");
         }
     });
 
     server.on("/basic", HTTP_GET, [this](AsyncWebServerRequest *request){
-        request->send(LittleFS, "/basic.html", "text/html");
+        sendLittleFsFile(request, "/basic.html");
     });
 
     server.on("/drive", HTTP_GET, [this](AsyncWebServerRequest *request){
-        request->send(LittleFS, "/index.html", "text/html");
+        sendLittleFsFile(request, "/index.html");
     });
 
     server.on("/arm", HTTP_GET, [this](AsyncWebServerRequest *request){
-        request->send(LittleFS, "/arm.html", "text/html");
+        sendLittleFsFile(request, "/arm.html");
     });
 
     // Smart Captive-Portal Launchpad (mit Countdown, Handy-Erkennung & Browser-Absprung)
     server.on("/portal", HTTP_GET, [this](AsyncWebServerRequest *request){
-        request->send(LittleFS, "/portal.html", "text/html");
+        sendLittleFsFile(request, "/portal.html");
     });
 
     auto unlockHandler = [this](AsyncWebServerRequest *request){
@@ -482,38 +551,27 @@ void WebServerManager::setupRoutes() {
             request->send(404);
             return;
         }
-        if (LittleFS.exists(path + ".gz")) {
-            request->send(LittleFS, path);
-            return;
-        }
-        if (LittleFS.exists(path)) {
-            // Unkomprimierte Dateien (config.json, Bilder): nie veraltet ausliefern
-            AsyncWebServerResponse *response = request->beginResponse(LittleFS, path, String());
-            response->addHeader("Cache-Control", "no-cache, must-revalidate");
-            request->send(response);
-            return;
-        }
-        request->send(404);
+        sendLittleFsFile(request, path);
     });
 
     server.on("/config", HTTP_GET, [this](AsyncWebServerRequest *request){
-        request->send(LittleFS, "/config.html", "text/html");
+        sendLittleFsFile(request, "/config.html");
     });
 
     // Controls mapping page (raw JSON editor)
     server.on("/controls", HTTP_GET, [this](AsyncWebServerRequest *request){
-        request->send(LittleFS, "/controls.html", "text/html");
+        sendLittleFsFile(request, "/controls.html");
     });
     server.on("/controls.js", HTTP_GET, [this](AsyncWebServerRequest *request){
-        request->send(LittleFS, "/controls.js", "application/javascript");
+        sendLittleFsFile(request, "/controls.js");
     });
 
     server.on("/config.css", HTTP_GET, [this](AsyncWebServerRequest *request){
-        request->send(LittleFS, "/config.css", "text/css");
+        sendLittleFsFile(request, "/config.css");
     });
 
     server.on("/setup", HTTP_GET, [this](AsyncWebServerRequest *request){
-        request->send(LittleFS, "/setup.html", "text/html");
+        sendLittleFsFile(request, "/setup.html");
     });
 
     // OTA Update

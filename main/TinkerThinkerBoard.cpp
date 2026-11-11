@@ -99,15 +99,18 @@ void TinkerThinkerBoard::reApplyConfig() {
         ledController->setLedCount(config->getLedCount());
     }
     ledController->setGamma(config->getLedGamma());
-    FastLED.setBrightness(config->getLedBrightness());
     for (int i = 0; i < config->getLedCount(); i++) {
         ledController->setPixelColor(i, 0, 0, 0); // Boot-Default: aus
     }
-    FastLED.show();
+    // setzt die Helligkeit und gibt die LEDs aus (unter dem LED-Mutex)
+    ledController->setBrightness((uint8_t)config->getLedBrightness());
 
     if (!batteryMonitor) {
         batteryMonitor = new BatteryMonitor(BATTERY_PIN);
         batteryMonitor->init();
+        // Erste Messung beim Start (noch kein anderer Task greift auf den ADC zu)
+        lastBatteryVoltage = batteryMonitor->readVoltage();
+        lastBatteryPercent = batteryMonitor->percentFor(lastBatteryVoltage);
     }
 
     int faultPin = config->isLegacyBoard() ? GPIO_FAULT_1 : -1;
@@ -144,7 +147,7 @@ void TinkerThinkerBoard::startServices() {
             board->updateWebClients();
             vTaskDelay(100 / portTICK_PERIOD_MS);
         }
-    }, "WebClientTask", 4096, this, 1, NULL, 1);
+    }, "WebClientTask", 8192, this, 1, NULL, 1);   // Strom-/Akkumessung, JSON-Telemetrie, printf
 
     Serial.println("TinkerThinkerBoard initialized.");
 }
@@ -211,12 +214,15 @@ void TinkerThinkerBoard::setLedGamma(bool enabled) {
     if (ledController) ledController->setGamma(enabled);
 }
 
+// Gespeicherter Wert statt neuer Messung: Der ADC ist nicht mehrfach gleichzeitig nutzbar.
+// adc_oneshot_read() versucht die Sperre nur einmal, analogRead() liefert bei einer Kollision
+// still 0. Aus 5 Samples mit einer 0 wurde so z. B. 3,02 statt 3,78 V.
 float TinkerThinkerBoard::getBatteryVoltage() {
-    return batteryMonitor->readVoltage();
+    return lastBatteryVoltage;
 }
 
 float TinkerThinkerBoard::getBatteryPercentage() {
-    return batteryMonitor->readPercentage();
+    return lastBatteryPercent;
 }
 
 void TinkerThinkerBoard::checkFaults() {
@@ -240,7 +246,15 @@ bool TinkerThinkerBoard::isMotorBlocked(int motorIndex) {
     return motorController ? motorController->isBlocked(motorIndex) : false;
 }
 
+// Einziger Ort mit ADC-Messungen im Betrieb (Strom Motor A/B und Akku), damit sich keine
+// zwei Tasks gleichzeitig den ADC teilen.
 void TinkerThinkerBoard::monitorMotors() {
+    if (batteryMonitor && (millis() - lastBatteryReadMs >= 500)) {
+        lastBatteryReadMs = millis();
+        float v = batteryMonitor->readVoltage();
+        lastBatteryVoltage = v;
+        lastBatteryPercent = batteryMonitor->percentFor(v);
+    }
     if (!systemMonitor || !motorController) return;
     float stallAmps = config->getMotorStallAmps();
     uint32_t stallMs = (uint32_t)config->getMotorStallMs();

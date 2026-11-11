@@ -23,6 +23,9 @@ private:
     CRGB lastSetColor = CRGB(0, 0, 0); // Zuletzt gesetzte LED-Farbe
     int dataPin = 2; // Standarddatenpin, ggf. anpassen oder aus Config laden
     bool gammaEnabled = false;
+    // Loop (Status-LED), Webserver (LED-Befehle) und Konfiguration greifen gleichzeitig zu.
+    // FastLED.show() darf nicht parallel laufen, und setLedCount() tauscht die Puffer aus.
+    SemaphoreHandle_t ledMutex;
 };
 
 #endif
