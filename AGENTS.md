@@ -40,6 +40,10 @@ Recent Changes (Important)
      min/max period 4/5, set once in `prepareBluetoothStack()` only if different), so Wi-Fi gets
      contiguous airtime for association/DHCP. The old 100-500 ms host toggling never completed an inquiry.
    - Wi-Fi is no longer paused on controller connect (it dropped all phones for 3 s).
+   - `reconcileInquiry()` re-applies the wanted inquiry state on the BTstack thread once per second
+     (`gap_inquiry_periodic_start` / `gap_inquiry_stop`, both no-ops when the state already matches).
+     BTstack can reject start/stop with 0x0c while a previous command is in flight, and Bluepad32 then
+     keeps a wrong `bt_scanning_enabled` flag; without the reconcile inquiry could keep running forever.
    - Do not call `esp_wifi_set_ps(WIFI_PS_NONE)`: with BT enabled ESP-IDF rejects it (coexistence needs modem sleep).
    - The old `bt_scan_*` keys remain in ConfigManager/serial for compatibility but are unused.
 

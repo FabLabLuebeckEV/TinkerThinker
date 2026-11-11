@@ -13,6 +13,7 @@
 #include "esp_bt.h"
 #include <uni.h>
 #include "BtPairing.h"
+#include <esp_mac.h>
 
 // Removed DFPlayer and HardwareSerial includes
 #define MODE_BUTTON_PIN 39
@@ -43,7 +44,11 @@ static uint32_t modeButtonPressStartMs = 0;
 static bool modeButtonLongPressHandled = false;
 static const uint32_t modeButtonHoldToSwitchMs = 700;
 static bool modeButtonSeenReleased = false;
-static bool inquiryRunning = false;
+static volatile bool inquiryRunning = false;   // auch im BTstack-Thread gelesen (Abgleich)
+// Periodische Suche: Länge und Perioden in Einheiten von 1,28 s (Bluepad32-Properties)
+static const uint8_t kInquiryLength = 2;       // 2,56 s suchen
+static const uint16_t kInquiryMinPeriod = 4;   // Periode 5,12 s ...
+static const uint16_t kInquiryMaxPeriod = 5;   // ... bis 6,4 s
 static uint32_t scanRestartAfterMs = 0;   // Pause nach Disconnect bevor Scan neu startet
 static bool statusLedShowsSearch = false;
 
@@ -84,14 +89,28 @@ static void prepareBluetoothStack() {
     // Periodische Suche in Blöcken: 2,56 s suchen, dann 2,5-3,8 s Pause (Perioden 5,12-6,4 s).
     // 2,56 s reichen, um einen Controller im Pairing-Modus zu finden (beide Inquiry-Trains),
     // und die Pausen geben dem WLAN zusammenhängende Funkzeit für Anmeldung und DHCP.
-    if (uni_bt_get_gap_inquiry_length() != 2) uni_bt_set_gap_inquiry_length(2);
-    if (uni_bt_get_gap_min_periodic_length() != 4) uni_bt_set_gap_min_peridic_length(4);
-    if (uni_bt_get_gap_max_periodic_length() != 5) uni_bt_set_gap_max_peridic_length(5);
+    if (uni_bt_get_gap_inquiry_length() != kInquiryLength) uni_bt_set_gap_inquiry_length(kInquiryLength);
+    if (uni_bt_get_gap_min_periodic_length() != kInquiryMinPeriod) uni_bt_set_gap_min_peridic_length(kInquiryMinPeriod);
+    if (uni_bt_get_gap_max_periodic_length() != kInquiryMaxPeriod) uni_bt_set_gap_max_peridic_length(kInquiryMaxPeriod);
 }
 
 static void startControllerSearch(uint32_t durationMs) {
     BtPairing::startSearch(durationMs);
     Console.printf("Controller-Suche gestartet (%lu s)\n", (unsigned long)(durationMs / 1000));
+}
+
+// WLAN-MAC direkt aus dem eFuse lesen: WiFi.macAddress() liefert im reinen Hotspot-Modus
+// 00:00:00:00:00:00, weil die Station-Schnittstelle dann nicht gestartet ist.
+static String formatWifiMac() {
+    uint8_t mac[6];
+    esp_err_t err = esp_read_mac(mac, ESP_MAC_WIFI_STA);
+    if (err != ESP_OK) {
+        return String("Fehler: ") + esp_err_to_name(err);
+    }
+    char buf[18];
+    snprintf(buf, sizeof(buf), "%02X:%02X:%02X:%02X:%02X:%02X",
+             mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+    return String(buf);
 }
 
 static String formatBtMac() {
@@ -125,7 +144,7 @@ static void fillSerialInfo(JsonDocument& doc) {
     doc["hotspot_ssid"] = configManager.getHotspotSSID();
     doc["ota_enabled"] = configManager.getOTAEnabled();
     doc["speed_multiplier"] = board.getSpeedMultiplier();
-    doc["wifi_mac"] = WiFi.macAddress();
+    doc["wifi_mac"] = formatWifiMac();
     doc["bt_mac"] = formatBtMac();
     doc["firmware"] = BP32.firmwareVersion();
     doc["uptime_ms"] = millis();
@@ -865,6 +884,42 @@ static void setInquiry(bool on) {
     BP32.enableNewBluetoothConnections(on);
 }
 
+// Abgleich mit dem tatsächlichen Zustand im BTstack, einmal pro Sekunde.
+// Start und Stopp können mit 0x0c (Command Disallowed) scheitern, wenn der Stack gerade
+// einen vorherigen Befehl abarbeitet (siehe Log "cannot stop inquiry (0x0c)"). Bluepad32
+// merkt sich trotzdem den neuen Zustand und versucht es nicht erneut. Ohne Abgleich
+// könnte die Suche nach dem Fenster dauerhaft weiterlaufen (WLAN wird ausgebremst)
+// oder im Fenster nie starten. Beide Aufrufe sind ohne Wirkung, wenn der Zustand passt.
+static volatile bool inquiryReconcilePending = false;
+static btstack_context_callback_registration_t inquiryReconcileReg;
+
+static void inquiryReconcileOnBtThread(void* context) {
+    (void)context;
+    inquiryReconcilePending = false;
+    if (inquiryRunning) {
+        // Gleiche Parameter wie Bluepad32 (in prepareBluetoothStack gesetzt).
+        // 0x0c heißt hier: läuft bereits oder Stack im Übergang, nächste Sekunde erneut prüfen.
+        if (gap_inquiry_periodic_start(kInquiryLength, kInquiryMaxPeriod, kInquiryMinPeriod) == ERROR_CODE_SUCCESS) {
+            Console.println("BT-Suche per Abgleich gestartet");
+        }
+    } else {
+        // 0x0c heißt hier: Suche ist bereits aus (oder Stack im Übergang, dann erneut)
+        if (gap_inquiry_stop() == ERROR_CODE_SUCCESS) {
+            Console.println("BT-Suche per Abgleich gestoppt");
+        }
+    }
+}
+
+static void reconcileInquiry(uint32_t now) {
+    static uint32_t lastReconcileMs = 0;
+    if (inquiryReconcilePending || (now - lastReconcileMs) < 1000) return;
+    lastReconcileMs = now;
+    inquiryReconcilePending = true;
+    inquiryReconcileReg.callback = &inquiryReconcileOnBtThread;
+    inquiryReconcileReg.context = nullptr;
+    btstack_run_loop_execute_on_main_thread(&inquiryReconcileReg);
+}
+
 void loop() {
     pollSerialCommands();
     // This call fetches all the controllers' data.
@@ -919,6 +974,7 @@ void loop() {
         wantInquiry = false;
     }
     setInquiry(wantInquiry);
+    reconcileInquiry(now);
 
     // Status-LED: blau blinkend während der Suche, danach grün (Controller) oder schwach weiß
     static int lastBlinkState = -1;
