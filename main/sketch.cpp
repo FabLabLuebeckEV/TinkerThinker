@@ -18,6 +18,11 @@
 // Removed DFPlayer and HardwareSerial includes
 #define MODE_BUTTON_PIN 39
 
+// Stack des Arduino-Loop-Tasks: 8 KB (Standard) reichten nicht, die serielle Konfigurations-
+// abfrage (get_config, z. B. vom Web-Installer) löste einen Stack-Overflow und Neustart aus.
+// Der freie Rest wird im Heartbeat als "stack_free" ausgegeben.
+SET_LOOP_TASK_STACK_SIZE(16 * 1024);
+
 // Erzeuge globalen Board- und ConfigManager
 ConfigManager configManager;
 TinkerThinkerBoard board(&configManager);
@@ -1004,10 +1009,14 @@ void loop() {
         for (int i = 0; i < BP32_MAX_GAMEPADS; i++) {
             if (myControllers[i] && myControllers[i]->isConnected()) { ctrlConnected = true; break; }
         }
-        Console.printf("[HB] uptime=%lus  controller=%s  bat=%.2fV\n",
+        // stack_free: kleinster freier Stack des Loop-Tasks seit dem Start (Bytes),
+        // heap_free: freier Heap. Beides zur Diagnose von Abstürzen.
+        Console.printf("[HB] uptime=%lus  controller=%s  bat=%.2fV  stack_free=%u  heap_free=%u\n",
             nowHb / 1000,
             ctrlConnected ? "verbunden" : "getrennt",
-            board.getBatteryVoltage());
+            board.getBatteryVoltage(),
+            (unsigned)uxTaskGetStackHighWaterMark(nullptr),
+            (unsigned)ESP.getFreeHeap());
     }
 
     // A delay is required to prevent the watchdog timer from triggering.
