@@ -755,11 +755,15 @@ document.getElementById('f').onsubmit=function(e){
         handleConfig(request);
     });
 
-    server.on("/resetconfig", HTTP_GET, [this](AsyncWebServerRequest* request){
-        config->resetConfig();
-        AsyncWebServerResponse* res = request->beginResponse(302);
-        res->addHeader("Location", "/config");
-        sendAndRestart(request, res);
+    // Werksreset und Neustart nur per POST: Als GET-Adresse blieb ein Browser-Tab auf
+    // /reboot stehen und startete das Board bei jedem Neuladen erneut (Neustart-Schleife).
+    server.on("/resetconfig", HTTP_POST, [this](AsyncWebServerRequest* request){
+        bool ok = config->resetConfig();
+        if (!ok) {
+            request->send(500, "application/json", "{\"error\":\"reset failed\"}");
+            return;
+        }
+        sendAndRestart(request, request->beginResponse(200, "application/json", "{\"status\":\"ok\"}"));
     });
 
     // Controller-Suche: POST startet ein Such-Fenster (60 s, ?stop=1 beendet es),
@@ -855,7 +859,7 @@ document.getElementById('f').onsubmit=function(e){
         }
     );
 
-    server.on("/reboot", HTTP_GET, [this](AsyncWebServerRequest* request){
+    server.on("/reboot", HTTP_POST, [this](AsyncWebServerRequest* request){
         sendAndRestart(request, request->beginResponse(200, "text/plain", "Rebooting..."));
     });
 
@@ -1429,7 +1433,15 @@ void WebServerManager::sendStatusUpdate() {
             }
             String jsonString;
             serializeJson(doc, jsonString);
-            ws.textAll(jsonString);
+            // Nur an Clients senden, deren Warteschlange Platz hat. Ein langsamer Client (Handy
+            // im Hintergrund, schwaches WLAN) verpasst dann einzelne Status-Updates, statt dass
+            // die Bibliothek seine Verbindung wegen voller Warteschlange schließt
+            // ("Too many messages queued: closing connection").
+            for (auto& client : ws.getClients()) {
+                if (client.status() == WS_CONNECTED && !client.queueIsFull()) {
+                    client.text(jsonString);
+                }
+            }
         }
         xSemaphoreGive(wsMutex);
     }

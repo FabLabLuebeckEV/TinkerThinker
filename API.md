@@ -146,5 +146,6 @@ Der ESP32 sendet zyklisch ein Status-JSON an alle verbundenen WebSocket-Clients:
 - **`GET /setWsDrive?x=0|1&y=0|1&swap=0|1`**: Joystick-Richtung der Website (X/Y invertieren, Achsen tauschen) dauerhaft speichern.
 - **`GET /setBtDrive?x=0|1&y=0|1&swap=0|1`**: Dasselbe für Bluetooth-Controller.
 - **`POST /wifi/disable`**: Schaltet das WLAN bis zum nächsten Neustart ab.
-- **`GET /reboot`**: Antwortet und startet den ESP32 danach neu.
-- **`GET /resetconfig`**: Setzt `/config.json` auf Werkseinstellungen zurück, leitet auf `/config` weiter und startet danach neu.
+- **`POST /reboot`**: Antwortet und startet den ESP32 danach neu.
+- **`POST /resetconfig`**: Setzt `/config.json` auf Werkseinstellungen zurück, antwortet mit `{"status":"ok"}` (`500` bei Fehler) und startet danach neu.
+- Beide Endpunkte sind bewusst nur per `POST` erreichbar: Als aufrufbare Adresse hat ein im Browser stehengebliebener Tab das Board bei jedem Neuladen erneut neu gestartet.
