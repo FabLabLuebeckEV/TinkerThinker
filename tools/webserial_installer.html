@@ -420,11 +420,14 @@
       </section>
 
       <section class="panel span-7">
-        <h2>Latest Release flashen</h2>
-        <p>Laedt die neuesten Release-Assets aus GitHub ueber die Release-Asset-API und schreibt sie mit festen Offsets passend zu diesem Projektlayout.</p>
+        <h2>Release flashen</h2>
+        <p>Wähle ein Release aus (das neueste steht oben) und flashe es mit den festen Offsets dieses Projekts. So lässt sich jederzeit auch ein älterer, funktionierender Stand wieder aufspielen.</p>
         <div class="toolbar">
-          <button id="loadReleaseBtn">Latest Release laden</button>
-          <button id="flashReleaseBtn" disabled>Latest Release flashen</button>
+          <select id="releaseSelect" style="min-width:280px; max-width:100%;">
+            <option value="">Releases werden geladen ...</option>
+          </select>
+          <button id="loadReleaseBtn">Liste neu laden</button>
+          <button id="flashReleaseBtn" disabled>Ausgewähltes Release flashen</button>
         </div>
         <div class="notice" id="originWarning" hidden>
           Diese Seite laeuft gerade aus dem Datei-Modus (`file://`). Wenn GitHub-Downloads wegen CORS blockiert werden, die HTML-Datei ueber einen lokalen HTTP-Server oeffnen, z.B. mit `python -m http.server` im Ordner `tools/`.
@@ -576,7 +579,7 @@
   <script type="module">
     import { ESPLoader, Transport } from "https://cdn.jsdelivr.net/npm/esptool-js@0.5.6/+esm";
 
-    const REPO_API = "https://api.github.com/repos/FabLabLuebeckEV/TinkerThinker/releases/latest";
+    const REPO_RELEASES_API = "https://api.github.com/repos/FabLabLuebeckEV/TinkerThinker/releases?per_page=15";
     const REQUIRED_RELEASE_FILES = [
       { key: "bootloader", name: "bootloader.bin", offset: 0x1000 },
       { key: "partitions", name: "partitions.bin", offset: 0x8000 },
@@ -590,6 +593,7 @@
     const logOutput = document.getElementById("logOutput");
     const jsonOutput = document.getElementById("jsonOutput");
     const releaseAssets = document.getElementById("releaseAssets");
+    const releaseSelect = document.getElementById("releaseSelect");
     const originWarning = document.getElementById("originWarning");
     const bundledRelease = window.TINKERTHINKER_RELEASE_BUNDLE || null;
 
@@ -883,39 +887,115 @@
       return complete;
     }
 
-    async function loadLatestRelease() {
+    let releaseList = [];
+
+    // Release-Liste: auf der GitHub Page aus ./releases/index.json (die Pipeline legt die Binaries
+    // der letzten Releases dort ab, GitHub-Downloads sind im Browser per CORS gesperrt).
+    // Ohne Page (z. B. lokaler HTTP-Server) über die GitHub-API, im file://-Modus nur das Bundle.
+    async function loadReleaseList() {
       if (window.location.protocol === "file:" && bundledRelease?.assets) {
-        applyBundledReleaseFallback();
+        releaseList = [{
+          tag_name: bundledRelease.tag_name || "Bundle",
+          published_at: bundledRelease.published_at,
+          latest: true,
+          source: "bundle",
+        }];
+        renderReleaseSelect();
+        selectRelease(releaseList[0].tag_name);
         return;
       }
 
-      setPill(flashPill, "Release wird geladen", "warn");
+      setPill(flashPill, "Releases werden geladen", "warn");
+      let list = null;
       try {
-        const response = await fetch(REPO_API, { headers: { Accept: "application/vnd.github+json" } });
-        if (!response.ok) {
-          throw new Error("GitHub Release API Fehler: " + response.status);
-        }
-        latestRelease = await response.json();
-        infoRelease.textContent = latestRelease.tag_name || "-";
-        const assetMap = new Map((latestRelease.assets || []).map((asset) => [asset.name, asset]));
-        releaseAssets.innerHTML = "";
-        let complete = true;
-        for (const item of REQUIRED_RELEASE_FILES) {
-          const asset = assetMap.get(item.name);
-          const div = document.createElement("div");
-          div.innerHTML = `<strong>${item.name}</strong><br><span class="small mono">${asset ? asset.url : "nicht gefunden"}</span>`;
-          releaseAssets.appendChild(div);
-          if (!asset) complete = false;
-        }
-        controls.flashReleaseBtn.disabled = !complete;
-        setPill(flashPill, complete ? "Latest Release bereit" : "Release unvollstaendig", complete ? "ok" : "bad");
+        const res = await fetch("./releases/index.json", { cache: "no-store" });
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        const data = await res.json();
+        list = data.map((r) => ({
+          tag_name: r.tag,
+          published_at: r.published_at,
+          latest: !!r.latest,
+          source: "pages",
+        }));
       } catch (err) {
-        if (applyBundledReleaseFallback()) {
-          appendLog("[RELEASE] Online-Abruf fehlgeschlagen (" + err.message + "), nutze lokales Bundle: " + (bundledRelease.tag_name || "-"));
-          return;
-        }
-        throw err;
+        appendLog("[RELEASE] Keine Release-Liste neben der Seite (" + err.message + "), frage die GitHub-API.");
       }
+      if (!list || !list.length) {
+        try {
+          const response = await fetch(REPO_RELEASES_API, { headers: { Accept: "application/vnd.github+json" } });
+          if (!response.ok) throw new Error("GitHub Release API Fehler: " + response.status);
+          const data = await response.json();
+          list = data.filter((r) => !r.draft).map((r, i) => ({
+            tag_name: r.tag_name,
+            published_at: r.published_at,
+            latest: i === 0,
+            source: "api",
+            assets: r.assets || [],
+          }));
+        } catch (err) {
+          if (applyBundledReleaseFallback()) {
+            appendLog("[RELEASE] Online-Abruf fehlgeschlagen (" + err.message + "), nutze lokales Bundle: " + (bundledRelease.tag_name || "-"));
+            return;
+          }
+          throw err;
+        }
+      }
+      releaseList = list;
+      renderReleaseSelect();
+      if (releaseList.length) {
+        selectRelease(releaseList[0].tag_name);
+      } else {
+        controls.flashReleaseBtn.disabled = true;
+        setPill(flashPill, "Keine Releases gefunden", "bad");
+      }
+    }
+
+    function formatReleaseDate(iso) {
+      if (!iso) return "";
+      const d = new Date(iso);
+      return Number.isNaN(d.getTime()) ? "" : d.toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" });
+    }
+
+    function renderReleaseSelect() {
+      releaseSelect.innerHTML = "";
+      for (const r of releaseList) {
+        const opt = document.createElement("option");
+        opt.value = r.tag_name;
+        const date = formatReleaseDate(r.published_at);
+        opt.textContent = r.tag_name + (date ? " (" + date + ")" : "") + (r.latest ? " - neuestes" : "");
+        releaseSelect.appendChild(opt);
+      }
+    }
+
+    function releaseFileUrl(release, name) {
+      if (release.source === "pages") {
+        return "./releases/" + encodeURIComponent(release.tag_name) + "/" + name;
+      }
+      const asset = (release.assets || []).find((a) => a.name === name);
+      return asset ? asset.url : null;
+    }
+
+    function selectRelease(tag) {
+      const release = releaseList.find((r) => r.tag_name === tag);
+      if (!release) return;
+      releaseSelect.value = tag;
+      if (release.source === "bundle") {
+        applyBundledReleaseFallback();
+        return;
+      }
+      latestRelease = release;
+      infoRelease.textContent = release.tag_name;
+      releaseAssets.innerHTML = "";
+      let complete = true;
+      for (const item of REQUIRED_RELEASE_FILES) {
+        const url = releaseFileUrl(release, item.name);
+        if (!url) complete = false;
+        const div = document.createElement("div");
+        div.innerHTML = `<strong>${item.name}</strong><br><span class="small mono">${url || "nicht im Release"}</span>`;
+        releaseAssets.appendChild(div);
+      }
+      controls.flashReleaseBtn.disabled = !complete;
+      setPill(flashPill, complete ? "Release " + release.tag_name + " bereit" : "Release unvollständig", complete ? "ok" : "bad");
     }
 
     async function fetchUint8Array(url, options = {}) {
@@ -924,27 +1004,22 @@
       return new Uint8Array(await res.arrayBuffer());
     }
 
-    async function fetchReleaseAsset(asset) {
-      // Auf der GitHub Page liegen die Binaries same-origin (GitHub-Release-Downloads sind per CORS blockiert)
-      if (window.location.protocol !== "file:") {
-        try {
-          return await fetchUint8Array("./release/" + asset.name + "?v=" + encodeURIComponent(latestRelease?.tag_name || ""));
-        } catch (err) {
-          appendLog("[RELEASE] Kein lokaler Mirror fuer " + asset.name + " (" + err.message + "), versuche GitHub-API.");
-        }
+    // Lädt genau eine Datei des ausgewählten Releases (nie aus einer anderen Version)
+    async function fetchReleaseFile(release, name) {
+      const url = releaseFileUrl(release, name);
+      if (!url) throw new Error(name + " fehlt im Release " + release.tag_name + ".");
+      if (release.source === "pages") {
+        return await fetchUint8Array(url);
       }
       try {
-        return await fetchUint8Array(asset.url, {
+        return await fetchUint8Array(url, {
           headers: {
             Accept: "application/octet-stream",
             "X-GitHub-Api-Version": "2022-11-28",
           },
         });
       } catch (err) {
-        if (window.location.protocol === "file:") {
-          throw new Error("GitHub blockiert den Browser-Download im file://-Modus per CORS. Starte die Seite ueber einen lokalen HTTP-Server und versuche es erneut.");
-        }
-        throw err;
+        throw new Error("Download von " + name + " fehlgeschlagen (" + err.message + "). GitHub erlaubt Browser-Downloads von Release-Dateien nicht (CORS). Nutze den Web-Flasher auf der GitHub Page.");
       }
     }
 
@@ -989,20 +1064,19 @@
         return entries;
       }
 
-      const assetMap = new Map((latestRelease.assets || []).map((asset) => [asset.name, asset]));
       const entries = [];
       for (const item of REQUIRED_RELEASE_FILES) {
-        const asset = assetMap.get(item.name);
-        if (!asset) throw new Error(item.name + " fehlt im Release.");
         try {
-          const rawBytes = await fetchReleaseAsset(asset);
+          const rawBytes = await fetchReleaseFile(latestRelease, item.name);
           entries.push({
             address: item.offset,
             data: uint8ArrayToBinaryString(rawBytes),
             name: item.name,
           });
         } catch (err) {
-          const fallbackAsset = bundledRelease?.assets?.[item.name];
+          // Nur auf das eingebettete Bundle ausweichen, wenn es genau dieses Release ist.
+          // Sonst würden Dateien verschiedener Versionen gemischt (z. B. alte Firmware mit neuer Weboberfläche).
+          const fallbackAsset = bundledRelease?.tag_name === latestRelease.tag_name ? bundledRelease?.assets?.[item.name] : null;
           if (fallbackAsset?.dataBase64) {
             appendLog(`[RELEASE] Download von ${item.name} blockiert (${err.message}), nutze eingebettetes Bundle.`);
             entries.push({
@@ -1385,17 +1459,21 @@
       });
     }
 
-    controls.loadReleaseBtn.addEventListener("click", async () => {
+    async function refreshReleaseList() {
       try {
-        await loadLatestRelease();
+        await loadReleaseList();
       } catch (err) {
         setPill(flashPill, "Release-Fehler", "bad");
         appendLog("[RELEASE] " + err.message);
       }
-    });
+    }
+
+    controls.loadReleaseBtn.addEventListener("click", refreshReleaseList);
+    releaseSelect.addEventListener("change", () => selectRelease(releaseSelect.value));
 
     controls.flashReleaseBtn.addEventListener("click", async () => {
       try {
+        appendLog("[FLASH] Ausgewähltes Release: " + (latestRelease?.tag_name || "-"));
         const entries = await getReleaseFlashEntries();
         await runFlash(entries);
       } catch (err) {
@@ -1422,6 +1500,7 @@
     setSerialSupportState();
     setRuntimeUi(false);
     appendLog("[INIT] Seite bereit");
+    refreshReleaseList();
   </script>
 </body>
 </html>

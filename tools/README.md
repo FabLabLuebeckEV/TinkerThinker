@@ -24,9 +24,10 @@ Dieses Verzeichnis enthält alle Werkzeuge zum schnellen Flashen von Platinen (i
 Der einfachste Weg für Einsteiger ohne jede Software-Installation:
 1. Öffne die **[GitHub Page](https://fablabluebeckev.github.io/TinkerThinker/)** oder die lokale Datei **`webserial_installer.html`** in **Google Chrome**, **Microsoft Edge** oder **Opera** (am Desktop).
 2. Schließe das TinkerThinker-Board per USB-Kabel an.
-3. Klicke auf **„Latest Release laden“** und danach auf **„Latest Release flashen“**, dann wähle den USB-Port des Boards aus:
+3. Wähle unter **„Release flashen“** ein Release aus (das neueste ist vorausgewählt, auf der GitHub Page stehen die letzten 15 Releases zur Wahl), klicke auf **„Ausgewähltes Release flashen“** und wähle den USB-Port des Boards aus:
    - Der Installer spielt Bootloader, Partitionen, Firmware und die Weboberfläche (`littlefs.bin`) komplett in einem Rutsch auf.
-   - Auf der GitHub Page kommen die Dateien direkt von der Page (die Pipeline legt sie bei jedem Build auf `main` dort ab).
+   - Auf der GitHub Page kommen die Dateien direkt von der Page: Die Pipeline spiegelt bei jedem Build auf `main` die letzten 15 Releases nach `releases/<tag>/` (Skript `tools/mirror_releases.py`).
+   - Es wird immer genau das gewählte Release geflasht. Das Offline-Bundle springt nur ein, wenn es dieselbe Version ist.
    - Lokal geöffnet (`file://`) nutzt der Installer das Offline-Bundle (`webserial_release_bundle.js`). Es enthält den Stand des letzten Bundle-Builds, nicht automatisch das neueste Release. So funktioniert das Flashen auch ohne Internetverbindung im Workshop-Raum.
    - Zusätzlich kannst du über den Installer die Konfiguration eines fertig eingerichteten Roboters auslesen, als Datei speichern und auf beliebig viele weitere Boards klonen.
 

@@ -113,7 +113,7 @@ Recent Changes (Important)
    - All pages reconnect the WebSocket forever (max 5 s backoff).
    - `reApplyConfig()` creates the motor/servo/LED/monitor objects once and only applies new settings afterwards (no leak; other tasks keep valid pointers).
    - POST bodies of `/arm/config` and `/bt/whitelist` are assembled across chunks and errors are reported.
-   - GitHub Pages: the CI `pages` job publishes `tools/webserial_installer.html` plus the freshly built binaries under `./release/` (GitHub release downloads are blocked by CORS).
+   - GitHub Pages: the CI `pages` job publishes `tools/webserial_installer.html` plus the last 15 releases under `./releases/<tag>/` with `./releases/index.json` (`tools/mirror_releases.py`, GitHub release downloads are blocked by CORS). The installer shows a release picker (newest preselected) and only flashes files of the selected release; the embedded bundle is used only if it is the same tag. `./release/` (latest only) is still published for old cached pages.
 
 Editing Guidelines
 - Keep changes focused; do not introduce a second Arduino core.
