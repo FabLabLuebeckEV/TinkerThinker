@@ -776,10 +776,11 @@ void setup() {
 
     board.startServices();
 
-    BP32.setup(&onConnectedController, &onDisconnectedController, true);
+    // Suche hier nicht starten (startScanning = false): Der Stack ist noch nicht bereit, ein
+    // sofortiges Start/Stopp scheitert dann mit 0x0c. Die Suche startet das Such-Fenster in loop().
+    BP32.setup(&onConnectedController, &onDisconnectedController, false);
     BP32.enableVirtualDevice(false);
     BP32.enableBLEService(false);
-    BP32.enableNewBluetoothConnections(false);
     sm_set_secure_connections_only_mode(false);                        // SC ausschalten
     prepareBluetoothStack();
     BtPairing::begin();
