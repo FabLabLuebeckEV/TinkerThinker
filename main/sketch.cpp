@@ -15,8 +15,17 @@
 #include "BtPairing.h"
 #include <esp_mac.h>
 
-// Removed DFPlayer and HardwareSerial includes
+#include "HardwareSerial.h"
+#include "DFRobotDFPlayerMini.h"
 #define MODE_BUTTON_PIN 39
+
+// Audiomodul (DFPlayer Mini) für DuckNorris: UART2, ESP-RX = GPIO5, ESP-TX = GPIO19
+#define DFPLAYER_RX_PIN 5
+#define DFPLAYER_TX_PIN 19
+#define DFPLAYER_VOLUME 30
+HardwareSerial dfSerial(2);
+DFRobotDFPlayerMini myDFPlayer;
+static bool dfPlayerOnline = false;
 
 // Stack des Arduino-Loop-Tasks: 8 KB (Standard) reichten nicht, die serielle Konfigurations-
 // abfrage (get_config, z. B. vom Web-Installer) löste einen Stack-Overflow und Neustart aus.
@@ -27,7 +36,18 @@ SET_LOOP_TASK_STACK_SIZE(16 * 1024);
 ConfigManager configManager;
 TinkerThinkerBoard board(&configManager);
 
-// Soundboard (DFPlayer) removed per request
+// Audio-Tasten: R2 = Track 1 (0001.mp3), L2 = Track 2 (0002.mp3), Flankenerkennung am Trigger.
+static void processAudioTriggers(ControllerPtr ctl) {
+    if (!dfPlayerOnline) return;
+    static bool r2Held = false;
+    static bool l2Held = false;
+    bool r2 = ctl->throttle() > 500;
+    bool l2 = ctl->brake() > 500;
+    if (r2 && !r2Held) myDFPlayer.play(1);
+    if (l2 && !l2Held) myDFPlayer.play(2);
+    r2Held = r2;
+    l2Held = l2;
+}
 
 
 // Button/DPad enums removed; new InputBindingManager handles mapping
@@ -732,6 +752,7 @@ void processGamepad(ControllerPtr ctl) {
     if (idx >= 0) {
         board.updateControllerSnapshot(idx, ctl);
         inputBindings.process(ctl, idx);
+        processAudioTriggers(ctl);
     }
 
     // Update player LEDs to show battery level
@@ -771,7 +792,15 @@ void setup() {
 
     Serial.begin(115200);
 
-    // DFPlayer initialization removed
+    // DFPlayer-Audiomodul initialisieren (blockiert nicht, wenn keins angeschlossen ist)
+    dfSerial.begin(9600, SERIAL_8N1, DFPLAYER_RX_PIN, DFPLAYER_TX_PIN);
+    if (myDFPlayer.begin(dfSerial)) {
+        dfPlayerOnline = true;
+        myDFPlayer.volume(DFPLAYER_VOLUME);
+        Serial.println(F("DFPlayer Mini online."));
+    } else {
+        Serial.println(F("DFPlayer Mini nicht gefunden (Verkabelung/SD-Karte pruefen)."));
+    }
 
     if (!configManager.init()) {
         Serial.println("Failed to init ConfigManager!");
