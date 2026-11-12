@@ -146,6 +146,14 @@ Speziell entwickelte Oberfläche mit **interaktiver 2D-Live-Simulation** für de
   - Schont Zahnräder und Mechanik durch eine sanfte Beschleunigungsrampe.
 - **Dual-Touch-Joysticks**: Zwei virtuelle Kreuzknüppel für gleichzeitiges, flüssiges Steuern aller 4 Achsen wie bei einem echten Bagger/Kran.
 
+### 4. 🥊 Sumo-Roboter SchrottBot (`sumo` - `/sumo`)
+Oberfläche für den Sumo-Roboter mit Klappenarmen und Hebe-/Schieberampe:
+- **Fahren**: Joystick wie beim Workshop-Roboter (Gas und Lenken).
+- **Arme**: ein Regler (zu ↔ auf) plus Tasten `Arme zu` / `Arme auf`. Er steuert **beide Arm-Servos**, der rechte läuft gegenläufig.
+- **Rampe hoch** und **Rampe vor**: je ein Regler; die Position bleibt stehen, wenn du loslässt.
+- **Servo-Einstellungen** (aufklappbar): Servo-Nummer (1-7, Standard Servo 4-7) und Winkel bei 0 % und 100 % je Funktion, sofort wirksam und dauerhaft gespeichert.
+- **Gamepad**: Im Steuerungs-Editor lädt **`Vorlage SchrottBot Sumo`** die passende Belegung: linker Stick fahren, Steuerkreuz Arme (rechts/oben auf, links/unten zu), `R1`/`L1` Rampe hoch/runter, `R2`/`L2` Rampe vor/zurück, `B` Arme zu. Danach `Speichern`.
+
 ---
 
 ## 🧭 Alle Webseiten im Überblick
@@ -154,7 +162,7 @@ Wenn du mit dem Roboter-WLAN verbunden bist, erreichst du über die obere Menül
 
 | URL / Pfad | Name | Was kannst du hier machen? |
 | :--- | :--- | :--- |
-| **`/`** | **Steuerung** | Öffnet automatisch deine gewählte Roboter-Oberfläche (`/basic`, `/drive` oder `/arm`). |
+| **`/`** | **Steuerung** | Öffnet automatisch deine gewählte Roboter-Oberfläche (`/basic`, `/drive`, `/arm` oder `/sumo`). |
 | **`/setup`** | **Setup-Assistent** | Geführte Schritt-für-Schritt-Ersteinrichtung für Fahrmotoren oder den Roboter-Arm (inkl. Grafik ①-⑤). |
 | **`/controls`** | **Steuerungs-Editor** | Visuelles Live-Abbild von Bluetooth-Gamepad & Board zum Testen und freien Umbelegen aller Tasten/Sticks. |
 | **`/config`** | **Konfiguration** | Alle Experten-Einstellungen (WLAN-Name/Passwort, v1/v2-Board, Motor-PWM, Servos, Projekt- & GitHub-Infos). |
@@ -281,7 +289,7 @@ Wenn du selbst am C++-Code (`main/`) oder an der Weboberfläche (`data/`) arbeit
   - [`WebServerManager.cpp`](main/WebServerManager.cpp): AsyncWebServer, WebSocket (`/ws`), Captive-Portal-Erkennung & REST-Endpunkte
   - [`ConfigManager.cpp`](main/ConfigManager.cpp): Speicherung aller Einstellungen (inkl. `arm_config` & `control_bindings`) in `/config.json` auf LittleFS
   - [`InputBindingManager.cpp`](main/InputBindingManager.cpp): Auswertung und Zuordnung der Bluetooth-Gamepad-Eingaben
-- **[`data/`](data/)**: Weboberfläche (`basic.html`, `index.html`, `arm.html`, `setup.html`, `controls.html`, `config.html`, `portal.html`) - wird beim Bauen automatisch per Gzip komprimiert!
+- **[`data/`](data/)**: Weboberfläche (`basic.html`, `index.html`, `arm.html`, `sumo.html`, `setup.html`, `controls.html`, `config.html`, `portal.html`) - wird beim Bauen automatisch per Gzip komprimiert!
 - **[`tools/`](tools/)**: Auto-Flasher, WebSerial-Installer und Gzip-Build-Skript ([`tools/README.md`](tools/README.md))
 - **[`PCB/`](PCB/)**: Schaltpläne (V4.4), Platinen-Ansichten, 3D-Modell & Sicherheitshinweise ([`PCB/README.md`](PCB/README.md))
 - **[`CAD/`](CAD/)**: 3D-Druck-Modelle für Chassis, Platinenhalter und Sumo-Roboter-Bausatz ([`CAD/README.md`](CAD/README.md))

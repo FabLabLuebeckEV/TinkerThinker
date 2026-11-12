@@ -468,9 +468,21 @@ void WebServerManager::setupRoutes() {
             sendLittleFsFile(request, "/index.html");
         } else if (mode == "arm") {
             sendLittleFsFile(request, "/arm.html");
+        } else if (mode == "sumo") {
+            sendLittleFsFile(request, "/sumo.html");
         } else {
             sendLittleFsFile(request, "/basic.html");
         }
+    });
+
+    // SchrottBot-Sumo: Servo-Zuordnung und Winkelbereiche (vollständig, mit Standardwerten).
+    // Vor "/sumo" registrieren: ein Handler für "/sumo" nimmt auch "/sumo/..." an.
+    server.on("/sumo/config", HTTP_GET, [this](AsyncWebServerRequest *request){
+        request->send(200, "application/json", board->getSumoConfigJson());
+    });
+
+    server.on("/sumo", HTTP_GET, [this](AsyncWebServerRequest *request){
+        sendLittleFsFile(request, "/sumo.html");
     });
 
     server.on("/basic", HTTP_GET, [this](AsyncWebServerRequest *request){
@@ -764,6 +776,14 @@ document.getElementById('f').onsubmit=function(e){
             }
         }
 
+        // SchrottBot-Sumo: aktuelle Zuordnung (mit Standardwerten)
+        {
+            JsonDocument sd;
+            if (deserializeJson(sd, board->getSumoConfigJson()) == DeserializationError::Ok) {
+                doc["sumo"] = sd;
+            }
+        }
+
         // Robot Arm configuration: embed JSON if saved
         {
             String armCfg = config->getArmConfigJson();
@@ -779,6 +799,39 @@ document.getElementById('f').onsubmit=function(e){
         serializeJson(doc, json);
         request->send(200, "application/json", json);
     });
+
+    // POST /sumo/config: {"arm_l":{"servo":4,"a0":0,"a1":180}, "arm_r":{...}, "lift":{...}, "push":{...}}
+    server.on("/sumo/config", HTTP_POST,
+        [this](AsyncWebServerRequest *request){
+            char* body = takeBody(request);
+            if (!body) {
+                request->send(400, "application/json", "{\"error\":\"no body\"}");
+                return;
+            }
+            JsonDocument doc;
+            DeserializationError err = deserializeJson(doc, (const char*)body);
+            free(body);
+            if (err || !doc.is<JsonObject>()) {
+                Serial.printf("sumo/config: Parse-Fehler: %s\n", err ? err.c_str() : "kein Objekt");
+                request->send(400, "application/json", "{\"error\":\"invalid json\"}");
+                return;
+            }
+            String normalized;
+            serializeJson(doc, normalized);
+            config->setSumoConfigJson(normalized);
+            board->applySumoConfig(normalized);
+            bool ok = config->saveConfig();
+            if (!ok) {
+                request->send(500, "application/json", "{\"error\":\"save failed\"}");
+                return;
+            }
+            request->send(200, "application/json", board->getSumoConfigJson());
+        },
+        NULL,
+        [](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total){
+            accumulateBody(request, data, len, index, total);
+        }
+    );
 
     // POST /arm/config (speichert die Roboter-Arm-Zuordnung & Sensoren persistent im config.json)
     server.on("/arm/config", HTTP_POST,
@@ -1332,6 +1385,11 @@ void WebServerManager::onWebSocketEvent(AsyncWebSocket *server, AsyncWebSocketCl
                 }
             }
 
+            // SchrottBot-Sumo: {"sumo_arms": 0..100, "sumo_lift": 0..100, "sumo_push": 0..100}
+            if (!doc["sumo_arms"].isNull()) board->setSumoPos(TinkerThinkerBoard::SUMO_ARMS, doc["sumo_arms"].as<float>());
+            if (!doc["sumo_lift"].isNull()) board->setSumoPos(TinkerThinkerBoard::SUMO_LIFT, doc["sumo_lift"].as<float>());
+            if (!doc["sumo_push"].isNull()) board->setSumoPos(TinkerThinkerBoard::SUMO_PUSH, doc["sumo_push"].as<float>());
+
             // Servo setzen
             // Erwartetes Format: {"servo0": <angle>, ... "servo6": <angle>}
             for (int i = 0; i < 7; i++) {
@@ -1447,6 +1505,12 @@ void WebServerManager::sendStatusUpdate() {
             JsonArray servos = doc["servos"].to<JsonArray>();
             for (int i = 0; i < activeServos; i++) {
                 servos.add(board->getServoAngle(i));
+            }
+            if (config->getGuiMode() == "sumo") {
+                JsonArray sumo = doc["sumo"].to<JsonArray>();   // [Arme, Rampe hoch, Rampe vor] in %
+                for (int r = 0; r < TinkerThinkerBoard::SUMO_ROLES; r++) {
+                    sumo.add(roundf(board->getSumoPos(r) * 10.0f) / 10.0f);
+                }
             }
 
             if (config->isLegacyBoard()) {

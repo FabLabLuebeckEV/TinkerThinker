@@ -143,6 +143,22 @@ Recent Changes (Important)
      the command returns to 0 or reverses. Telemetry field `motorBlocked[4]`. Arm stall detection (~0.3 s,
      ~1 A) reacts first.
 
+12) Sumo template for the SchrottBot (`gui_mode: "sumo"`, Nov 2026)
+   - Page `data/sumo.html` + `data/sumo.js` (reuses `basic.js` for drive joystick, battery, signal, LED and the
+     WebSocket; `basic.js` forwards telemetry `sumo` to `window.onSumoTelemetry`). Served at `/` in sumo mode and at `/sumo`.
+   - Three functions in percent 0..100: arms (both arm servos, the right one runs mirrored through its own angle
+     range), lift (ramp up), push (ramp forward). `TinkerThinkerBoard::setSumoPos/nudgeSumo/getSumoPos`.
+   - Servo mapping + angles in config key `sumo` (`{"arm_l":{"servo":4,"a0":0,"a1":180}, "arm_r", "lift", "push"}`,
+     servo 1..7 as printed on the board, a0 = angle at 0 %, a1 = angle at 100 %). Defaults: Servo 4..7, right arm
+     reversed. `GET/POST /sumo/config` (register `/sumo/config` before `/sumo`: a handler for `/sumo` also accepts
+     `/sumo/...`). In sumo mode the servos boot at 0 % instead of 180°.
+   - WebSocket: `{"sumo_arms": 0..100, "sumo_lift": .., "sumo_push": ..}`; telemetry `sumo: [arms, lift, push]`.
+   - Bindings: `sumo_move {role: arms|lift|push, speed: %/s signed}` with edge `hold` moves while held and stays on
+     release; evaluated in `InputBindingManager::tickSumo()` from the controller snapshot (controllers often send no
+     new data while a button is held, `process()` only runs on new data). `sumo_set {role, pct}` on press.
+   - Controls editor: button "Vorlage SchrottBot Sumo" (left stick drive, D-pad arms, R1/L1 ramp up/down,
+     R2/L2 ramp forward/back, B arms closed). It replaces the list; "Speichern" applies it.
+
 Editing Guidelines
 - Keep changes focused; do not introduce a second Arduino core.
 - Respect the control arbiter API; route all new control surfaces through TinkerThinkerBoard request* methods.

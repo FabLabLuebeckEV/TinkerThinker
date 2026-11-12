@@ -50,6 +50,16 @@ public:
     int getServoAngle(int servoIndex);
     size_t getActiveServoCount() const;
 
+    // SchrottBot-Sumo (gui_mode "sumo"): Positionen in Prozent 0..100
+    //   SUMO_ARMS: beide Arm-Servos (0 = zu, 100 = auf; der rechte läuft über seinen Winkelbereich gegenläufig)
+    //   SUMO_LIFT: Rampe heben (0 = unten), SUMO_PUSH: Rampe vorschieben (0 = hinten)
+    enum SumoRole { SUMO_ARMS = 0, SUMO_LIFT = 1, SUMO_PUSH = 2, SUMO_ROLES = 3 };
+    void applySumoConfig(const String& json);
+    String getSumoConfigJson() const;
+    void setSumoPos(int role, float pct);
+    void nudgeSumo(int role, float deltaPct);
+    float getSumoPos(int role);
+
     // LED-Steuerung
     void setLED(int led, uint8_t r, uint8_t g, uint8_t b);
     void showLEDs();
@@ -127,6 +137,14 @@ private:
     int motorLeftGUI = 2;
     int motorRightGUI = 3;
     ControllerInputSnapshot controllerSnapshots[BP32_MAX_GAMEPADS];
+
+    // Sumo: Servo-Index (0-basiert) und Winkel bei 0 % (a0) und 100 % (a1)
+    // Reihenfolge: arm_l, arm_r, lift, push; Standard Servo 4..7, rechter Arm gegenläufig
+    struct SumoServo { int servo; int a0; int a1; };
+    SumoServo sumoServo[4] = {{3, 0, 180}, {4, 180, 0}, {5, 0, 180}, {6, 0, 180}};
+    float sumoPos[SUMO_ROLES] = {NAN, NAN, NAN};
+    portMUX_TYPE sumoMux = portMUX_INITIALIZER_UNLOCKED;
+    int sumoAngle(int slot, float pct) const;
 };
 
 #endif

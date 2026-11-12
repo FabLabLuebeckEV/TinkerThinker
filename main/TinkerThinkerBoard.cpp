@@ -74,7 +74,16 @@ void TinkerThinkerBoard::reApplyConfig() {
     motorRightGUI = config->getMotorRightGUI();
 
     size_t activeServos = getActiveServoCount();
+    applySumoConfig(config->getSumoConfigJson());
     if (!servoController) {
+        // Sumo-Modus: Servos starten in der Grundstellung (Arme zu, Rampe unten und hinten) statt bei 180 Grad,
+        // sonst schlagen Arme und Rampe beim Einschalten an
+        if (config->getGuiMode() == "sumo") {
+            for (int slot = 0; slot < 4; slot++) {
+                int idx = sumoServo[slot].servo;
+                if (idx >= 0 && (size_t)idx < activeServos) servos[idx].angle = sumoAngle(slot, 0.0f);
+            }
+        }
         for (size_t i = activeServos; i < SERVO_COUNT; i++) {
             ledcDetach(servos[i].pin);
         }
@@ -192,6 +201,83 @@ void TinkerThinkerBoard::setServoAngle(int servoIndex, int angle) {
 
 int TinkerThinkerBoard::getServoAngle(int servoIndex) {
     return servoController->getServoAngle(servoIndex);
+}
+
+// ---------------- SchrottBot-Sumo ----------------
+
+static const char* SUMO_KEYS[4] = {"arm_l", "arm_r", "lift", "push"};
+
+void TinkerThinkerBoard::applySumoConfig(const String& json) {
+    SumoServo neu[4] = {{3, 0, 180}, {4, 180, 0}, {5, 0, 180}, {6, 0, 180}};
+    if (json.length() > 0) {
+        JsonDocument doc;
+        DeserializationError err = deserializeJson(doc, json);
+        if (err) {
+            Serial.printf("Sumo-Konfiguration: Parse-Fehler %s, Standard wird verwendet\n", err.c_str());
+        } else {
+            for (int slot = 0; slot < 4; slot++) {
+                JsonObject o = doc[SUMO_KEYS[slot]].as<JsonObject>();
+                if (o.isNull()) continue;
+                int servoNr = o["servo"] | (neu[slot].servo + 1);   // im JSON 1..7 wie auf der Platine
+                neu[slot].servo = constrain(servoNr, 1, (int)SERVO_COUNT) - 1;
+                neu[slot].a0 = constrain((int)(o["a0"] | neu[slot].a0), 0, 180);
+                neu[slot].a1 = constrain((int)(o["a1"] | neu[slot].a1), 0, 180);
+            }
+        }
+    }
+    portENTER_CRITICAL(&sumoMux);
+    for (int slot = 0; slot < 4; slot++) sumoServo[slot] = neu[slot];
+    portEXIT_CRITICAL(&sumoMux);
+    // Positionen neu aus den aktuellen Servowinkeln ableiten (Bereiche können sich geändert haben)
+    for (int r = 0; r < SUMO_ROLES; r++) sumoPos[r] = NAN;
+}
+
+String TinkerThinkerBoard::getSumoConfigJson() const {
+    JsonDocument doc;
+    for (int slot = 0; slot < 4; slot++) {
+        JsonObject o = doc[SUMO_KEYS[slot]].to<JsonObject>();
+        o["servo"] = sumoServo[slot].servo + 1;
+        o["a0"] = sumoServo[slot].a0;
+        o["a1"] = sumoServo[slot].a1;
+    }
+    String out;
+    serializeJson(doc, out);
+    return out;
+}
+
+int TinkerThinkerBoard::sumoAngle(int slot, float pct) const {
+    const SumoServo& s = sumoServo[slot];
+    return (int)lroundf(s.a0 + (s.a1 - s.a0) * pct / 100.0f);
+}
+
+float TinkerThinkerBoard::getSumoPos(int role) {
+    if (role < 0 || role >= SUMO_ROLES) return 0.0f;
+    float p = sumoPos[role];
+    if (!isnan(p)) return p;
+    // noch nicht gesetzt: aus dem aktuellen Winkel des (ersten) Servos der Rolle zurückrechnen
+    int slot = (role == SUMO_ARMS) ? 0 : role + 1;
+    const SumoServo& s = sumoServo[slot];
+    int angle = servoController ? servoController->getServoAngle(s.servo) : -1;
+    if (angle < 0 || s.a1 == s.a0) return 0.0f;
+    return constrain((angle - s.a0) * 100.0f / (s.a1 - s.a0), 0.0f, 100.0f);
+}
+
+void TinkerThinkerBoard::setSumoPos(int role, float pct) {
+    if (role < 0 || role >= SUMO_ROLES || !servoController) return;
+    pct = constrain(pct, 0.0f, 100.0f);
+    sumoPos[role] = pct;
+    if (role == SUMO_ARMS) {
+        servoController->setServoAngle(sumoServo[0].servo, sumoAngle(0, pct));
+        servoController->setServoAngle(sumoServo[1].servo, sumoAngle(1, pct));
+    } else {
+        int slot = role + 1;
+        servoController->setServoAngle(sumoServo[slot].servo, sumoAngle(slot, pct));
+    }
+}
+
+void TinkerThinkerBoard::nudgeSumo(int role, float deltaPct) {
+    if (role < 0 || role >= SUMO_ROLES || deltaPct == 0.0f) return;
+    setSumoPos(role, getSumoPos(role) + deltaPct);
 }
 
 void TinkerThinkerBoard::setLED(int led, uint8_t r, uint8_t g, uint8_t b) {

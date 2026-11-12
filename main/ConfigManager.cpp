@@ -193,6 +193,13 @@ bool ConfigManager::loadConfig() {
         arm_config_json = tmp;
     }
 
+    // SchrottBot-Sumo-Steuerung (store raw JSON)
+    if (!doc["sumo"].isNull()) {
+        String tmp;
+        serializeJson(doc["sumo"], tmp);
+        sumo_config_json = tmp;
+    }
+
     // Bluetooth Whitelist
     bt_whitelist_enabled = doc["bt_whitelist_enabled"] | false;
     bt_whitelist.clear();
@@ -288,6 +295,14 @@ bool ConfigManager::saveConfig() {
         JsonDocument armDoc;
         if (deserializeJson(armDoc, arm_config_json) == DeserializationError::Ok) {
             doc["arm_config"] = armDoc;
+        }
+    }
+
+    // SchrottBot-Sumo-Steuerung: embed stored JSON
+    if (sumo_config_json.length() > 0) {
+        JsonDocument sumoDoc;
+        if (deserializeJson(sumoDoc, sumo_config_json) == DeserializationError::Ok) {
+            doc["sumo"] = sumoDoc;
         }
     }
 
@@ -390,7 +405,7 @@ void ConfigManager::setMotorLeftGUI(int motorIndex){ motorLeftGUI = motorIndex; 
 void ConfigManager::setMotorRightGUI(int motorIndex){ motorRightGUI = motorIndex; }
 void ConfigManager::setMotorGripperGUI(int motorIndex){ motorGripperGUI = constrain(motorIndex, 0, 3); }
 void ConfigManager::setGuiMode(const String& mode){
-    if (mode == "drive" || mode == "arm" || mode == "basic") {
+    if (mode == "drive" || mode == "arm" || mode == "basic" || mode == "sumo") {
         gui_mode = mode;
     } else {
         gui_mode = "basic";

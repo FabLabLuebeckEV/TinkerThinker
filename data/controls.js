@@ -4,7 +4,24 @@
   const DPAD_DIRS    = ['UP','DOWN','LEFT','RIGHT'];
   const EDGES        = ['press','release','hold'];
   const AXES         = ['X','Y','RX','RY'];
-  const ACTION_TYPES = ['motor_direct','drive_pair','servo_set','servo_toggle_band','servo_nudge','servo_axes','motor_axis','servo_sweep','motor_ramp','led_set','gpio_set','speed_adjust'];
+  const ACTION_TYPES = ['motor_direct','drive_pair','servo_set','servo_toggle_band','servo_nudge','servo_axes','motor_axis','servo_sweep','motor_ramp','led_set','gpio_set','speed_adjust','sumo_move','sumo_set'];
+  const SUMO_ROLES   = ['arms','lift','push'];
+  const SUMO_NAMES   = {arms:'Arme', lift:'Rampe hoch', push:'Rampe vor'};
+
+  // Vorlage SchrottBot Sumo: linker Stick fährt, Steuerkreuz Arme, Schultertasten Rampe.
+  // Servo-Zuordnung und Winkel stehen auf der Sumo-Steuerseite (/sumo, Servo-Einstellungen).
+  const SUMO_TEMPLATE = [
+    { input:{type:'axis_pair',x:'X',y:'Y',deadband:16}, action:{type:'drive_pair',target:'gui'} },
+    { input:{type:'dpad',dir:'RIGHT',edge:'hold'}, action:{type:'sumo_move',role:'arms',speed:150} },
+    { input:{type:'dpad',dir:'UP',edge:'hold'},    action:{type:'sumo_move',role:'arms',speed:150} },
+    { input:{type:'dpad',dir:'LEFT',edge:'hold'},  action:{type:'sumo_move',role:'arms',speed:-150} },
+    { input:{type:'dpad',dir:'DOWN',edge:'hold'},  action:{type:'sumo_move',role:'arms',speed:-150} },
+    { input:{type:'button',code:'BUTTON_R1',edge:'hold'}, action:{type:'sumo_move',role:'lift',speed:200} },
+    { input:{type:'button',code:'BUTTON_L1',edge:'hold'}, action:{type:'sumo_move',role:'lift',speed:-200} },
+    { input:{type:'button',code:'BUTTON_R2',edge:'hold'}, action:{type:'sumo_move',role:'push',speed:200} },
+    { input:{type:'button',code:'BUTTON_L2',edge:'hold'}, action:{type:'sumo_move',role:'push',speed:-200} },
+    { input:{type:'button',code:'BTN_B',edge:'press'}, action:{type:'sumo_set',role:'arms',pct:0} },
+  ];
   const INPUT_TYPES  = ['button','dpad','axis_pair'];
 
   const EXAMPLES = [
@@ -119,6 +136,8 @@
     if (act.type === 'servo_set')     return `servo${act.servo} ${act.angle}°`;
     if (act.type === 'servo_nudge')   return `servo${act.servo} ${act.delta > 0 ? '+' : ''}${act.delta}°`;
     if (act.type === 'speed_adjust')  return `speed ${act.delta > 0 ? '+' : ''}${act.delta}`;
+    if (act.type === 'sumo_move')     return `${SUMO_NAMES[act.role] || act.role} ${act.speed > 0 ? '+' : ''}${act.speed} %/s`;
+    if (act.type === 'sumo_set')      return `${SUMO_NAMES[act.role] || act.role} → ${act.pct} %`;
     return act.type;
   }
 
@@ -223,6 +242,21 @@
           frow([el('label',{},'Delta:'), refs.deltaEl]),
           hint('Globalen Geschwindigkeitsmultiplikator ändern · 0.1 = +10% · −0.1 = −10%')
         );
+      } else if (t === 'sumo_move') {
+        refs.roleSel  = mkSel(SUMO_ROLES, action.role || 'arms');
+        refs.speedEl  = mkNum(-1000, 1000, action.speed ?? 150, 80);
+        fieldsDiv.append(
+          frow([el('label',{},'Funktion:'), refs.roleSel, el('label',{},'%/s:'), refs.speedEl]),
+          hint('arms = beide Arm-Servos gegenläufig · lift = Rampe hoch · push = Rampe vor'),
+          hint('Mit Kante „hold“: fährt solange gedrückt, bleibt beim Loslassen stehen · positiv = auf/hoch/vor · 100 %/s = ganzer Weg in 1 s')
+        );
+      } else if (t === 'sumo_set') {
+        refs.roleSel = mkSel(SUMO_ROLES, action.role || 'arms');
+        refs.pctEl   = mkNum(0, 100, action.pct ?? 0, 72);
+        fieldsDiv.append(
+          frow([el('label',{},'Funktion:'), refs.roleSel, el('label',{},'Position %:'), refs.pctEl]),
+          hint('Setzt Arme/Rampe direkt auf eine Position · 0 = zu/unten/hinten · 100 = auf/oben/vorn')
+        );
       }
     }
 
@@ -287,6 +321,14 @@
             break;
           case 'speed_adjust':
             a.delta = parseFloat(refs.deltaEl.value || '0');
+            break;
+          case 'sumo_move':
+            a.role  = refs.roleSel.value;
+            a.speed = parseInt(refs.speedEl.value || '0');
+            break;
+          case 'sumo_set':
+            a.role = refs.roleSel.value;
+            a.pct  = parseInt(refs.pctEl.value || '0');
             break;
         }
         return a;
@@ -560,6 +602,17 @@
     }
   }
 
+  // ── Vorlage SchrottBot Sumo (ersetzt alle Bindings, Speichern übernimmt sie) ──
+  function loadSumoTemplate() {
+    bindingModel = SUMO_TEMPLATE.map(b => ({id: nextId++, input: {...b.input}, action: {...b.action}}));
+    selectedKey = null;
+    panelEl.innerHTML = '<p class="panel-hint">← Controller-Element auswählen um Bindings zu bearbeiten</p>';
+    Object.keys(panelEditors).forEach(k => delete panelEditors[k]);
+    renderList();
+    updateControllerColors();
+    st.textContent = 'Vorlage SchrottBot Sumo geladen - zum Übernehmen „Speichern“';
+  }
+
   // ── Examples ──────────────────────────────────────────────
   window.applyExample = function (n) {
     const ex = EXAMPLES[n];
@@ -590,6 +643,7 @@
   document.getElementById('load').addEventListener('click', load);
   document.getElementById('save').addEventListener('click', save);
   document.getElementById('defaults').addEventListener('click', loadDefaults);
+  document.getElementById('sumoTemplate').addEventListener('click', loadSumoTemplate);
 
   // ── Controller click handlers ─────────────────────────────
   document.querySelectorAll('.ctrl-btn[data-key]').forEach(btn => {

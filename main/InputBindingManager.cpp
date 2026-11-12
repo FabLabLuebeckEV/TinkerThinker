@@ -103,6 +103,12 @@ void InputBindingManager::applyAction(JsonObject action, ControllerPtr ctl) {
             pwm = constrain(pwm, -255, 255);
             board->requestMotorDirectFromBT(idx, pwm);
         }
+    } else if (!strcmp(type, "sumo_set")) {
+        // SchrottBot-Sumo: Position direkt setzen (0..100 %)
+        int role = sumoRoleFromString(action["role"] | "arms");
+        if (role >= 0) board->setSumoPos(role, action["pct"] | 0.0f);
+    } else if (!strcmp(type, "sumo_move")) {
+        // läuft in tickSumo() solange die Taste gehalten wird; hier nichts tun
     } else if (!strcmp(type, "servo_sweep")) {
         startServoSweep(action);
     } else if (!strcmp(type, "motor_ramp")) {
@@ -179,9 +185,52 @@ void InputBindingManager::tickSweepsAndRamps(uint32_t now) {
     }
 }
 
+int InputBindingManager::sumoRoleFromString(const char* role) {
+    if (!strcmp(role, "arms")) return TinkerThinkerBoard::SUMO_ARMS;
+    if (!strcmp(role, "lift")) return TinkerThinkerBoard::SUMO_LIFT;
+    if (!strcmp(role, "push")) return TinkerThinkerBoard::SUMO_PUSH;
+    return -1;
+}
+
+// sumo_move {role, speed (%/s, Vorzeichen = Richtung)} an Taste/D-Pad: solange gehalten, fährt die Position
+// stetig weiter und bleibt beim Loslassen stehen. Ausgewertet über den Controller-Snapshot, weil Controller
+// beim Halten oft keine neuen Daten schicken (process() läuft nur bei neuen Daten).
+void InputBindingManager::tickSumo(uint32_t now) {
+    if (now - sumoLastMs < 10) return;
+    uint32_t dt = now - sumoLastMs;
+    sumoLastMs = now;
+    if (dt > 100) dt = 100;   // nach einer Pause (Konfig-Reload, Start) keinen Sprung machen
+    if (!bindings.is<JsonArray>()) return;
+    float rate[TinkerThinkerBoard::SUMO_ROLES] = {0.0f, 0.0f, 0.0f};
+    bool any = false;
+    for (int c = 0; c < BP32_MAX_GAMEPADS; c++) {
+        const ControllerInputSnapshot& snap = board->getControllerSnapshot(c);
+        if (!snap.connected) continue;
+        for (JsonObject b : bindings.as<JsonArray>()) {
+            JsonObject action = b["action"].as<JsonObject>();
+            if (strcmp(action["type"] | "", "sumo_move")) continue;
+            JsonObject input = b["input"].as<JsonObject>();
+            const char* inType = input["type"] | "";
+            bool pressed = false;
+            if (!strcmp(inType, "button")) pressed = snap.buttons & buttonMaskFromString(input["code"].as<String>());
+            else if (!strcmp(inType, "dpad")) pressed = snap.dpad & dpadMaskFromString(input["dir"].as<String>());
+            if (!pressed) continue;
+            int role = sumoRoleFromString(action["role"] | "arms");
+            if (role < 0) continue;
+            rate[role] += action["speed"] | 150.0f;
+            any = true;
+        }
+    }
+    if (!any) return;
+    for (int r = 0; r < TinkerThinkerBoard::SUMO_ROLES; r++) {
+        if (rate[r] != 0.0f) board->nudgeSumo(r, rate[r] * dt / 1000.0f);
+    }
+}
+
 void InputBindingManager::tick() {
     uint32_t now = millis();
     tickSweepsAndRamps(now);
+    tickSumo(now);
     for (int m = 0; m < 4; m++) {
         if (motorHoldUntil[m] == 0) continue;
         if (now < motorHoldUntil[m]) {

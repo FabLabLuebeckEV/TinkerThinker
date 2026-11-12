@@ -111,6 +111,10 @@ function connectWebSocket() {
         if (data.wifiRssi !== undefined) {
             updateSignalUI(true, data.wifiRssi);
         }
+        // Sumo-Seite (sumo.js): Positionen von Armen und Rampe
+        if (Array.isArray(data.sumo) && typeof window.onSumoTelemetry === 'function') {
+            window.onSumoTelemetry(data.sumo);
+        }
         if (data.firstLED && ledColorPicker && (Date.now() - lastLedSendMs > 500)) {
             const { r, g, b } = data.firstLED;
             ledColorPicker.value = rgbToHex(r, g, b);

@@ -44,6 +44,11 @@ private:
     uint32_t motorHoldUntil[4] = {0,0,0,0};
     static const uint32_t MOTOR_HOLD_COAST_MS = 500;
 
+    // sumo_move: Zeitpunkt der letzten Integration (aus tick(), nach Controller-Snapshot)
+    uint32_t sumoLastMs = 0;
+    void tickSumo(uint32_t now);
+    static int sumoRoleFromString(const char* role);
+
     // Helpers
     int getAxis(ControllerPtr ctl, const char* name);
     void applyAction(JsonObject action, ControllerPtr ctl);

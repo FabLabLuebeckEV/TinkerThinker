@@ -130,6 +130,11 @@ public:
     String getArmConfigJson() const { return arm_config_json; }
     void setArmConfigJson(const String &json) { arm_config_json = json; }
 
+    // SchrottBot-Sumo (gui_mode "sumo"): Servo-Zuordnung und Winkelbereiche als JSON-Objekt
+    // {"arm_l":{"servo":4,"a0":0,"a1":180}, "arm_r":{...}, "lift":{...}, "push":{...}} (servo 1..7)
+    String getSumoConfigJson() const { return sumo_config_json; }
+    void setSumoConfigJson(const String &json) { sumo_config_json = json; }
+
     // Bluetooth Whitelist
     bool getBtWhitelistEnabled() const { return bt_whitelist_enabled; }
     const std::vector<String>& getBtWhitelist() const { return bt_whitelist; }
@@ -194,6 +199,7 @@ private:
 
     String control_bindings_json; // raw JSON string for control mappings
     String arm_config_json;       // raw JSON object string for robot arm setup
+    String sumo_config_json;      // raw JSON object string for the SchrottBot sumo controls
 
     bool bt_whitelist_enabled = false;
     std::vector<String> bt_whitelist;
