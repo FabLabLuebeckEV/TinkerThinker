@@ -156,7 +156,7 @@ Recent Changes (Important)
    - Bindings: `sumo_move {role: arms|lift|push, speed: %/s signed}` with edge `hold` moves while held and stays on
      release; evaluated in `InputBindingManager::tickSumo()` from the controller snapshot (controllers often send no
      new data while a button is held, `process()` only runs on new data). `sumo_set {role, pct}` on press.
-   - Controls editor: button "Vorlage SchrottBot Sumo" (left stick drive, D-pad arms, R1/L1 ramp up/down,
+   - Controls editor: button "Vorlage SchrottBot Sumo" (left stick drive, D-pad right/left arms open/close, D-pad up/down speed_adjust +/-0.1, R1/L1 ramp up/down,
      R2/L2 ramp forward/back, B arms closed). It replaces the list; "Speichern" applies it.
 
 Editing Guidelines

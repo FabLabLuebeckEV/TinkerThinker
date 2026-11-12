@@ -13,9 +13,9 @@
   const SUMO_TEMPLATE = [
     { input:{type:'axis_pair',x:'X',y:'Y',deadband:16}, action:{type:'drive_pair',target:'gui'} },
     { input:{type:'dpad',dir:'RIGHT',edge:'hold'}, action:{type:'sumo_move',role:'arms',speed:150} },
-    { input:{type:'dpad',dir:'UP',edge:'hold'},    action:{type:'sumo_move',role:'arms',speed:150} },
     { input:{type:'dpad',dir:'LEFT',edge:'hold'},  action:{type:'sumo_move',role:'arms',speed:-150} },
-    { input:{type:'dpad',dir:'DOWN',edge:'hold'},  action:{type:'sumo_move',role:'arms',speed:-150} },
+    { input:{type:'dpad',dir:'UP',edge:'press'},   action:{type:'speed_adjust',delta:0.1} },
+    { input:{type:'dpad',dir:'DOWN',edge:'press'}, action:{type:'speed_adjust',delta:-0.1} },
     { input:{type:'button',code:'BUTTON_R1',edge:'hold'}, action:{type:'sumo_move',role:'lift',speed:200} },
     { input:{type:'button',code:'BUTTON_L1',edge:'hold'}, action:{type:'sumo_move',role:'lift',speed:-200} },
     { input:{type:'button',code:'BUTTON_R2',edge:'hold'}, action:{type:'sumo_move',role:'push',speed:200} },
