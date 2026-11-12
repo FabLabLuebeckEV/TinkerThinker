@@ -434,6 +434,15 @@
         </div>
         <div class="inline-fields" style="margin-top:12px;">
           <label style="max-width:180px;">
+            Geschwindigkeit
+            <select id="flashBaudSelect">
+              <option value="921600" selected>921600 Baud (schnell)</option>
+              <option value="460800">460800 Baud</option>
+              <option value="230400">230400 Baud</option>
+              <option value="115200">115200 Baud (langsam, sicher)</option>
+            </select>
+          </label>
+          <label style="max-width:180px;">
             Flash Size
             <select id="flashSizeSelect">
               <option value="8MB" selected>8MB</option>
@@ -1157,6 +1166,27 @@
         return out;
       };
 
+      // esptool-js schliesst den Port beim Baudratenwechsel (changeBaud) und oeffnet ihn neu.
+      // Der Original-disconnect gibt den Reader-Lock nicht frei, weil unser _nextChunk den Reader
+      // selbst haelt, und wartet dann endlos auf "unlocked". Darum hier sauber abbauen.
+      transport.disconnect = async function () {
+        if (this.reader) {
+          try {
+            await this.reader.cancel();
+          } catch (_) {}
+          if (this._pendingReadPromise) {
+            try {
+              await this._pendingReadPromise;
+            } catch (_) {}
+          }
+          this.reader.releaseLock();
+        }
+        this.reader = undefined;
+        this._pendingReadPromise = null;
+        this.buffer = new Uint8Array(0);
+        await this.device.close();
+      };
+
       const resetConstructors = {
         classicReset: (trans, delay = 50) => ({
           async reset() {
@@ -1206,9 +1236,13 @@
 
       const port = await navigator.serial.requestPort();
       const { transport, resetConstructors } = createPatchedTransportAndReset(port);
+      // Verbindungsaufbau immer mit 115200 (ROM-Bootloader), danach schaltet esptool-js
+      // nach dem Laden des Stubs auf die gewaehlte Baudrate um.
+      const flashBaud = Number.parseInt(document.getElementById("flashBaudSelect").value, 10);
       const loader = new ESPLoader({
         transport,
-        baudrate: 115200,
+        baudrate: flashBaud,
+        romBaudrate: 115200,
         terminal,
         debugLogging: false,
         resetConstructors,
@@ -1218,7 +1252,7 @@
         setPill(flashPill, "Verbinde mit Bootloader", "warn");
         const chipName = await loader.main();
         infoChip.textContent = chipName || "-";
-        appendLog("[FLASH] Verbunden mit " + chipName);
+        appendLog(`[FLASH] Verbunden mit ${chipName}, ${flashBaud} Baud`);
 
         const eraseAll = document.getElementById("eraseAllInput").checked;
         await loader.writeFlash({
@@ -1241,6 +1275,11 @@
         await loader.after("hard_reset");
         setPill(flashPill, "Flash abgeschlossen", "ok");
         appendLog("[FLASH] Vorgang abgeschlossen");
+      } catch (err) {
+        if (flashBaud > 115200) {
+          appendLog(`[FLASH] Abbruch bei ${flashBaud} Baud. Bei wiederholtem Fehler eine kleinere Geschwindigkeit waehlen.`);
+        }
+        throw err;
       } finally {
         try {
           if (transport.reader) {
