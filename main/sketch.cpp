@@ -797,6 +797,7 @@ void setup() {
         dfPlayerOnline = true;
         myDFPlayer.volume(DFPLAYER_VOLUME);
         Serial.println(F("DFPlayer Mini online."));
+        myDFPlayer.playMp3Folder(1);   // Start-Quak (/mp3/0001.mp3)
     } else {
         Serial.println(F("DFPlayer Mini nicht gefunden (Verkabelung/SD-Karte pruefen)."));
     }
