@@ -710,7 +710,12 @@ function finalizeSetup() {
         if (!res.ok) throw new Error('HTTP ' + res.status);
         goToStep(17);
         setTimeout(() => {
-            fetch('/reboot').catch(() => {});
+            // POST: Als GET-Adresse würde ein Tab auf /reboot das Board bei jedem Neuladen neu starten.
+            // Ein Abbruch der Verbindung ist hier erwartet, weil das Board sofort neu startet;
+            // eine echte HTTP-Fehlerantwort wird gemeldet.
+            fetch('/reboot', { method: 'POST' }).then((r) => {
+                if (!r.ok) alert('Neustart fehlgeschlagen: HTTP ' + r.status + '. Bitte das Board kurz vom Strom trennen.');
+            }).catch(() => {});
         }, 400);
     }).catch((err) => {
         console.error('Setup speichern fehlgeschlagen:', err);

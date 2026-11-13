@@ -41,10 +41,8 @@ function connectWebSocket() {
         SSID: ${document.getElementById('wifi_mode').value === 'AP' ? document.getElementById('hotspot_ssid').value : document.getElementById('wifi_ssid').value}
       `;
       document.getElementById('restartPopup').style.display = 'block';
-      // Trigger Neustart nach kurzer Verzögerung
-      setTimeout(() => {
-        window.location.href = "/reboot";
-      }, 3000);
+      // Neustart nach kurzer Verzögerung (POST, damit kein Tab auf /reboot stehen bleibt)
+      setTimeout(() => { requestRestart('/reboot'); }, 3000);
     }
   };
 
@@ -492,10 +490,33 @@ document.getElementById('configForm').addEventListener('submit', function(e) {
   
 });
 
+// Neustart bzw. Werksreset per POST auslösen, genau einmal. Früher wurde der Browser auf
+// /reboot geleitet: Der Tab blieb dort stehen und startete das Board bei jedem Neuladen erneut.
+let restartRequested = false;
+async function requestRestart(url) {
+  if (restartRequested) return;
+  restartRequested = true;
+  try {
+    const res = await fetch(url, { method: 'POST' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+  } catch (e) {
+    // Die Verbindung kann beim Neustart abbrechen, bevor die Antwort ankommt. Nur echte
+    // HTTP-Fehler melden, Netzwerkabbrüche sind hier erwartet.
+    if (String(e.message).startsWith('HTTP')) {
+      restartRequested = false;
+      alert('Neustart fehlgeschlagen: ' + e.message);
+      return;
+    }
+  }
+  // Nach dem Neustart die Konfigurationsseite neu laden (nicht /reboot!)
+  setTimeout(() => { window.location.href = '/config'; }, 8000);
+}
+
 // Reset Config Funktion
 function resetConfig() {
   if (confirm("Bist du sicher, dass du auf Werkseinstellungen zurücksetzen möchtest?")) {
-    window.location.href = "/resetconfig";
+    alert('Das Board wird zurückgesetzt und startet neu. Danach heißt das WLAN wieder TinkerThinkerAP (ohne Passwort).');
+    requestRestart('/resetconfig');
   }
 }
 
@@ -513,10 +534,8 @@ function reboot() {
       SSID: ${data.wifi_mode === 'AP' ? data.hotspot_ssid : data.wifi_ssid}
     `;
     document.getElementById('restartPopup').style.display = 'block';
-    // Trigger Neustart nach kurzer Verzögerung
-    setTimeout(() => {
-      window.location.href = "/reboot";
-    }, 3000);
+    // Neustart nach kurzer Verzögerung (POST, damit kein Tab auf /reboot stehen bleibt)
+    setTimeout(() => { requestRestart('/reboot'); }, 3000);
   }).catch(error => {
     console.error("Fehler beim Abrufen der Konfiguration:", error);
     alert("Fehler beim Abrufen der Konfiguration. Bitte versuche es später erneut.");

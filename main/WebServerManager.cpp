@@ -753,11 +753,15 @@ document.getElementById('f').onsubmit=function(e){
         handleConfig(request);
     });
 
-    server.on("/resetconfig", HTTP_GET, [this](AsyncWebServerRequest* request){
-        config->resetConfig();
-        AsyncWebServerResponse* res = request->beginResponse(302);
-        res->addHeader("Location", "/config");
-        sendAndRestart(request, res);
+    // Werksreset und Neustart nur per POST: Als GET-Adresse blieb ein Browser-Tab auf
+    // /reboot stehen und startete das Board bei jedem Neuladen erneut (Neustart-Schleife).
+    server.on("/resetconfig", HTTP_POST, [this](AsyncWebServerRequest* request){
+        bool ok = config->resetConfig();
+        if (!ok) {
+            request->send(500, "application/json", "{\"error\":\"reset failed\"}");
+            return;
+        }
+        sendAndRestart(request, request->beginResponse(200, "application/json", "{\"status\":\"ok\"}"));
     });
 
     // GET connected controllers (MAC + model)
@@ -826,8 +830,17 @@ document.getElementById('f').onsubmit=function(e){
         }
     );
 
-    server.on("/reboot", HTTP_GET, [this](AsyncWebServerRequest* request){
+    server.on("/reboot", HTTP_POST, [this](AsyncWebServerRequest* request){
         sendAndRestart(request, request->beginResponse(200, "text/plain", "Rebooting..."));
+    });
+
+    // Wer /reboot oder /resetconfig im Browser aufruft (Lesezeichen, alter Tab, Verlauf),
+    // landet ohne Neustart auf der Startseite. So kann kein Tab auf der Adresse stehen bleiben.
+    server.on("/reboot", HTTP_GET, [](AsyncWebServerRequest* request){
+        request->redirect("/");
+    });
+    server.on("/resetconfig", HTTP_GET, [](AsyncWebServerRequest* request){
+        request->redirect("/");
     });
 
     // LED-Einstellungen (Helligkeit/Gamma) dauerhaft speichern
