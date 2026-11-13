@@ -2,6 +2,10 @@
 #include "TinkerThinkerBoard.h"
 #include "ConfigManager.h"
 
+// Audiomodul (DFPlayer), definiert in sketch.cpp
+void audioPlay(int track);
+void audioVolumeAdjust(int delta);
+
 InputBindingManager::InputBindingManager(TinkerThinkerBoard* b, ConfigManager* c)
     : board(b), config(c) {}
 
@@ -109,6 +113,10 @@ void InputBindingManager::applyAction(JsonObject action, ControllerPtr ctl) {
         if (role >= 0) board->setSumoPos(role, action["pct"] | 0.0f);
     } else if (!strcmp(type, "sumo_move")) {
         // läuft in tickSumo() solange die Taste gehalten wird; hier nichts tun
+    } else if (!strcmp(type, "sound_play")) {
+        audioPlay(action["track"] | 1);
+    } else if (!strcmp(type, "sound_volume")) {
+        audioVolumeAdjust(action["delta"] | 0);
     } else if (!strcmp(type, "servo_sweep")) {
         startServoSweep(action);
     } else if (!strcmp(type, "motor_ramp")) {

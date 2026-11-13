@@ -36,17 +36,17 @@ SET_LOOP_TASK_STACK_SIZE(16 * 1024);
 ConfigManager configManager;
 TinkerThinkerBoard board(&configManager);
 
-// Audio-Tasten: R2 = Track 1 (0001.mp3), L2 = Track 2 (0002.mp3), Flankenerkennung am Trigger.
-static void processAudioTriggers(ControllerPtr ctl) {
+// Audio-Aktionen für die Controller-Bindings (sound_play / sound_volume, siehe InputBindingManager).
+// Track n spielt /mp3/000n.mp3 von der SD-Karte.
+static int dfPlayerVolume = DFPLAYER_VOLUME;
+void audioPlay(int track) {
+    if (!dfPlayerOnline || track < 1) return;
+    myDFPlayer.playMp3Folder(track);
+}
+void audioVolumeAdjust(int delta) {
     if (!dfPlayerOnline) return;
-    static bool r2Held = false;
-    static bool l2Held = false;
-    bool r2 = ctl->throttle() > 500;
-    bool l2 = ctl->brake() > 500;
-    if (r2 && !r2Held) myDFPlayer.play(1);
-    if (l2 && !l2Held) myDFPlayer.play(2);
-    r2Held = r2;
-    l2Held = l2;
+    dfPlayerVolume = constrain(dfPlayerVolume + delta, 0, 30);
+    myDFPlayer.volume(dfPlayerVolume);
 }
 
 
@@ -752,7 +752,6 @@ void processGamepad(ControllerPtr ctl) {
     if (idx >= 0) {
         board.updateControllerSnapshot(idx, ctl);
         inputBindings.process(ctl, idx);
-        processAudioTriggers(ctl);
     }
 
     // Update player LEDs to show battery level

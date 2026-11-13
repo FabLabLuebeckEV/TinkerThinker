@@ -158,6 +158,12 @@ Recent Changes (Important)
      new data while a button is held, `process()` only runs on new data). `sumo_set {role, pct}` on press.
    - Controls editor: button "Vorlage SchrottBot Sumo" (left stick drive, D-pad right/left arms open/close, D-pad up/down speed_adjust +/-0.1, R1/L1 ramp up/down,
      R2/L2 ramp forward/back, B arms closed). It replaces the list; "Speichern" applies it.
+13) DuckNorris audio (branch `Ducknorris`, Nov 2026)
+   - DFPlayer Mini on UART2 (ESP-RX GPIO5, ESP-TX GPIO19), library `main/DFRobotDFPlayerMini.*` (from branch `ente`).
+     Init in `setup()`, firmware runs on without the module. `audioPlay(track)` plays `/mp3/000n.mp3` (FAT32 SD card).
+   - Bindings: `sound_play {track}` and `sound_volume {delta}` (0..30, start 30). No hardcoded audio buttons.
+   - Controls editor: button "Vorlage DuckNorris" (left stick drive, D-pad up/down speed_adjust +/-0.1, D-pad right/left
+     volume +/-5, A/B/X/Y sound 1-4, R2/L2 hold servo 0 +/-3°, R1/L1 servo 0 to 180°/0°). No double assignments.
 
 Editing Guidelines
 - Keep changes focused; do not introduce a second Arduino core.
