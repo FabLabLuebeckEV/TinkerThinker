@@ -334,27 +334,34 @@ bool ConfigManager::resetConfig() {
 }
 
 const char* ConfigManager::getDefaultControlBindingsJson() {
+    // DuckNorris-Belegung (entspricht der Vorlage "DuckNorris" im Steuerungs-Editor)
     return R"JSON([
-  {"input": {"type": "axis_pair", "x": "RX", "y": "RY", "deadband": 16},
+  {"input": {"type": "axis_pair", "x": "X", "y": "Y", "deadband": 16},
    "action": {"type": "drive_pair", "target": "gui"}},
-  {"input": {"type": "axis_pair", "x": "X",  "y": "Y",  "deadband": 16},
-   "action": {"type": "drive_pair", "target": "other"}},
-  {"input": {"type": "dpad", "dir": "LEFT",  "edge": "hold"},
-   "action": {"type": "motor_direct", "motor": 0, "pwm": -255}},
-  {"input": {"type": "dpad", "dir": "RIGHT", "edge": "hold"},
-   "action": {"type": "motor_direct", "motor": 0, "pwm":  255}},
-  {"input": {"type": "dpad", "dir": "UP",    "edge": "hold"},
-   "action": {"type": "motor_direct", "motor": 1, "pwm":  255}},
-  {"input": {"type": "dpad", "dir": "DOWN",  "edge": "hold"},
-   "action": {"type": "motor_direct", "motor": 1, "pwm": -255}},
-  {"input": {"type": "button", "code": "BUTTON_R2", "edge": "press"},
-   "action": {"type": "servo_toggle_band", "servo": 0, "bands": [0,90]}},
-  {"input": {"type": "button", "code": "BUTTON_L2", "edge": "press"},
-   "action": {"type": "servo_toggle_band", "servo": 0, "bands": [90,180]}},
-  {"input": {"type": "button", "code": "BUTTON_R1", "edge": "press"},
+  {"input": {"type": "dpad", "dir": "UP", "edge": "press"},
    "action": {"type": "speed_adjust", "delta": 0.1}},
+  {"input": {"type": "dpad", "dir": "DOWN", "edge": "press"},
+   "action": {"type": "speed_adjust", "delta": -0.1}},
+  {"input": {"type": "dpad", "dir": "RIGHT", "edge": "press"},
+   "action": {"type": "sound_volume", "delta": 5}},
+  {"input": {"type": "dpad", "dir": "LEFT", "edge": "press"},
+   "action": {"type": "sound_volume", "delta": -5}},
+  {"input": {"type": "button", "code": "BTN_A", "edge": "press"},
+   "action": {"type": "sound_play", "track": 1}},
+  {"input": {"type": "button", "code": "BTN_B", "edge": "press"},
+   "action": {"type": "sound_play", "track": 2}},
+  {"input": {"type": "button", "code": "BTN_X", "edge": "press"},
+   "action": {"type": "sound_play", "track": 3}},
+  {"input": {"type": "button", "code": "BTN_Y", "edge": "press"},
+   "action": {"type": "sound_play", "track": 4}},
+  {"input": {"type": "button", "code": "BUTTON_R2", "edge": "hold"},
+   "action": {"type": "servo_nudge", "servo": 0, "delta": 3}},
+  {"input": {"type": "button", "code": "BUTTON_L2", "edge": "hold"},
+   "action": {"type": "servo_nudge", "servo": 0, "delta": -3}},
+  {"input": {"type": "button", "code": "BUTTON_R1", "edge": "press"},
+   "action": {"type": "servo_set", "servo": 0, "angle": 180}},
   {"input": {"type": "button", "code": "BUTTON_L1", "edge": "press"},
-   "action": {"type": "speed_adjust", "delta": -0.1}}
+   "action": {"type": "servo_set", "servo": 0, "angle": 0}}
 ])JSON";
 }
 
