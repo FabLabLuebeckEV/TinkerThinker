@@ -791,22 +791,25 @@ void setup() {
 
     Serial.begin(115200);
 
-    // DFPlayer-Audiomodul initialisieren (blockiert nicht, wenn keins angeschlossen ist)
-    dfSerial.begin(9600, SERIAL_8N1, DFPLAYER_RX_PIN, DFPLAYER_TX_PIN);
-    if (myDFPlayer.begin(dfSerial)) {
-        dfPlayerOnline = true;
-        myDFPlayer.volume(DFPLAYER_VOLUME);
-        Serial.println(F("DFPlayer Mini online."));
-        myDFPlayer.playMp3Folder(1);   // Start-Quak (/mp3/0001.mp3)
-    } else {
-        Serial.println(F("DFPlayer Mini nicht gefunden (Verkabelung/SD-Karte pruefen)."));
-    }
 
     if (!configManager.init()) {
         Serial.println("Failed to init ConfigManager!");
     }
     board.begin();
     boardReady = true;
+    // DFPlayer-Audiomodul erst nach board.begin() starten: GPIO5/19 sind auf der Platine auch
+    // Servo 6/5, deren PWM hier abgeschaltet bleibt (getActiveServoCount). Ohne ACK, weil
+    // Nachbau-Module die Bestätigung oft nicht senden; Erreichbarkeit per readFileCounts().
+    dfSerial.begin(9600, SERIAL_8N1, DFPLAYER_RX_PIN, DFPLAYER_TX_PIN);
+    myDFPlayer.begin(dfSerial, false, true);
+    delay(1500);   // Reset des Moduls und Einlesen der SD-Karte abwarten
+    dfPlayerOnline = true;
+    myDFPlayer.volume(DFPLAYER_VOLUME);
+    {
+        int files = myDFPlayer.readFileCounts();
+        Serial.printf("DFPlayer: Dateien auf SD = %d (-1 = keine Antwort, Verkabelung pruefen)\n", files);
+    }
+    myDFPlayer.playMp3Folder(1);   // Start-Quak (/mp3/0001.mp3)
     // GPIO39 is input-only on ESP32 and has no internal pull-up.
     // On v2 boards: external pull-up with active-low MODE button.
     // On legacy v1 boards: GPIO39 is the H-Bridge motor fault signal (LOW = OK, HIGH = Fault).
