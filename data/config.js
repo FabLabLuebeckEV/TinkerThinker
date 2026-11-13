@@ -493,29 +493,83 @@ document.getElementById('configForm').addEventListener('submit', function(e) {
 // Neustart bzw. Werksreset per POST auslösen, genau einmal. Früher wurde der Browser auf
 // /reboot geleitet: Der Tab blieb dort stehen und startete das Board bei jedem Neuladen erneut.
 let restartRequested = false;
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+function setRestartStatus(text) {
+  const el = document.getElementById('restartStatus');
+  if (el) el.innerText = text;
+}
+
+// Kurzer Abruf mit Zeitlimit. Ein Fehlschlag ist hier die Information "Board nicht erreichbar".
+async function boardReachable(timeoutMs) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    const res = await fetch('/getConfig', { cache: 'no-store', signal: ctrl.signal });
+    return res.ok;
+  } catch (e) {
+    return false;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function requestRestart(url) {
   if (restartRequested) return;
   restartRequested = true;
+  setRestartStatus('Neustart wird ausgelöst ...');
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 5000);
   try {
-    const res = await fetch(url, { method: 'POST' });
+    const res = await fetch(url, { method: 'POST', signal: ctrl.signal });
     if (!res.ok) throw new Error('HTTP ' + res.status);
   } catch (e) {
-    // Die Verbindung kann beim Neustart abbrechen, bevor die Antwort ankommt. Nur echte
-    // HTTP-Fehler melden, Netzwerkabbrüche sind hier erwartet.
+    // Startet das Board neu, bevor die Antwort ankommt, bricht die Verbindung ab oder der
+    // Abruf läuft ins Zeitlimit. Das ist erwartet; ob der Neustart wirklich passiert ist,
+    // prüft waitForRestart(). Nur eine echte HTTP-Fehlerantwort bricht hier ab.
     if (String(e.message).startsWith('HTTP')) {
       restartRequested = false;
+      setRestartStatus('');
       alert('Neustart fehlgeschlagen: ' + e.message);
       return;
     }
+  } finally {
+    clearTimeout(timer);
   }
-  // Nach dem Neustart die Konfigurationsseite neu laden (nicht /reboot!)
-  setTimeout(() => { window.location.href = '/config'; }, 8000);
+  await waitForRestart();
+}
+
+// Wartet, bis das Board kurz weg war (Neustart läuft) und wieder antwortet, und lädt dann
+// /config (nicht /reboot!). Bleibt das Board erreichbar, wurde der Neustart nicht ausgelöst.
+async function waitForRestart() {
+  setRestartStatus('Board startet neu ...');
+  let wentDown = false;
+  for (let i = 0; i < 20 && !wentDown; i++) {
+    await sleep(500);
+    if (!(await boardReachable(1500))) wentDown = true;
+  }
+  if (!wentDown) {
+    restartRequested = false;
+    setRestartStatus('');
+    alert('Das Board hat nicht neu gestartet. Bitte erneut versuchen.');
+    return;
+  }
+  for (let i = 1; i <= 40; i++) {
+    setRestartStatus('Warte auf das Board ... (' + i + ')');
+    if (await boardReachable(2000)) {
+      window.location.href = '/config';
+      return;
+    }
+    await sleep(1000);
+  }
+  setRestartStatus('Das Board antwortet nicht. Bitte mit dem oben genannten WLAN verbinden und die Konfigurationsseite neu öffnen (im Hotspot: http://192.168.4.1/config).');
 }
 
 // Reset Config Funktion
 function resetConfig() {
   if (confirm("Bist du sicher, dass du auf Werkseinstellungen zurücksetzen möchtest?")) {
-    alert('Das Board wird zurückgesetzt und startet neu. Danach heißt das WLAN wieder TinkerThinkerAP (ohne Passwort).');
+    document.getElementById('newWifiInfo').innerText = 'WLAN Modus: AP\nSSID: TinkerThinkerAP (ohne Passwort)';
+    document.getElementById('restartPopup').style.display = 'block';
     requestRestart('/resetconfig');
   }
 }
