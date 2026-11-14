@@ -103,8 +103,7 @@ void InputBindingManager::applyAction(JsonObject action, ControllerPtr ctl) {
         float cur = board->getSpeedMultiplier();
         float next = (cur > (low + high) * 0.5f) ? low : high;
         board->setSpeedMultiplier(next);
-        Serial.printf("speed_toggle: %.2f -> %.2f
-", cur, board->getSpeedMultiplier());
+        Serial.printf("speed_toggle: %.2f -> %.2f\n", cur, board->getSpeedMultiplier());
     } else if (!strcmp(type, "motor_direct")) {
         int idx = action["motor"] | 0;
         int pwm = action["pwm"] | 0;
