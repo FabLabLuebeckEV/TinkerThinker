@@ -234,6 +234,12 @@ static void fillSerialConfig(JsonDocument& doc) {
         doc["control_bindings"] = bd;
     }
 
+    // SchrottBot-Sumo: Servo-Zuordnung und Winkel
+    JsonDocument sd;
+    if (deserializeJson(sd, board.getSumoConfigJson()) == DeserializationError::Ok) {
+        doc["sumo"] = sd;
+    }
+
     doc["bt_whitelist_enabled"] = configManager.getBtWhitelistEnabled();
     JsonArray wlArr = doc["bt_whitelist"].to<JsonArray>();
     for (const auto& mac : configManager.getBtWhitelist()) wlArr.add(mac);
@@ -525,6 +531,19 @@ static void handleSerialCommandLine(const char* rawLine) {
             }
             touched = true;
             reapplyHardware = true;
+        }
+        if (!cfg["sumo"].isNull()) {
+            if (!cfg["sumo"].is<JsonObject>()) {
+                resp["event"] = "error";
+                resp["message"] = "sumo_not_object";
+                sendSerialJson(resp);
+                return;
+            }
+            String tmp;
+            serializeJson(cfg["sumo"], tmp);
+            configManager.setSumoConfigJson(tmp);
+            board.applySumoConfig(tmp);
+            touched = true;
         }
         if (!cfg["control_bindings"].isNull()) {
             String tmp;

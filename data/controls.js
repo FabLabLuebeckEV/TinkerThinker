@@ -4,7 +4,7 @@
   const DPAD_DIRS    = ['UP','DOWN','LEFT','RIGHT'];
   const EDGES        = ['press','release','hold'];
   const AXES         = ['X','Y','RX','RY'];
-  const ACTION_TYPES = ['motor_direct','drive_pair','servo_set','servo_toggle_band','servo_nudge','servo_axes','motor_axis','servo_sweep','motor_ramp','led_set','gpio_set','speed_adjust','sumo_move','sumo_set'];
+  const ACTION_TYPES = ['motor_direct','drive_pair','servo_set','servo_toggle_band','servo_nudge','servo_axes','motor_axis','servo_sweep','motor_ramp','led_set','gpio_set','speed_adjust','speed_toggle','sumo_move','sumo_set'];
   const SUMO_ROLES   = ['arms','lift','push'];
   const SUMO_NAMES   = {arms:'Arme', lift:'Rampe hoch', push:'Rampe vor'};
 
@@ -20,7 +20,15 @@
     { input:{type:'button',code:'BUTTON_L1',edge:'hold'}, action:{type:'sumo_move',role:'lift',speed:-200} },
     { input:{type:'button',code:'BUTTON_R2',edge:'hold'}, action:{type:'sumo_move',role:'push',speed:200} },
     { input:{type:'button',code:'BUTTON_L2',edge:'hold'}, action:{type:'sumo_move',role:'push',speed:-200} },
-    { input:{type:'button',code:'BTN_B',edge:'press'}, action:{type:'sumo_set',role:'arms',pct:0} },
+    // Kreuz (BTN_A): Rampe hoch · Quadrat (BTN_X): Rampe voll vor
+    { input:{type:'button',code:'BTN_A',edge:'press'}, action:{type:'sumo_set',role:'lift',pct:100} },
+    { input:{type:'button',code:'BTN_X',edge:'press'}, action:{type:'sumo_set',role:'push',pct:100} },
+    // Dreieck (BTN_Y): alles auf Anschlag zurück (Arme zu, Rampe unten und eingefahren)
+    { input:{type:'button',code:'BTN_Y',edge:'press'}, action:{type:'sumo_set',role:'arms',pct:0} },
+    { input:{type:'button',code:'BTN_Y',edge:'press'}, action:{type:'sumo_set',role:'lift',pct:0} },
+    { input:{type:'button',code:'BTN_Y',edge:'press'}, action:{type:'sumo_set',role:'push',pct:0} },
+    // Kreis (BTN_B): Fahrgeschwindigkeit 50 % ⇄ 100 %
+    { input:{type:'button',code:'BTN_B',edge:'press'}, action:{type:'speed_toggle',low:0.5,high:1.0} },
   ];
   const INPUT_TYPES  = ['button','dpad','axis_pair'];
 
@@ -136,6 +144,7 @@
     if (act.type === 'servo_set')     return `servo${act.servo} ${act.angle}°`;
     if (act.type === 'servo_nudge')   return `servo${act.servo} ${act.delta > 0 ? '+' : ''}${act.delta}°`;
     if (act.type === 'speed_adjust')  return `speed ${act.delta > 0 ? '+' : ''}${act.delta}`;
+    if (act.type === 'speed_toggle')  return `speed ${Math.round((act.low ?? 0.5) * 100)}% ⇄ ${Math.round((act.high ?? 1) * 100)}%`;
     if (act.type === 'sumo_move')     return `${SUMO_NAMES[act.role] || act.role} ${act.speed > 0 ? '+' : ''}${act.speed} %/s`;
     if (act.type === 'sumo_set')      return `${SUMO_NAMES[act.role] || act.role} → ${act.pct} %`;
     return act.type;
@@ -242,6 +251,13 @@
           frow([el('label',{},'Delta:'), refs.deltaEl]),
           hint('Globalen Geschwindigkeitsmultiplikator ändern · 0.1 = +10% · −0.1 = −10%')
         );
+      } else if (t === 'speed_toggle') {
+        refs.lowEl  = el('input',{type:'number', step:'0.1', min:'0.2', max:'1.5', value: String(action.low ?? 0.5), style:'width:72px;'});
+        refs.highEl = el('input',{type:'number', step:'0.1', min:'0.2', max:'1.5', value: String(action.high ?? 1.0), style:'width:72px;'});
+        fieldsDiv.append(
+          frow([el('label',{},'Langsam:'), refs.lowEl, el('label',{},'Schnell:'), refs.highEl]),
+          hint('Jeder Druck schaltet zwischen den beiden Geschwindigkeiten um · 0.5 = 50 % · 1.0 = 100 %')
+        );
       } else if (t === 'sumo_move') {
         refs.roleSel  = mkSel(SUMO_ROLES, action.role || 'arms');
         refs.speedEl  = mkNum(-1000, 1000, action.speed ?? 150, 80);
@@ -321,6 +337,10 @@
             break;
           case 'speed_adjust':
             a.delta = parseFloat(refs.deltaEl.value || '0');
+            break;
+          case 'speed_toggle':
+            a.low  = parseFloat(refs.lowEl.value || '0.5');
+            a.high = parseFloat(refs.highEl.value || '1');
             break;
           case 'sumo_move':
             a.role  = refs.roleSel.value;

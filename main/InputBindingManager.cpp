@@ -96,6 +96,15 @@ void InputBindingManager::applyAction(JsonObject action, ControllerPtr ctl) {
     } else if (!strcmp(type, "speed_adjust")) {
         float delta = action["delta"] | 0.0f;
         board->setSpeedMultiplier(board->getSpeedMultiplier() + delta);
+    } else if (!strcmp(type, "speed_toggle")) {
+        // Zwischen zwei Geschwindigkeiten umschalten, z.B. 0.5 <-> 1.0
+        float low = action["low"] | 0.5f;
+        float high = action["high"] | 1.0f;
+        float cur = board->getSpeedMultiplier();
+        float next = (cur > (low + high) * 0.5f) ? low : high;
+        board->setSpeedMultiplier(next);
+        Serial.printf("speed_toggle: %.2f -> %.2f
+", cur, board->getSpeedMultiplier());
     } else if (!strcmp(type, "motor_direct")) {
         int idx = action["motor"] | 0;
         int pwm = action["pwm"] | 0;
