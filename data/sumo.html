@@ -70,10 +70,10 @@
         <div class="sumo-row">
             <div class="sumo-row-head"><span>Arme</span><span class="sumo-val" id="armsVal">-</span></div>
             <input type="range" class="sumo-slider" id="armsSlider" min="0" max="100" step="1" value="0">
-            <div class="sumo-ends"><span>zu</span><span>auf</span></div>
+            <div class="sumo-ends"><span>auf (Start)</span><span>zu</span></div>
             <div class="sumo-quick">
-                <button type="button" class="control-button" id="armsClose">Arme zu</button>
                 <button type="button" class="control-button" id="armsOpen">Arme auf</button>
+                <button type="button" class="control-button" id="armsClose">Arme zu</button>
             </div>
         </div>
 
@@ -92,8 +92,8 @@
         <details class="sumo-settings">
             <summary>Servo-Einstellungen</summary>
             <p class="hint" style="color:#666; font-size:13px;">
-                Servo-Nummer wie auf der Platine (1-7). Winkel bei 0 % (zu / unten / hinten) und bei 100 %
-                (auf / oben / vorn). Für den gegenläufigen rechten Arm die beiden Winkel vertauschen.
+                Servo-Nummer wie auf der Platine (1-7). Winkel bei 0 % = Startstellung (Arme auf, Rampe unten
+                und eingefahren) und bei 100 % (Arme zu, Rampe oben, Rampe vorn). Beim Einschalten fahren alle auf 0 %.
                 „Speichern“ übernimmt sofort und behält die Werte nach dem Neustart.
             </p>
             <div class="sumo-grid" id="sumoGrid">

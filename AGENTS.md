@@ -158,7 +158,8 @@ Recent Changes (Important)
      new data while a button is held, `process()` only runs on new data). `sumo_set {role, pct}` on press.
    - Controls editor: button "Vorlage SchrottBot Sumo" (left stick drive, D-pad right/left arms open/close, D-pad up/down speed_adjust +/-0.1, R1/L1 ramp up/down,
      R2/L2 ramp forward/back, Cross lift 100 %, Square push 100 %, Triangle all to 0 %, Circle `speed_toggle {low, high}`
-     0.5 <-> 1.0). It replaces the list; "Speichern" applies it.
+     0.5 <-> 1.0, Start `sumo_toggle {role}` arms). Misc buttons (`MISC_START/SELECT/SYSTEM`) are
+     `miscButtons() << 16` in `process()` and the controller snapshot. It replaces the list; "Speichern" applies it.
    - Serial `set_config`/`get_config` also carry `sumo` (same object as `/sumo/config`).
 
 Editing Guidelines

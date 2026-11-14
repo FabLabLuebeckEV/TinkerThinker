@@ -39,6 +39,10 @@ uint32_t InputBindingManager::buttonMaskFromString(const String& code) {
     if (code == "BUTTON_R2") return 128;
     if (code == "BUTTON_STICK_L") return 256;
     if (code == "BUTTON_STICK_R") return 512;
+    // Misc-Tasten (Bluepad32 miscButtons) liegen ab Bit 16, siehe process()/Snapshot
+    if (code == "MISC_SYSTEM") return 1u << 16;   // PS-/Home-Taste
+    if (code == "MISC_SELECT") return 2u << 16;   // Share / Select / Back
+    if (code == "MISC_START")  return 4u << 16;   // Options / Start
     return 0;
 }
 
@@ -115,6 +119,13 @@ void InputBindingManager::applyAction(JsonObject action, ControllerPtr ctl) {
         // SchrottBot-Sumo: Position direkt setzen (0..100 %)
         int role = sumoRoleFromString(action["role"] | "arms");
         if (role >= 0) board->setSumoPos(role, action["pct"] | 0.0f);
+    } else if (!strcmp(type, "sumo_toggle")) {
+        // Zwischen 0 % und 100 % umschalten (z.B. Arme auf/zu mit einer Taste)
+        int role = sumoRoleFromString(action["role"] | "arms");
+        if (role >= 0) {
+            float cur = board->getSumoPos(role);
+            board->setSumoPos(role, (cur < 50.0f) ? 100.0f : 0.0f);
+        }
     } else if (!strcmp(type, "sumo_move")) {
         // läuft in tickSumo() solange die Taste gehalten wird; hier nichts tun
     } else if (!strcmp(type, "servo_sweep")) {
@@ -262,7 +273,7 @@ void InputBindingManager::process(ControllerPtr ctl, int idx) {
     int axY = ctl->axisY();
     int axRX = ctl->axisRX();
     int axRY = ctl->axisRY();
-    uint32_t btns = ctl->buttons();
+    uint32_t btns = ctl->buttons() | ((uint32_t)ctl->miscButtons() << 16);
     uint32_t dpad = ctl->dpad();
 
     for (JsonObject b : arr) {

@@ -52,8 +52,8 @@
         s.value = v;
         setRole(ROLES[0], v);
     }
-    document.getElementById('armsClose').addEventListener('click', () => armsTo(0));
-    document.getElementById('armsOpen').addEventListener('click', () => armsTo(100));
+    document.getElementById('armsClose').addEventListener('click', () => armsTo(100));
+    document.getElementById('armsOpen').addEventListener('click', () => armsTo(0));
 
     // Telemetrie aus basic.js: [Arme, Rampe hoch, Rampe vor] in %, z.B. wenn der Controller sie bewegt
     window.onSumoTelemetry = (vals) => {

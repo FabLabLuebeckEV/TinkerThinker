@@ -555,7 +555,7 @@ void TinkerThinkerBoard::updateControllerSnapshot(int idx, ControllerPtr ctl) {
     if (idx < 0 || idx >= BP32_MAX_GAMEPADS || !ctl) return;
     ControllerInputSnapshot& s = controllerSnapshots[idx];
     s.connected = true;
-    s.buttons   = ctl->buttons();
+    s.buttons   = ctl->buttons() | ((uint32_t)ctl->miscButtons() << 16);
     s.dpad      = ctl->dpad();
     s.axisX     = ctl->axisX();
     s.axisY     = ctl->axisY();

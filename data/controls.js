@@ -1,10 +1,10 @@
 (() => {
   // ── Constants ────────────────────────────────────────────
-  const BUTTON_CODES = ['BTN_A','BTN_B','BTN_X','BTN_Y','BUTTON_L1','BUTTON_R1','BUTTON_L2','BUTTON_R2','BUTTON_STICK_L','BUTTON_STICK_R'];
+  const BUTTON_CODES = ['BTN_A','BTN_B','BTN_X','BTN_Y','BUTTON_L1','BUTTON_R1','BUTTON_L2','BUTTON_R2','BUTTON_STICK_L','BUTTON_STICK_R','MISC_START','MISC_SELECT','MISC_SYSTEM'];
   const DPAD_DIRS    = ['UP','DOWN','LEFT','RIGHT'];
   const EDGES        = ['press','release','hold'];
   const AXES         = ['X','Y','RX','RY'];
-  const ACTION_TYPES = ['motor_direct','drive_pair','servo_set','servo_toggle_band','servo_nudge','servo_axes','motor_axis','servo_sweep','motor_ramp','led_set','gpio_set','speed_adjust','speed_toggle','sumo_move','sumo_set'];
+  const ACTION_TYPES = ['motor_direct','drive_pair','servo_set','servo_toggle_band','servo_nudge','servo_axes','motor_axis','servo_sweep','motor_ramp','led_set','gpio_set','speed_adjust','speed_toggle','sumo_move','sumo_set','sumo_toggle'];
   const SUMO_ROLES   = ['arms','lift','push'];
   const SUMO_NAMES   = {arms:'Arme', lift:'Rampe hoch', push:'Rampe vor'};
 
@@ -29,6 +29,8 @@
     { input:{type:'button',code:'BTN_Y',edge:'press'}, action:{type:'sumo_set',role:'push',pct:0} },
     // Kreis (BTN_B): Fahrgeschwindigkeit 50 % ⇄ 100 %
     { input:{type:'button',code:'BTN_B',edge:'press'}, action:{type:'speed_toggle',low:0.5,high:1.0} },
+    // Start/Options: Arme auf/zu umschalten
+    { input:{type:'button',code:'MISC_START',edge:'press'}, action:{type:'sumo_toggle',role:'arms'} },
   ];
   const INPUT_TYPES  = ['button','dpad','axis_pair'];
 
@@ -117,6 +119,7 @@
     button_BUTTON_L1:'L1', button_BUTTON_L2:'L2',
     button_BUTTON_R1:'R1', button_BUTTON_R2:'R2',
     button_BUTTON_STICK_L:'L3 (Stick-Klick)', button_BUTTON_STICK_R:'R3 (Stick-Klick)',
+    button_MISC_START:'Start / Options', button_MISC_SELECT:'Select / Share', button_MISC_SYSTEM:'PS / Home',
     axis_LStick:'Linker Stick (X / Y)', axis_RStick:'Rechter Stick (RX / RY)',
   };
   function keyLabel(k) { return KEY_LABELS[k] || k; }
@@ -147,6 +150,7 @@
     if (act.type === 'speed_toggle')  return `speed ${Math.round((act.low ?? 0.5) * 100)}% ⇄ ${Math.round((act.high ?? 1) * 100)}%`;
     if (act.type === 'sumo_move')     return `${SUMO_NAMES[act.role] || act.role} ${act.speed > 0 ? '+' : ''}${act.speed} %/s`;
     if (act.type === 'sumo_set')      return `${SUMO_NAMES[act.role] || act.role} → ${act.pct} %`;
+    if (act.type === 'sumo_toggle')   return `${SUMO_NAMES[act.role] || act.role} 0 % ⇄ 100 %`;
     return act.type;
   }
 
@@ -271,7 +275,13 @@
         refs.pctEl   = mkNum(0, 100, action.pct ?? 0, 72);
         fieldsDiv.append(
           frow([el('label',{},'Funktion:'), refs.roleSel, el('label',{},'Position %:'), refs.pctEl]),
-          hint('Setzt Arme/Rampe direkt auf eine Position · 0 = zu/unten/hinten · 100 = auf/oben/vorn')
+          hint('Setzt Arme/Rampe direkt auf eine Position · 0 % = Startstellung · 100 % = andere Endlage')
+        );
+      } else if (t === 'sumo_toggle') {
+        refs.roleSel = mkSel(SUMO_ROLES, action.role || 'arms');
+        fieldsDiv.append(
+          frow([el('label',{},'Funktion:'), refs.roleSel]),
+          hint('Jeder Druck schaltet zwischen 0 % und 100 % um')
         );
       }
     }
@@ -349,6 +359,9 @@
           case 'sumo_set':
             a.role = refs.roleSel.value;
             a.pct  = parseInt(refs.pctEl.value || '0');
+            break;
+          case 'sumo_toggle':
+            a.role = refs.roleSel.value;
             break;
         }
         return a;
@@ -691,7 +704,8 @@
   const LIVE_BUTTON_BITS = {
     'button_BTN_A':1, 'button_BTN_B':2, 'button_BTN_X':4, 'button_BTN_Y':8,
     'button_BUTTON_L1':16, 'button_BUTTON_R1':32, 'button_BUTTON_L2':64, 'button_BUTTON_R2':128,
-    'button_BUTTON_STICK_L':256, 'button_BUTTON_STICK_R':512
+    'button_BUTTON_STICK_L':256, 'button_BUTTON_STICK_R':512,
+    'button_MISC_SYSTEM':1<<16, 'button_MISC_SELECT':2<<16, 'button_MISC_START':4<<16
   };
   const LIVE_DPAD_BITS = { 'dpad_UP':1, 'dpad_DOWN':2, 'dpad_RIGHT':4, 'dpad_LEFT':8 };
   const AXIS_DEADBAND = 80;
