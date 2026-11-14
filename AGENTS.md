@@ -157,7 +157,7 @@ Recent Changes (Important)
      release; evaluated in `InputBindingManager::tickSumo()` from the controller snapshot (controllers often send no
      new data while a button is held, `process()` only runs on new data). `sumo_set {role, pct}` on press.
    - Controls editor: button "Vorlage SchrottBot Sumo" (left stick drive, D-pad right/left arms open/close, D-pad up/down speed_adjust +/-0.1, R1/L1 ramp up/down,
-     R2/L2 ramp forward/back, Cross lift 100 %, Square push 100 %, Triangle lift+push to 0 % (arms untouched), Circle `speed_toggle {low, high}`
+     R2/L2 ramp forward/back, Cross `sumo_toggle` lift, Square `sumo_toggle` push, Triangle lift+push to 0 % (arms untouched), Circle `speed_toggle {low, high}`
      0.5 <-> 1.0, Start `sumo_toggle {role}` arms, right stick X `sumo_move` with axis_pair input:
      proportional, `action.axis` x|y, deadband default 60). Misc buttons (`MISC_START/SELECT/SYSTEM`) are
      `miscButtons() << 16` in `process()` and the controller snapshot. It replaces the list; "Speichern" applies it.

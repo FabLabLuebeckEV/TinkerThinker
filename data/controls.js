@@ -20,9 +20,9 @@
     { input:{type:'button',code:'BUTTON_L1',edge:'hold'}, action:{type:'sumo_move',role:'lift',speed:-200} },
     { input:{type:'button',code:'BUTTON_R2',edge:'hold'}, action:{type:'sumo_move',role:'push',speed:200} },
     { input:{type:'button',code:'BUTTON_L2',edge:'hold'}, action:{type:'sumo_move',role:'push',speed:-200} },
-    // Kreuz (BTN_A): Rampe hoch · Quadrat (BTN_X): Rampe voll vor
-    { input:{type:'button',code:'BTN_A',edge:'press'}, action:{type:'sumo_set',role:'lift',pct:100} },
-    { input:{type:'button',code:'BTN_X',edge:'press'}, action:{type:'sumo_set',role:'push',pct:100} },
+    // Kreuz (BTN_A): Rampe hoch/runter umschalten · Viereck (BTN_X): Rampe vor/zurück umschalten
+    { input:{type:'button',code:'BTN_A',edge:'press'}, action:{type:'sumo_toggle',role:'lift'} },
+    { input:{type:'button',code:'BTN_X',edge:'press'}, action:{type:'sumo_toggle',role:'push'} },
     // Dreieck (BTN_Y): Rampe zurück in die Startstellung (unten und eingefahren), Arme bleiben
     { input:{type:'button',code:'BTN_Y',edge:'press'}, action:{type:'sumo_set',role:'lift',pct:0} },
     { input:{type:'button',code:'BTN_Y',edge:'press'}, action:{type:'sumo_set',role:'push',pct:0} },

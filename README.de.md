@@ -152,7 +152,7 @@ Oberfläche für den Sumo-Roboter mit Klappenarmen und Hebe-/Schieberampe:
 - **Arme**: ein Regler (zu ↔ auf) plus Tasten `Arme zu` / `Arme auf`. Er steuert **beide Arm-Servos**, der rechte läuft gegenläufig.
 - **Rampe hoch** und **Rampe vor**: je ein Regler; die Position bleibt stehen, wenn du loslässt.
 - **Servo-Einstellungen** (aufklappbar): Servo-Nummer (1-7, Standard Servo 4-7) und Winkel bei 0 % und 100 % je Funktion, sofort wirksam und dauerhaft gespeichert.
-- **Gamepad**: Im Steuerungs-Editor lädt **`Vorlage SchrottBot Sumo`** die passende Belegung: linker Stick fahren, Steuerkreuz rechts/links Arme auf/zu, oben/unten schneller/langsamer, `R1`/`L1` Rampe hoch/runter, `R2`/`L2` Rampe vor/zurück, Kreuz Rampe ganz hoch, Viereck Rampe ganz vor, Dreieck Rampe zurück in die Startstellung (unten und eingefahren, Arme bleiben), Kreis Geschwindigkeit 50 % ⇄ 100 %, Start/Options Arme auf/zu, rechter Stick links/rechts Arme auf/zu. Danach `Speichern`.
+- **Gamepad**: Im Steuerungs-Editor lädt **`Vorlage SchrottBot Sumo`** die passende Belegung: linker Stick fahren, Steuerkreuz rechts/links Arme auf/zu, oben/unten schneller/langsamer, `R1`/`L1` Rampe hoch/runter, `R2`/`L2` Rampe vor/zurück, Kreuz Rampe hoch/runter umschalten, Viereck Rampe vor/zurück umschalten, Dreieck Rampe zurück in die Startstellung (unten und eingefahren, Arme bleiben), Kreis Geschwindigkeit 50 % ⇄ 100 %, Start/Options Arme auf/zu, rechter Stick links/rechts Arme auf/zu. Danach `Speichern`.
 
 ---
 
