@@ -625,6 +625,44 @@ static void handleSerialCommandLine(const char* rawLine) {
         return;
     }
 
+    // Servo direkt auf einen Winkel fahren (zum Einstellen der Endlagen): {"cmd":"servo_angle","servo":1..7,"angle":0..180}
+    if (!strcmp(command, "servo_angle")) {
+        int servo = cmd["servo"] | 0;
+        int angle = cmd["angle"] | -1;
+        if (servo < 1 || servo > 7 || angle < 0 || angle > 180) {
+            resp["event"] = "error";
+            resp["message"] = "servo_1_7_angle_0_180";
+            sendSerialJson(resp);
+            return;
+        }
+        board.setServoAngle(servo - 1, angle);
+        resp["event"] = "servo_angle";
+        resp["servo"] = servo;
+        resp["angle"] = board.getServoAngle(servo - 1);
+        sendSerialJson(resp);
+        return;
+    }
+
+    // SchrottBot-Sumo-Position setzen: {"cmd":"sumo_pos","role":"arms|lift|push","pct":0..100}
+    if (!strcmp(command, "sumo_pos")) {
+        const char* role = cmd["role"] | "";
+        int r = !strcmp(role, "arms") ? TinkerThinkerBoard::SUMO_ARMS
+              : !strcmp(role, "lift") ? TinkerThinkerBoard::SUMO_LIFT
+              : !strcmp(role, "push") ? TinkerThinkerBoard::SUMO_PUSH : -1;
+        if (r < 0 || cmd["pct"].isNull()) {
+            resp["event"] = "error";
+            resp["message"] = "role_arms_lift_push_and_pct";
+            sendSerialJson(resp);
+            return;
+        }
+        board.setSumoPos(r, cmd["pct"].as<float>());
+        resp["event"] = "sumo_pos";
+        resp["role"] = role;
+        resp["pct"] = board.getSumoPos(r);
+        sendSerialJson(resp);
+        return;
+    }
+
     if (!strcmp(command, "reboot")) {
         resp["event"] = "restarting";
         sendSerialJson(resp);
