@@ -23,8 +23,7 @@
     // Kreuz (BTN_A): Rampe hoch · Quadrat (BTN_X): Rampe voll vor
     { input:{type:'button',code:'BTN_A',edge:'press'}, action:{type:'sumo_set',role:'lift',pct:100} },
     { input:{type:'button',code:'BTN_X',edge:'press'}, action:{type:'sumo_set',role:'push',pct:100} },
-    // Dreieck (BTN_Y): alles auf Anschlag zurück (Arme zu, Rampe unten und eingefahren)
-    { input:{type:'button',code:'BTN_Y',edge:'press'}, action:{type:'sumo_set',role:'arms',pct:0} },
+    // Dreieck (BTN_Y): Rampe zurück in die Startstellung (unten und eingefahren), Arme bleiben
     { input:{type:'button',code:'BTN_Y',edge:'press'}, action:{type:'sumo_set',role:'lift',pct:0} },
     { input:{type:'button',code:'BTN_Y',edge:'press'}, action:{type:'sumo_set',role:'push',pct:0} },
     // Kreis (BTN_B): Fahrgeschwindigkeit 50 % ⇄ 100 %
