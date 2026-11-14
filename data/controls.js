@@ -29,6 +29,8 @@
     { input:{type:'button',code:'BTN_Y',edge:'press'}, action:{type:'sumo_set',role:'push',pct:0} },
     // Kreis (BTN_B): Fahrgeschwindigkeit 50 % ⇄ 100 %
     { input:{type:'button',code:'BTN_B',edge:'press'}, action:{type:'speed_toggle',low:0.5,high:1.0} },
+    // Rechter Stick links/rechts: Arme auf/zu, proportional
+    { input:{type:'axis_pair',x:'RX',y:'RY',deadband:60}, action:{type:'sumo_move',role:'arms',speed:200,axis:'x'} },
     // Start/Options: Arme auf/zu umschalten
     { input:{type:'button',code:'MISC_START',edge:'press'}, action:{type:'sumo_toggle',role:'arms'} },
   ];
@@ -265,8 +267,10 @@
       } else if (t === 'sumo_move') {
         refs.roleSel  = mkSel(SUMO_ROLES, action.role || 'arms');
         refs.speedEl  = mkNum(-1000, 1000, action.speed ?? 150, 80);
+        refs.axisSel  = mkSel(['x','y'], action.axis || 'x');
         fieldsDiv.append(
-          frow([el('label',{},'Funktion:'), refs.roleSel, el('label',{},'%/s:'), refs.speedEl]),
+          frow([el('label',{},'Funktion:'), refs.roleSel, el('label',{},'%/s:'), refs.speedEl, el('label',{},'Stick-Achse:'), refs.axisSel]),
+          hint('Bei Stick-Eingang: Tempo proportional zur Auslenkung, Stick-Achse x = links/rechts, y = hoch/runter'),
           hint('arms = beide Arm-Servos gegenläufig · lift = Rampe hoch · push = Rampe vor'),
           hint('Mit Kante „hold“: fährt solange gedrückt, bleibt beim Loslassen stehen · positiv = auf/hoch/vor · 100 %/s = ganzer Weg in 1 s')
         );
@@ -355,6 +359,7 @@
           case 'sumo_move':
             a.role  = refs.roleSel.value;
             a.speed = parseInt(refs.speedEl.value || '0');
+            if (refs.axisSel.value !== 'x') a.axis = refs.axisSel.value;
             break;
           case 'sumo_set':
             a.role = refs.roleSel.value;

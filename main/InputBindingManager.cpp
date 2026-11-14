@@ -230,13 +230,27 @@ void InputBindingManager::tickSumo(uint32_t now) {
             if (strcmp(action["type"] | "", "sumo_move")) continue;
             JsonObject input = b["input"].as<JsonObject>();
             const char* inType = input["type"] | "";
+            int role = sumoRoleFromString(action["role"] | "arms");
+            if (role < 0) continue;
+            float speed = action["speed"] | 150.0f;
+            if (!strcmp(inType, "axis_pair")) {
+                // Stick proportional: action.axis "x" oder "y" wählt die Achse des Paars
+                const char* sel = action["axis"] | "x";
+                const char* name = !strcmp(sel, "y") ? (input["y"] | "RY") : (input["x"] | "RX");
+                int v = !strcmp(name, "X") ? snap.axisX : !strcmp(name, "Y") ? snap.axisY
+                      : !strcmp(name, "RX") ? snap.axisRX : snap.axisRY;
+                int dead = input["deadband"] | 60;
+                if (abs(v) <= dead) continue;
+                float f = constrain(v / 512.0f, -1.0f, 1.0f);
+                rate[role] += speed * f;
+                any = true;
+                continue;
+            }
             bool pressed = false;
             if (!strcmp(inType, "button")) pressed = snap.buttons & buttonMaskFromString(input["code"].as<String>());
             else if (!strcmp(inType, "dpad")) pressed = snap.dpad & dpadMaskFromString(input["dir"].as<String>());
             if (!pressed) continue;
-            int role = sumoRoleFromString(action["role"] | "arms");
-            if (role < 0) continue;
-            rate[role] += action["speed"] | 150.0f;
+            rate[role] += speed;
             any = true;
         }
     }
