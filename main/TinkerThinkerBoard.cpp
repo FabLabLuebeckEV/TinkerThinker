@@ -27,7 +27,8 @@ TinkerThinkerBoard::TinkerThinkerBoard(ConfigManager* configManager)
 }
 
 size_t TinkerThinkerBoard::getActiveServoCount() const {
-    return (config && config->isLegacyBoard()) ? 3 : SERVO_COUNT;
+    // DuckNorris: Servo 5/6 (GPIO19/GPIO5) sind der UART zum DFPlayer, daher nur 5 Servos
+    return (config && config->isLegacyBoard()) ? 3 : 5;
 }
 
 void TinkerThinkerBoard::reApplyConfig() {

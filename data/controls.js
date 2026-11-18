@@ -4,7 +4,7 @@
   const DPAD_DIRS    = ['UP','DOWN','LEFT','RIGHT'];
   const EDGES        = ['press','release','hold'];
   const AXES         = ['X','Y','RX','RY'];
-  const ACTION_TYPES = ['motor_direct','drive_pair','servo_set','servo_toggle_band','servo_nudge','servo_axes','motor_axis','servo_sweep','motor_ramp','led_set','gpio_set','speed_adjust','speed_toggle','sumo_move','sumo_set','sumo_toggle'];
+  const ACTION_TYPES = ['motor_direct','drive_pair','servo_set','servo_toggle_band','servo_nudge','servo_axes','motor_axis','servo_sweep','motor_ramp','led_set','gpio_set','speed_adjust','speed_toggle','sumo_move','sumo_set','sumo_toggle','sound_play','sound_volume'];
   const SUMO_ROLES   = ['arms','lift','push'];
   const SUMO_NAMES   = {arms:'Arme', lift:'Rampe hoch', push:'Rampe vor'};
 
@@ -32,6 +32,24 @@
     { input:{type:'axis_pair',x:'RX',y:'RY',deadband:60}, action:{type:'sumo_move',role:'arms',speed:200,axis:'x'} },
     // Start/Options: Arme auf/zu umschalten
     { input:{type:'button',code:'MISC_START',edge:'press'}, action:{type:'sumo_toggle',role:'arms'} },
+  ];
+  // Vorlage DuckNorris: linker Stick fährt, Steuerkreuz hoch/runter schneller/langsamer,
+  // Steuerkreuz rechts/links lauter/leiser, A/B/X/Y Sound 1-4 (DFPlayer, /mp3/0001.mp3 ...),
+  // R2/L2 Servo 0 auf/ab solange gedrückt, R1/L1 Servo 0 direkt auf 180°/0°.
+  const DUCK_TEMPLATE = [
+    { input:{type:'axis_pair',x:'X',y:'Y',deadband:16}, action:{type:'drive_pair',target:'gui'} },
+    { input:{type:'dpad',dir:'UP',edge:'press'},    action:{type:'speed_adjust',delta:0.1} },
+    { input:{type:'dpad',dir:'DOWN',edge:'press'},  action:{type:'speed_adjust',delta:-0.1} },
+    { input:{type:'dpad',dir:'RIGHT',edge:'press'}, action:{type:'sound_volume',delta:5} },
+    { input:{type:'dpad',dir:'LEFT',edge:'press'},  action:{type:'sound_volume',delta:-5} },
+    { input:{type:'button',code:'BTN_A',edge:'press'}, action:{type:'sound_play',track:1} },
+    { input:{type:'button',code:'BTN_B',edge:'press'}, action:{type:'sound_play',track:2} },
+    { input:{type:'button',code:'BTN_X',edge:'press'}, action:{type:'sound_play',track:3} },
+    { input:{type:'button',code:'BTN_Y',edge:'press'}, action:{type:'sound_play',track:4} },
+    { input:{type:'button',code:'BUTTON_R2',edge:'hold'},  action:{type:'servo_nudge',servo:0,delta:3} },
+    { input:{type:'button',code:'BUTTON_L2',edge:'hold'},  action:{type:'servo_nudge',servo:0,delta:-3} },
+    { input:{type:'button',code:'BUTTON_R1',edge:'press'}, action:{type:'servo_set',servo:0,angle:180} },
+    { input:{type:'button',code:'BUTTON_L1',edge:'press'}, action:{type:'servo_set',servo:0,angle:0} },
   ];
   const INPUT_TYPES  = ['button','dpad','axis_pair'];
 
@@ -152,6 +170,8 @@
     if (act.type === 'sumo_move')     return `${SUMO_NAMES[act.role] || act.role} ${act.speed > 0 ? '+' : ''}${act.speed} %/s`;
     if (act.type === 'sumo_set')      return `${SUMO_NAMES[act.role] || act.role} → ${act.pct} %`;
     if (act.type === 'sumo_toggle')   return `${SUMO_NAMES[act.role] || act.role} 0 % ⇄ 100 %`;
+    if (act.type === 'sound_play')    return `Sound ${act.track}`;
+    if (act.type === 'sound_volume')  return `Lautstärke ${act.delta > 0 ? '+' : ''}${act.delta}`;
     return act.type;
   }
 
@@ -286,6 +306,18 @@
           frow([el('label',{},'Funktion:'), refs.roleSel]),
           hint('Jeder Druck schaltet zwischen 0 % und 100 % um')
         );
+      } else if (t === 'sound_play') {
+        refs.trackEl = mkNum(1, 255, action.track ?? 1, 72);
+        fieldsDiv.append(
+          frow([el('label',{},'Track:'), refs.trackEl]),
+          hint('DFPlayer: spielt /mp3/0001.mp3 … von der SD-Karte (FAT32)')
+        );
+      } else if (t === 'sound_volume') {
+        refs.deltaEl = mkNum(-30, 30, action.delta ?? 5, 72);
+        fieldsDiv.append(
+          frow([el('label',{},'Delta:'), refs.deltaEl]),
+          hint('Lautstärke ändern · Bereich 0-30 · Start 30')
+        );
       }
     }
 
@@ -366,6 +398,11 @@
             break;
           case 'sumo_toggle':
             a.role = refs.roleSel.value;
+          case 'sound_play':
+            a.track = parseInt(refs.trackEl.value || '1');
+            break;
+          case 'sound_volume':
+            a.delta = parseInt(refs.deltaEl.value || '0');
             break;
         }
         return a;
@@ -650,6 +687,17 @@
     st.textContent = 'Vorlage SchrottBot Sumo geladen - zum Übernehmen „Speichern“';
   }
 
+  // ── Vorlage DuckNorris (ersetzt alle Bindings, Speichern übernimmt sie) ──
+  function loadDuckTemplate() {
+    bindingModel = DUCK_TEMPLATE.map(b => ({id: nextId++, input: {...b.input}, action: {...b.action}}));
+    selectedKey = null;
+    panelEl.innerHTML = '<p class="panel-hint">← Controller-Element auswählen um Bindings zu bearbeiten</p>';
+    Object.keys(panelEditors).forEach(k => delete panelEditors[k]);
+    renderList();
+    updateControllerColors();
+    st.textContent = 'Vorlage DuckNorris geladen - zum Übernehmen „Speichern“';
+  }
+
   // ── Examples ──────────────────────────────────────────────
   window.applyExample = function (n) {
     const ex = EXAMPLES[n];
@@ -681,6 +729,7 @@
   document.getElementById('save').addEventListener('click', save);
   document.getElementById('defaults').addEventListener('click', loadDefaults);
   document.getElementById('sumoTemplate').addEventListener('click', loadSumoTemplate);
+  document.getElementById('duckTemplate').addEventListener('click', loadDuckTemplate);
 
   // ── Controller click handlers ─────────────────────────────
   document.querySelectorAll('.ctrl-btn[data-key]').forEach(btn => {

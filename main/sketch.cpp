@@ -15,8 +15,17 @@
 #include "BtPairing.h"
 #include <esp_mac.h>
 
-// Removed DFPlayer and HardwareSerial includes
+#include "HardwareSerial.h"
+#include "DFRobotDFPlayerMini.h"
 #define MODE_BUTTON_PIN 39
+
+// Audiomodul (DFPlayer Mini) für DuckNorris: UART2, ESP-RX = GPIO5, ESP-TX = GPIO19
+#define DFPLAYER_RX_PIN 5
+#define DFPLAYER_TX_PIN 19
+#define DFPLAYER_VOLUME 30
+HardwareSerial dfSerial(2);
+DFRobotDFPlayerMini myDFPlayer;
+static bool dfPlayerOnline = false;
 
 // Stack des Arduino-Loop-Tasks: 8 KB (Standard) reichten nicht, die serielle Konfigurations-
 // abfrage (get_config, z. B. vom Web-Installer) löste einen Stack-Overflow und Neustart aus.
@@ -27,7 +36,18 @@ SET_LOOP_TASK_STACK_SIZE(16 * 1024);
 ConfigManager configManager;
 TinkerThinkerBoard board(&configManager);
 
-// Soundboard (DFPlayer) removed per request
+// Audio-Aktionen für die Controller-Bindings (sound_play / sound_volume, siehe InputBindingManager).
+// Track n spielt /mp3/000n.mp3 von der SD-Karte.
+static int dfPlayerVolume = DFPLAYER_VOLUME;
+void audioPlay(int track) {
+    if (!dfPlayerOnline || track < 1) return;
+    myDFPlayer.playMp3Folder(track);
+}
+void audioVolumeAdjust(int delta) {
+    if (!dfPlayerOnline) return;
+    dfPlayerVolume = constrain(dfPlayerVolume + delta, 0, 30);
+    myDFPlayer.volume(dfPlayerVolume);
+}
 
 
 // Button/DPad enums removed; new InputBindingManager handles mapping
@@ -828,13 +848,25 @@ void setup() {
 
     Serial.begin(115200);
 
-    // DFPlayer initialization removed
 
     if (!configManager.init()) {
         Serial.println("Failed to init ConfigManager!");
     }
     board.begin();
     boardReady = true;
+    // DFPlayer-Audiomodul erst nach board.begin() starten: GPIO5/19 sind auf der Platine auch
+    // Servo 6/5, deren PWM hier abgeschaltet bleibt (getActiveServoCount). Ohne ACK, weil
+    // Nachbau-Module die Bestätigung oft nicht senden; Erreichbarkeit per readFileCounts().
+    dfSerial.begin(9600, SERIAL_8N1, DFPLAYER_RX_PIN, DFPLAYER_TX_PIN);
+    myDFPlayer.begin(dfSerial, false, true);
+    delay(1500);   // Reset des Moduls und Einlesen der SD-Karte abwarten
+    dfPlayerOnline = true;
+    myDFPlayer.volume(DFPLAYER_VOLUME);
+    {
+        int files = myDFPlayer.readFileCounts();
+        Serial.printf("DFPlayer: Dateien auf SD = %d (-1 = keine Antwort, Verkabelung pruefen)\n", files);
+    }
+    myDFPlayer.playMp3Folder(1);   // Start-Quak (/mp3/0001.mp3)
     // GPIO39 is input-only on ESP32 and has no internal pull-up.
     // On v2 boards: external pull-up with active-low MODE button.
     // On legacy v1 boards: GPIO39 is the H-Bridge motor fault signal (LOW = OK, HIGH = Fault).

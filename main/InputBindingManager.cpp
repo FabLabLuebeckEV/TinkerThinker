@@ -2,6 +2,10 @@
 #include "TinkerThinkerBoard.h"
 #include "ConfigManager.h"
 
+// Audiomodul (DFPlayer), definiert in sketch.cpp
+void audioPlay(int track);
+void audioVolumeAdjust(int delta);
+
 InputBindingManager::InputBindingManager(TinkerThinkerBoard* b, ConfigManager* c)
     : board(b), config(c) {}
 
@@ -128,6 +132,11 @@ void InputBindingManager::applyAction(JsonObject action, ControllerPtr ctl) {
         }
     } else if (!strcmp(type, "sumo_move")) {
         // läuft in tickSumo() solange die Taste gehalten wird; hier nichts tun
+    } else if (!strcmp(type, "sound_play")) {
+        Serial.printf("InputBindingManager: Sound %d\n", (int)(action["track"] | 1));
+        audioPlay(action["track"] | 1);
+    } else if (!strcmp(type, "sound_volume")) {
+        audioVolumeAdjust(action["delta"] | 0);
     } else if (!strcmp(type, "servo_sweep")) {
         startServoSweep(action);
     } else if (!strcmp(type, "motor_ramp")) {
@@ -289,6 +298,7 @@ void InputBindingManager::process(ControllerPtr ctl, int idx) {
     int axRY = ctl->axisRY();
     uint32_t btns = ctl->buttons() | ((uint32_t)ctl->miscButtons() << 16);
     uint32_t dpad = ctl->dpad();
+    if (btns != prevButtons[idx]) Serial.printf("InputBindingManager: Tasten=0x%04lx\n", (unsigned long)btns);
 
     for (JsonObject b : arr) {
         JsonObject input  = b["input"].as<JsonObject>();

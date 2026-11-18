@@ -11,6 +11,7 @@ set(srcs
     "WebServerManager.cpp"
     "InputBindingManager.cpp"
     "BtPairing.cpp"
+    "DFRobotDFPlayerMini.cpp"
 )
 
 set(includes
