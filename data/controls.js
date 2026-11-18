@@ -310,13 +310,13 @@
         refs.trackEl = mkNum(1, 255, action.track ?? 1, 72);
         fieldsDiv.append(
           frow([el('label',{},'Track:'), refs.trackEl]),
-          hint('DFPlayer: spielt /mp3/0001.mp3 … von der SD-Karte (FAT32)')
+          hint('DFPlayer: spielt /mp3/0001.mp3 … von der SD-Karte (FAT32) · Audiomodul unter Einstellungen einschalten')
         );
       } else if (t === 'sound_volume') {
         refs.deltaEl = mkNum(-30, 30, action.delta ?? 5, 72);
         fieldsDiv.append(
           frow([el('label',{},'Delta:'), refs.deltaEl]),
-          hint('Lautstärke ändern · Bereich 0-30 · Start 30')
+          hint('Lautstärke ändern · Bereich 0-30 · Startwert unter Einstellungen')
         );
       }
     }

@@ -8,8 +8,10 @@ ServoController::ServoController(ServoMotor servos[], size_t servoCount) : servo
     }
 }
 
+// pin < 0 = Anschluss anderweitig belegt (z. B. Audiomodul): kein PWM, Befehle werden ignoriert
 void ServoController::init() {
     for (size_t i = 0; i < count; i++) {
+        if (servos[i].pin < 0) continue;
         ledcAttach(servos[i].pin, 50, ledc_resolution);
         setServoAngle(i, servos[i].angle);
     }
@@ -19,7 +21,7 @@ void ServoController::setActiveCount(size_t newCount) {
     if (newCount == count) return;
     if (newCount < count) {
         for (size_t i = newCount; i < count; i++) {
-            ledcDetach(servos[i].pin);
+            if (servos[i].pin >= 0) ledcDetach(servos[i].pin);
         }
         count = newCount;
         return;
@@ -27,6 +29,7 @@ void ServoController::setActiveCount(size_t newCount) {
     size_t oldCount = count;
     count = newCount;
     for (size_t i = oldCount; i < count; i++) {
+        if (servos[i].pin < 0) continue;
         ledcAttach(servos[i].pin, 50, ledc_resolution);
         setServoAngle(i, servos[i].angle);
     }
@@ -34,6 +37,7 @@ void ServoController::setActiveCount(size_t newCount) {
 
 void ServoController::setServoAngle(int index, int angle) {
     if (index < 0 || (size_t)index >= count) return;
+    if (servos[index].pin < 0) return;
 
     angle = constrain(angle, 0, 180);
     int pulseWidth = map(angle, 0, 180, servos[index].min_pulsewidth, servos[index].max_pulsewidth);

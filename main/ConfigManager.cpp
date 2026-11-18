@@ -15,6 +15,37 @@ bool ConfigManager::init() {
     } else {
         loadConfig();
     }
+    // Audio-Pins nur einmal beim Start vergeben; spätere Änderungen wirken nach dem Neustart
+    audio_active = audio_enabled;
+    return true;
+}
+
+bool ConfigManager::isAudioPinAllowed(int pin) {
+    // Signal-Pins der Servo-Anschlüsse 1..7 (siehe TinkerThinkerBoard-Konstruktor)
+    static const int allowed[] = {13, 33, 17, 23, 18, 19, 5};
+    for (int p : allowed) {
+        if (p == pin) return true;
+    }
+    return false;
+}
+
+bool ConfigManager::setAudioConfig(bool enabled, int rxPin, int txPin, int volume, String& error) {
+    if (!isAudioPinAllowed(rxPin) || !isAudioPinAllowed(txPin)) {
+        error = "Pin nicht erlaubt (nur Servo-Anschlüsse)";
+        return false;
+    }
+    if (rxPin == txPin) {
+        error = "RX und TX müssen verschiedene Pins sein";
+        return false;
+    }
+    if (volume < 0 || volume > 30) {
+        error = "Lautstärke muss 0..30 sein";
+        return false;
+    }
+    audio_enabled = enabled;
+    audio_rx_pin = rxPin;
+    audio_tx_pin = txPin;
+    audio_volume = volume;
     return true;
 }
 
@@ -32,6 +63,10 @@ void ConfigManager::setDefaults() {
     motorGripperGUI = 0;
     gui_mode = "basic";
     legacy_board = LEGACY_BOARD_DEFAULT;
+    audio_enabled = false;
+    audio_rx_pin = 5;
+    audio_tx_pin = 19;
+    audio_volume = 30;
     for (int i = 0; i < 4; i++) motor_deadband[i] = 50;
     for (int i = 0; i < 4; i++) motor_trim[i] = 100;
     led_count = 30;
@@ -107,6 +142,14 @@ bool ConfigManager::loadConfig() {
     motorGripperGUI = doc["motor_gripper_gui"] | 0;
     setGuiMode(String((const char*)(doc["gui_mode"] | "basic")));
     legacy_board = doc["legacy_board"] | LEGACY_BOARD_DEFAULT;
+    {
+        String audioErr;
+        if (!setAudioConfig(doc["audio_enabled"] | false, doc["audio_rx_pin"] | 5, doc["audio_tx_pin"] | 19,
+                            doc["audio_volume"] | 30, audioErr)) {
+            Serial.printf("Audio-Einstellungen ungültig (%s), Audio bleibt aus\n", audioErr.c_str());
+            audio_enabled = false;
+        }
+    }
     led_count = doc["led_count"] | 30;
     led_brightness = doc["led_brightness"] | 50;
     led_gamma = doc["led_gamma"] | false;
@@ -233,6 +276,10 @@ bool ConfigManager::saveConfig() {
     doc["motor_gripper_gui"] = motorGripperGUI;
     doc["gui_mode"] = gui_mode;
     doc["legacy_board"] = legacy_board;
+    doc["audio_enabled"] = audio_enabled;
+    doc["audio_rx_pin"] = audio_rx_pin;
+    doc["audio_tx_pin"] = audio_tx_pin;
+    doc["audio_volume"] = audio_volume;
 
     JsonArray dbArr = doc["motor_deadband"].to<JsonArray>();
     for (int i=0; i<4; i++) dbArr.add(motor_deadband[i]);
@@ -334,34 +381,27 @@ bool ConfigManager::resetConfig() {
 }
 
 const char* ConfigManager::getDefaultControlBindingsJson() {
-    // DuckNorris-Belegung (entspricht der Vorlage "DuckNorris" im Steuerungs-Editor)
     return R"JSON([
-  {"input": {"type": "axis_pair", "x": "X", "y": "Y", "deadband": 16},
+  {"input": {"type": "axis_pair", "x": "RX", "y": "RY", "deadband": 16},
    "action": {"type": "drive_pair", "target": "gui"}},
-  {"input": {"type": "dpad", "dir": "UP", "edge": "press"},
-   "action": {"type": "speed_adjust", "delta": 0.1}},
-  {"input": {"type": "dpad", "dir": "DOWN", "edge": "press"},
-   "action": {"type": "speed_adjust", "delta": -0.1}},
-  {"input": {"type": "dpad", "dir": "RIGHT", "edge": "press"},
-   "action": {"type": "sound_volume", "delta": 5}},
-  {"input": {"type": "dpad", "dir": "LEFT", "edge": "press"},
-   "action": {"type": "sound_volume", "delta": -5}},
-  {"input": {"type": "button", "code": "BTN_A", "edge": "press"},
-   "action": {"type": "sound_play", "track": 1}},
-  {"input": {"type": "button", "code": "BTN_B", "edge": "press"},
-   "action": {"type": "sound_play", "track": 2}},
-  {"input": {"type": "button", "code": "BTN_X", "edge": "press"},
-   "action": {"type": "sound_play", "track": 3}},
-  {"input": {"type": "button", "code": "BTN_Y", "edge": "press"},
-   "action": {"type": "sound_play", "track": 4}},
-  {"input": {"type": "button", "code": "BUTTON_R2", "edge": "hold"},
-   "action": {"type": "servo_nudge", "servo": 0, "delta": 3}},
-  {"input": {"type": "button", "code": "BUTTON_L2", "edge": "hold"},
-   "action": {"type": "servo_nudge", "servo": 0, "delta": -3}},
+  {"input": {"type": "axis_pair", "x": "X",  "y": "Y",  "deadband": 16},
+   "action": {"type": "drive_pair", "target": "other"}},
+  {"input": {"type": "dpad", "dir": "LEFT",  "edge": "hold"},
+   "action": {"type": "motor_direct", "motor": 0, "pwm": -255}},
+  {"input": {"type": "dpad", "dir": "RIGHT", "edge": "hold"},
+   "action": {"type": "motor_direct", "motor": 0, "pwm":  255}},
+  {"input": {"type": "dpad", "dir": "UP",    "edge": "hold"},
+   "action": {"type": "motor_direct", "motor": 1, "pwm":  255}},
+  {"input": {"type": "dpad", "dir": "DOWN",  "edge": "hold"},
+   "action": {"type": "motor_direct", "motor": 1, "pwm": -255}},
+  {"input": {"type": "button", "code": "BUTTON_R2", "edge": "press"},
+   "action": {"type": "servo_toggle_band", "servo": 0, "bands": [0,90]}},
+  {"input": {"type": "button", "code": "BUTTON_L2", "edge": "press"},
+   "action": {"type": "servo_toggle_band", "servo": 0, "bands": [90,180]}},
   {"input": {"type": "button", "code": "BUTTON_R1", "edge": "press"},
-   "action": {"type": "servo_set", "servo": 0, "angle": 180}},
+   "action": {"type": "speed_adjust", "delta": 0.1}},
   {"input": {"type": "button", "code": "BUTTON_L1", "edge": "press"},
-   "action": {"type": "servo_set", "servo": 0, "angle": 0}}
+   "action": {"type": "speed_adjust", "delta": -0.1}}
 ])JSON";
 }
 

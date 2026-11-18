@@ -27,8 +27,7 @@ TinkerThinkerBoard::TinkerThinkerBoard(ConfigManager* configManager)
 }
 
 size_t TinkerThinkerBoard::getActiveServoCount() const {
-    // DuckNorris: Servo 5/6 (GPIO19/GPIO5) sind der UART zum DFPlayer, daher nur 5 Servos
-    return (config && config->isLegacyBoard()) ? 3 : 5;
+    return (config && config->isLegacyBoard()) ? 3 : SERVO_COUNT;
 }
 
 void TinkerThinkerBoard::reApplyConfig() {
@@ -85,8 +84,15 @@ void TinkerThinkerBoard::reApplyConfig() {
                 if (idx >= 0 && (size_t)idx < activeServos) servos[idx].angle = sumoAngle(slot, 0.0f);
             }
         }
+        // Audiomodul aktiv: dessen Pins gehören dem UART, diese Servo-Anschlüsse bekommen kein PWM
+        for (size_t i = 0; i < SERVO_COUNT; i++) {
+            if (config->isAudioPinUsed(servos[i].pin)) {
+                Serial.printf("Servo %u: Pin %d gehört dem Audiomodul, Servo aus\n", (unsigned)(i + 1), servos[i].pin);
+                servos[i].pin = -1;
+            }
+        }
         for (size_t i = activeServos; i < SERVO_COUNT; i++) {
-            ledcDetach(servos[i].pin);
+            if (servos[i].pin >= 0) ledcDetach(servos[i].pin);
         }
         servoController = new ServoController(servos, activeServos);
         for (size_t i = 0; i < activeServos; i++) {

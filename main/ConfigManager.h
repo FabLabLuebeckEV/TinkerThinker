@@ -31,6 +31,19 @@ public:
     int getMotorGripperGUI();
     String getGuiMode() const { return gui_mode; }
     bool isLegacyBoard() const { return legacy_board; }
+    // Audiomodul (DFPlayer Mini, optional, Standard aus). Gespeicherte Einstellung; wirksam erst
+    // nach einem Neustart, weil die Pins beim Start an den UART oder die Servos vergeben werden.
+    bool isAudioEnabled() const { return audio_enabled; }
+    int getAudioRxPin() const { return audio_rx_pin; }
+    int getAudioTxPin() const { return audio_tx_pin; }
+    int getAudioVolume() const { return audio_volume; }
+    // Zustand seit dem Start (nach init() fest): nur dann sind die Pins wirklich für Audio belegt
+    bool isAudioActive() const { return audio_active; }
+    bool isAudioPinUsed(int pin) const { return audio_active && (pin == audio_rx_pin || pin == audio_tx_pin); }
+    // Erlaubte Audio-Pins: die Signal-Pins der Servo-Anschlüsse (dort gibt es auch 5 V und GND)
+    static bool isAudioPinAllowed(int pin);
+    // Prüft und übernimmt die Audio-Einstellungen; false + Grund bei ungültigen Werten
+    bool setAudioConfig(bool enabled, int rxPin, int txPin, int volume, String& error);
     int getActiveServoCount() const { return legacy_board ? 3 : 7; }
     int getLedCount();
     int getLedBrightness();
@@ -153,6 +166,11 @@ private:
     int motorGripperGUI = 0;
     String gui_mode = "basic";
     bool legacy_board = LEGACY_BOARD_DEFAULT;
+    bool audio_enabled = false;
+    int audio_rx_pin = 5;    // ESP-RX <- DFPlayer TX (Servo 7)
+    int audio_tx_pin = 19;   // ESP-TX -> DFPlayer RX (Servo 6)
+    int audio_volume = 30;   // 0..30
+    bool audio_active = false;
     String wifi_mode;
     String wifi_ssid;
     String wifi_password;

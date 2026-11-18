@@ -146,6 +146,7 @@ Der ESP32 sendet zyklisch ein Status-JSON an alle verbundenen WebSocket-Clients:
 - **`GET /setWsDrive?x=0|1&y=0|1&swap=0|1`**: Joystick-Richtung der Website (X/Y invertieren, Achsen tauschen) dauerhaft speichern.
 - **`GET /setBtDrive?x=0|1&y=0|1&swap=0|1`**: Dasselbe für Bluetooth-Controller.
 - **`POST /wifi/disable`**: Schaltet das WLAN bis zum nächsten Neustart ab.
+- **`POST /audio/config`** (Formular-Parameter `enabled=0|1`, `rx`, `tx`, `volume=0..30`): Audiomodul (DFPlayer) ein/aus, Pins (nur Servo-Signal-Pins 13, 33, 17, 23, 18, 19, 5, RX ungleich TX) und Startlautstärke. Antwort `{"status":"ok","reboot_required":true}`, `400` mit `{"error":...}` bei ungültigen Werten. Wirkt erst nach einem Neustart; `GET /getConfig` liefert `audio_enabled`, `audio_rx_pin`, `audio_tx_pin`, `audio_volume` und `audio_active` (Zustand seit dem Start).
 - **`POST /reboot`**: Antwortet und startet den ESP32 danach neu.
 - **`POST /resetconfig`**: Setzt `/config.json` auf Werkseinstellungen zurück, antwortet mit `{"status":"ok"}` (`500` bei Fehler) und startet danach neu.
 - Beide Endpunkte lösen nur per `POST` (z. B. `fetch`) etwas aus. Ein Aufruf im Browser (`GET`) leitet ohne Neustart auf `/` weiter: Als aufrufbare Adresse hat ein stehengebliebener Tab das Board früher bei jedem Neuladen neu gestartet.

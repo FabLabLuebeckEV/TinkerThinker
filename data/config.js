@@ -285,6 +285,7 @@ async function loadConfig() {
     if (legacyBoardEl) {
       legacyBoardEl.checked = !!data.legacy_board;
     }
+    fillAudioSettings(data);
 
     // WiFi
     document.getElementById('wifi_mode').value = data.wifi_mode;
@@ -914,6 +915,73 @@ function setupGuiModeControl() {
   }
 }
 
+// -- Audiomodul (DFPlayer, optional) -------------------------------------------
+// Erlaubt sind die Signal-Pins der Servo-Anschlüsse (wie ConfigManager::isAudioPinAllowed).
+const AUDIO_PINS = [
+  { pin: 13, label: 'Servo 1 (GPIO13)' }, { pin: 33, label: 'Servo 2 (GPIO33)' },
+  { pin: 17, label: 'Servo 3 (GPIO17)' }, { pin: 23, label: 'Servo 4 (GPIO23)' },
+  { pin: 18, label: 'Servo 5 (GPIO18)' }, { pin: 19, label: 'Servo 6 (GPIO19)' },
+  { pin: 5,  label: 'Servo 7 (GPIO5)' },
+];
+
+function fillAudioSettings(data) {
+  const en = document.getElementById('audio_enabled');
+  if (!en) return;
+  ['audio_rx_pin', 'audio_tx_pin'].forEach((id) => {
+    const sel = document.getElementById(id);
+    if (sel.options.length === 0) {
+      AUDIO_PINS.forEach((p) => sel.add(new Option(p.label, String(p.pin))));
+    }
+  });
+  en.checked = !!data.audio_enabled;
+  document.getElementById('audio_rx_pin').value = String(data.audio_rx_pin ?? 5);
+  document.getElementById('audio_tx_pin').value = String(data.audio_tx_pin ?? 19);
+  document.getElementById('audio_volume').value = data.audio_volume ?? 30;
+  const info = document.getElementById('audio_active_info');
+  if (data.audio_active === undefined) {
+    info.textContent = '';
+  } else if (!!data.audio_active === !!data.audio_enabled) {
+    info.textContent = data.audio_active ? 'aktiv' : 'aus';
+  } else {
+    info.textContent = 'gespeichert, wirkt nach dem Neustart';
+  }
+}
+
+function setupAudioControl() {
+  const btn = document.getElementById('audio_save');
+  const st = document.getElementById('audio_status');
+  if (!btn) return;
+  btn.addEventListener('click', async () => {
+    const rx = document.getElementById('audio_rx_pin').value;
+    const tx = document.getElementById('audio_tx_pin').value;
+    if (rx === tx) {
+      st.textContent = 'RX und TX müssen verschiedene Anschlüsse sein';
+      st.style.color = '#c62828';
+      return;
+    }
+    const body = new URLSearchParams({
+      enabled: document.getElementById('audio_enabled').checked ? '1' : '0',
+      rx, tx,
+      volume: document.getElementById('audio_volume').value,
+    });
+    st.textContent = 'Speichern...';
+    st.style.color = '#555';
+    try {
+      const res = await fetch('/audio/config', { method: 'POST', body });
+      const out = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(out.error || ('HTTP ' + res.status));
+      st.textContent = 'Gespeichert, Neustart...';
+      st.style.color = '#2e7d32';
+      document.getElementById('newWifiInfo').innerText = 'unverändert';
+      document.getElementById('restartPopup').style.display = 'block';
+      requestRestart('/reboot');
+    } catch (e) {
+      st.textContent = 'Fehler: ' + e.message;
+      st.style.color = '#c62828';
+    }
+  });
+}
+
 // -- Init ----------------------------------------------------------------------
 
 // Initialisieren der WebSocket-Verbindung und Collapsibles beim Laden der Seite
@@ -923,6 +991,7 @@ window.onload = function() {
   setupWifiDisableButton();
   setupDriveProfileControls();
   setupGuiModeControl();
+  setupAudioControl();
   loadConfig();
   btLoadWhitelist();
   btLoadControllers();

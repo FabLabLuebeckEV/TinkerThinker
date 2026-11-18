@@ -31,14 +31,16 @@ Key Modules
 - data/: LittleFS web app (index/config/setup pages + JS/CSS).
 
 Recent Changes (Important)
-1) BT/Wi-Fi coexistence - search windows instead of duty cycling (Nov 2026)
+1) BT/Wi-Fi coexistence - search windows with duty-cycled inquiry (Nov 2026)
    - The ESP32 shares a single 2.4 GHz radio. Only BT inquiry (searching for new devices) is expensive;
      page scan (paired controllers reconnecting) is always on and cheap (`gap_connectable_control(1)`).
    - Inquiry runs only in a 60 s search window: after boot, MODE button hold (~0.7 s) or `POST /bt/scan`.
      The window ends early when a controller connects. Wi-Fi stays on the whole time.
-   - Inquiry is periodic with 2.56 s blocks and 2.5-3.8 s gaps (Bluepad32 properties: inquiry length 2,
-     min/max period 4/5, set once in `prepareBluetoothStack()` only if different), so Wi-Fi gets
-     contiguous airtime for association/DHCP. The old 100-500 ms host toggling never completed an inquiry.
+   - Inside the window `searchDutyCycle()` in sketch.cpp switches inquiry in short slices like the proven
+     Oct 12 firmware: 100 ms on / 1900 ms off while a Wi-Fi client is on the AP or STA is connected,
+     150/850 ms while STA connects, 500/500 ms otherwise. Tested on the board (Nov 2026): long blocks
+     (2.56 s every 5-6 s) made the web UI unusable while a phone was connected. Bluepad32 inquiry
+     properties (length 2, min/max period 4/5) are still set in `prepareBluetoothStack()`.
    - Wi-Fi is no longer paused on controller connect (it dropped all phones for 3 s).
    - `reconcileInquiry()` re-applies the wanted inquiry state on the BTstack thread once per second
      (`gap_inquiry_periodic_start` / `gap_inquiry_stop`, both no-ops when the state already matches).
@@ -162,22 +164,32 @@ Recent Changes (Important)
      proportional, `action.axis` x|y, deadband default 60). Misc buttons (`MISC_START/SELECT/SYSTEM`) are
      `miscButtons() << 16` in `process()` and the controller snapshot. It replaces the list; "Speichern" applies it.
    - Serial `set_config`/`get_config` also carry `sumo` (same object as `/sumo/config`).
-13) DuckNorris audio (branch `Ducknorris`, Nov 2026)
-   - DFPlayer Mini on UART2 (ESP-RX GPIO5, ESP-TX GPIO19), library `main/DFRobotDFPlayerMini.*` (from branch `ente`).
-     Init in `setup()`, firmware runs on without the module. `audioPlay(track)` plays `/mp3/000n.mp3` (FAT32 SD card).
-   - Bindings: `sound_play {track}` and `sound_volume {delta}` (0..30, start 30). No hardcoded audio buttons.
+13) Audio module, optional (from branch `Ducknorris`, Nov 2026)
+   - DFPlayer Mini on UART2, library `main/DFRobotDFPlayerMini.*` (from branch `ente`). **Off by default**;
+     config keys `audio_enabled` (false), `audio_rx_pin` (5 = Servo 7), `audio_tx_pin` (19 = Servo 6),
+     `audio_volume` (0..30, default 30). Allowed pins are only the servo header signal pins
+     (`ConfigManager::isAudioPinAllowed`: 13, 33, 17, 23, 18, 19, 5), RX != TX.
+   - Pins are assigned once at boot: `ConfigManager::init()` copies `audio_enabled` to `audio_active`;
+     `reApplyConfig()` sets `pin = -1` for servos on audio pins (ServoController skips pin < 0, no PWM),
+     then `setup()` starts the DFPlayer after `board.begin()` (1.5 s delay, start sound track 1).
+     Changing the settings needs a restart (`POST /audio/config` with `enabled`, `rx`, `tx`, `volume`;
+     separate endpoint so the setup form's `POST /config` never touches audio). Serial get/set_config
+     carry the same keys (`reboot_required`), `/getConfig` also reports `audio_active`.
+   - Without audio `audioPlay(track)` / `audioVolumeAdjust()` do nothing. `audioPlay(track)` plays `/mp3/000n.mp3` (FAT32 SD card).
+   - Bindings: `sound_play {track}` and `sound_volume {delta}` (0..30). No hardcoded audio buttons; the default
+     bindings stay the generic ones (the DuckNorris layout is only a template).
    - Controls editor: button "Vorlage DuckNorris" (left stick drive, D-pad up/down speed_adjust +/-0.1, D-pad right/left
      volume +/-5, A/B/X/Y sound 1-4, R2/L2 hold servo 0 +/-3°, R1/L1 servo 0 to 180°/0°). No double assignments.
 
 Editing Guidelines
 - Keep changes focused; do not introduce a second Arduino core.
 - Respect the control arbiter API; route all new control surfaces through TinkerThinkerBoard request* methods.
-- When touching Wi-Fi/BT behavior, adjust the search window logic in sketch.cpp (`setInquiry`, `prepareBluetoothStack`) and `BtPairing`; do not reintroduce Wi-Fi shutdowns or fast inquiry toggling.
+- When touching Wi-Fi/BT behavior, adjust the search window logic in sketch.cpp (`setInquiry`, `prepareBluetoothStack`) and `BtPairing`; do not reintroduce Wi-Fi shutdowns or long inquiry blocks while Wi-Fi clients are connected.
 - UI fields: add in data/config.html and wire to data/config.js; expose via WebServerManager.
 - Always keep all source and documentation files in clean UTF-8 (without BOM) with intact German umlauts (`ä`, `ö`, `ü`, `ß`) and Unicode symbols (`°`, `↑`, `↓`, `►`, `▼`, `✓`). Never use PowerShell 5.1 `Get-Content`/`Set-Content` without explicit UTF-8 handling.
 
 Common Tasks
-- Adjust BT search: window length `searchWindowMs` in sketch.cpp, inquiry block/gap lengths in `prepareBluetoothStack()`.
+- Adjust BT search: window length `searchWindowMs` and the on/off slices `kSearchOnMs*` / `kSearchOffMs*` in sketch.cpp.
 - Add a new control source: implement request methods in TinkerThinkerBoard and call them from the source.
 - Expand config: extend ConfigManager load/save; expose in WebServerManager; add UI inputs.
 

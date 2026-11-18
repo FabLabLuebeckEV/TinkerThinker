@@ -62,6 +62,35 @@
       </div>
     </section>
 
+    <!-- Audiomodul (optional) -->
+    <section>
+      <h2>Audiomodul (DFPlayer Mini)</h2>
+      <p style="font-size:13px; color:#555;">
+        Optional, standardmäßig aus. Das Modul hängt an zwei Servo-Anschlüssen (dort gibt es auch 5 V und GND).
+        Diese beiden Servos sind dann abgeschaltet. Sounds liegen als /mp3/0001.mp3, 0002.mp3 … auf der SD-Karte (FAT32);
+        abspielen per Controller-Belegung „sound_play“ (Steuerung, z. B. Vorlage DuckNorris). Track 1 spielt beim Start.
+      </p>
+      <div class="row" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+        <label for="audio_enabled">Audiomodul einschalten:</label>
+        <input type="checkbox" id="audio_enabled">
+        <span id="audio_active_info" style="font-size:12px; color:#555;"></span>
+      </div>
+      <div class="row" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+        <label for="audio_rx_pin">ESP-RX (an TX des Moduls):</label>
+        <select id="audio_rx_pin"></select>
+        <label for="audio_tx_pin">ESP-TX (an RX des Moduls):</label>
+        <select id="audio_tx_pin"></select>
+      </div>
+      <div class="row" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+        <label for="audio_volume">Lautstärke beim Start (0-30):</label>
+        <input type="number" id="audio_volume" min="0" max="30" step="1" style="width:70px;">
+      </div>
+      <div class="row" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+        <button type="button" id="audio_save">Speichern und neu starten</button>
+        <span id="audio_status" style="font-size:12px;"></span>
+      </div>
+    </section>
+
     <!-- WLAN Einstellungen -->
     <section>
       <h2>WLAN Einstellungen</h2>

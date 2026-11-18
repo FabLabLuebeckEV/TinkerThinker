@@ -17,6 +17,10 @@
    "motor_gripper_gui":0,
    "gui_mode":"basic",
    "legacy_board":false,
+   "audio_enabled":false,
+   "audio_rx_pin":5,
+   "audio_tx_pin":19,
+   "audio_volume":30,
    "motor_deadband":[
       50,
       50,

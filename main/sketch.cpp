@@ -19,10 +19,8 @@
 #include "DFRobotDFPlayerMini.h"
 #define MODE_BUTTON_PIN 39
 
-// Audiomodul (DFPlayer Mini) für DuckNorris: UART2, ESP-RX = GPIO5, ESP-TX = GPIO19
-#define DFPLAYER_RX_PIN 5
-#define DFPLAYER_TX_PIN 19
-#define DFPLAYER_VOLUME 30
+// Audiomodul (DFPlayer Mini), optional: in den Einstellungen einschalten (audio_enabled, Standard aus).
+// UART2 auf zwei Servo-Anschlüssen, Standard ESP-RX = GPIO5 (Servo 7), ESP-TX = GPIO19 (Servo 6).
 HardwareSerial dfSerial(2);
 DFRobotDFPlayerMini myDFPlayer;
 static bool dfPlayerOnline = false;
@@ -38,7 +36,8 @@ TinkerThinkerBoard board(&configManager);
 
 // Audio-Aktionen für die Controller-Bindings (sound_play / sound_volume, siehe InputBindingManager).
 // Track n spielt /mp3/000n.mp3 von der SD-Karte.
-static int dfPlayerVolume = DFPLAYER_VOLUME;
+// Ohne eingeschaltetes Audiomodul tun beide nichts.
+static int dfPlayerVolume = 30;
 void audioPlay(int track) {
     if (!dfPlayerOnline || track < 1) return;
     myDFPlayer.playMp3Folder(track);
@@ -199,6 +198,11 @@ static void fillSerialConfig(JsonDocument& doc) {
     doc["gui_mode"] = configManager.getGuiMode();
     doc["legacy_board"] = configManager.isLegacyBoard();
     doc["servo_count"] = configManager.getActiveServoCount();
+    doc["audio_enabled"] = configManager.isAudioEnabled();
+    doc["audio_rx_pin"] = configManager.getAudioRxPin();
+    doc["audio_tx_pin"] = configManager.getAudioTxPin();
+    doc["audio_volume"] = configManager.getAudioVolume();
+    doc["audio_active"] = configManager.isAudioActive();
 
     JsonArray dbArr = doc["motor_deadband"].to<JsonArray>();
     for (int i = 0; i < 4; i++) dbArr.add(configManager.getMotorDeadband(i));
@@ -483,6 +487,21 @@ static void handleSerialCommandLine(const char* rawLine) {
         if (!cfg["gui_mode"].isNull()) {
             configManager.setGuiMode(String((const char*)(cfg["gui_mode"] | "basic")));
             touched = true;
+        }
+        if (!cfg["audio_enabled"].isNull() || !cfg["audio_rx_pin"].isNull() ||
+            !cfg["audio_tx_pin"].isNull() || !cfg["audio_volume"].isNull()) {
+            String audioErr;
+            bool en = cfg["audio_enabled"] | configManager.isAudioEnabled();
+            int rx = cfg["audio_rx_pin"] | configManager.getAudioRxPin();
+            int tx = cfg["audio_tx_pin"] | configManager.getAudioTxPin();
+            int vol = cfg["audio_volume"] | configManager.getAudioVolume();
+            if (configManager.setAudioConfig(en, rx, tx, vol, audioErr)) {
+                touched = true;
+                rebootRequired = true;   // Pins werden nur beim Start vergeben
+            } else {
+                Serial.printf("set_config: Audio-Einstellungen abgelehnt: %s\n", audioErr.c_str());
+                resp["audio_error"] = audioErr;
+            }
         }
         if (!cfg["legacy_board"].isNull()) {
             configManager.setLegacyBoard(cfg["legacy_board"].as<bool>());
@@ -854,19 +873,27 @@ void setup() {
     }
     board.begin();
     boardReady = true;
-    // DFPlayer-Audiomodul erst nach board.begin() starten: GPIO5/19 sind auf der Platine auch
-    // Servo 6/5, deren PWM hier abgeschaltet bleibt (getActiveServoCount). Ohne ACK, weil
-    // Nachbau-Module die Bestätigung oft nicht senden; Erreichbarkeit per readFileCounts().
-    dfSerial.begin(9600, SERIAL_8N1, DFPLAYER_RX_PIN, DFPLAYER_TX_PIN);
-    myDFPlayer.begin(dfSerial, false, true);
-    delay(1500);   // Reset des Moduls und Einlesen der SD-Karte abwarten
-    dfPlayerOnline = true;
-    myDFPlayer.volume(DFPLAYER_VOLUME);
-    {
+    // DFPlayer-Audiomodul nur wenn in den Einstellungen eingeschaltet, und erst nach board.begin():
+    // Die gewählten Pins sind Servo-Anschlüsse, deren PWM board.begin() dann gar nicht erst startet
+    // (ConfigManager::isAudioPinUsed). Ohne ACK, weil Nachbau-Module die Bestätigung oft nicht
+    // senden; Erreichbarkeit per readFileCounts(). Der Start-Sound (Track 1) läuft trotzdem, weil
+    // solche Module oft auch keine Statusabfragen beantworten, aber abspielen.
+    if (configManager.isAudioActive()) {
+        int rx = configManager.getAudioRxPin();
+        int tx = configManager.getAudioTxPin();
+        dfSerial.begin(9600, SERIAL_8N1, rx, tx);
+        myDFPlayer.begin(dfSerial, false, true);
+        delay(1500);   // Reset des Moduls und Einlesen der SD-Karte abwarten
+        dfPlayerOnline = true;
+        dfPlayerVolume = configManager.getAudioVolume();
+        myDFPlayer.volume(dfPlayerVolume);
         int files = myDFPlayer.readFileCounts();
-        Serial.printf("DFPlayer: Dateien auf SD = %d (-1 = keine Antwort, Verkabelung pruefen)\n", files);
+        Serial.printf("DFPlayer an RX=GPIO%d TX=GPIO%d: Dateien auf SD = %d (-1 = keine Antwort, Verkabelung pruefen)\n",
+                      rx, tx, files);
+        myDFPlayer.playMp3Folder(1);   // Start-Sound (/mp3/0001.mp3)
+    } else {
+        Serial.println("Audiomodul: aus (Einstellungen)");
     }
-    myDFPlayer.playMp3Folder(1);   // Start-Quak (/mp3/0001.mp3)
     // GPIO39 is input-only on ESP32 and has no internal pull-up.
     // On v2 boards: external pull-up with active-low MODE button.
     // On legacy v1 boards: GPIO39 is the H-Bridge motor fault signal (LOW = OK, HIGH = Fault).

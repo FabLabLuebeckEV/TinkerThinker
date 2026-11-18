@@ -725,6 +725,11 @@ document.getElementById('f').onsubmit=function(e){
         doc["gui_mode"] = config->getGuiMode();
         doc["legacy_board"] = config->isLegacyBoard();
         doc["servo_count"] = config->getActiveServoCount();
+        doc["audio_enabled"] = config->isAudioEnabled();
+        doc["audio_rx_pin"] = config->getAudioRxPin();
+        doc["audio_tx_pin"] = config->getAudioTxPin();
+        doc["audio_volume"] = config->getAudioVolume();
+        doc["audio_active"] = config->isAudioActive();
 
         JsonArray dbArr = doc["motor_deadband"].to<JsonArray>();
         for (int i=0; i<4; i++) dbArr.add(config->getMotorDeadband(i));
@@ -1033,6 +1038,32 @@ document.getElementById('f').onsubmit=function(e){
         bool ok = config->saveConfig();
         board->reApplyConfig();
         request->send(ok ? 200 : 500, "text/plain", ok ? "OK" : "save failed");
+    });
+
+    // Audiomodul (DFPlayer) ein/aus, Pins und Lautstärke. Eigener Endpunkt, damit das Setup-Formular
+    // (POST /config) die Einstellung nicht mitschreibt. Wirkt erst nach einem Neustart.
+    server.on("/audio/config", HTTP_POST, [this](AsyncWebServerRequest* request){
+        auto param = [request](const char* name, const String& fallback) {
+            return request->hasParam(name, true) ? request->getParam(name, true)->value() : fallback;
+        };
+        String en = param("enabled", config->isAudioEnabled() ? "1" : "0");
+        int rx = param("rx", String(config->getAudioRxPin())).toInt();
+        int tx = param("tx", String(config->getAudioTxPin())).toInt();
+        int vol = param("volume", String(config->getAudioVolume())).toInt();
+        String err;
+        if (!config->setAudioConfig(en == "1" || en == "true" || en == "on", rx, tx, vol, err)) {
+            JsonDocument e;
+            e["error"] = err;
+            String out;
+            serializeJson(e, out);
+            request->send(400, "application/json", out);
+            return;
+        }
+        if (!config->saveConfig()) {
+            request->send(500, "application/json", "{\"error\":\"save failed\"}");
+            return;
+        }
+        request->send(200, "application/json", "{\"status\":\"ok\",\"reboot_required\":true}");
     });
 }
 
