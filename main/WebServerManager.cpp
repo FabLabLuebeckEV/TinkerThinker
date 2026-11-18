@@ -974,6 +974,15 @@ document.getElementById('f').onsubmit=function(e){
         sendAndRestart(request, request->beginResponse(200, "text/plain", "Rebooting..."));
     });
 
+    // Wer /reboot oder /resetconfig im Browser aufruft (Lesezeichen, alter Tab, Verlauf),
+    // landet ohne Neustart auf der Startseite. So kann kein Tab auf der Adresse stehen bleiben.
+    server.on("/reboot", HTTP_GET, [](AsyncWebServerRequest* request){
+        request->redirect("/");
+    });
+    server.on("/resetconfig", HTTP_GET, [](AsyncWebServerRequest* request){
+        request->redirect("/");
+    });
+
     // LED-Einstellungen (Helligkeit/Gamma) dauerhaft speichern
     server.on("/saveLedSettings", HTTP_GET, [this](AsyncWebServerRequest* request){
         if (request->hasParam("brightness")) {

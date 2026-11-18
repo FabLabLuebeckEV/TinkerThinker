@@ -148,4 +148,4 @@ Der ESP32 sendet zyklisch ein Status-JSON an alle verbundenen WebSocket-Clients:
 - **`POST /wifi/disable`**: Schaltet das WLAN bis zum nächsten Neustart ab.
 - **`POST /reboot`**: Antwortet und startet den ESP32 danach neu.
 - **`POST /resetconfig`**: Setzt `/config.json` auf Werkseinstellungen zurück, antwortet mit `{"status":"ok"}` (`500` bei Fehler) und startet danach neu.
-- Beide Endpunkte sind bewusst nur per `POST` erreichbar: Als aufrufbare Adresse hat ein im Browser stehengebliebener Tab das Board bei jedem Neuladen erneut neu gestartet.
+- Beide Endpunkte lösen nur per `POST` (z. B. `fetch`) etwas aus. Ein Aufruf im Browser (`GET`) leitet ohne Neustart auf `/` weiter: Als aufrufbare Adresse hat ein stehengebliebener Tab das Board früher bei jedem Neuladen neu gestartet.
