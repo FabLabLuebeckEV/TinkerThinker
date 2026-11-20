@@ -102,6 +102,12 @@ Recent Changes (Important)
    - Registered via `extra_scripts = pre:tools/gzip_littlefs.py` in `platformio.ini`.
    - Automatically compresses `.html`, `.js`, `.css`, `.ico`, `.svg` from `data/` into `.pio/data_gzip/*.gz` (~63% size reduction) while keeping `config.json` and `.png` uncompressed for runtime `ConfigManager` read/write access.
    - `ESPAsyncWebServer` transparently serves `.gz` files when present in LittleFS.
+   - Cache busting: every local `src`/`href` to a `.js`/`.css` in the HTML gets `?v=<CRC32 of the file>`
+     at build time (`add_cache_busting`, a missing file fails the build). All robots share 192.168.4.1 and
+     firmware up to Oct 12 sent `Last-Modified` without `Cache-Control`, so phones kept old scripts
+     heuristically; on reload Chrome refetches only the page, which mixed a new `setup.html` with an old
+     `setup.js` ("Setup jetzt starten" did nothing: `startMotorWizard is not defined`). The firmware ignores
+     the query (`request->url()` is the path only). Do not hand-maintain `?v=` in the HTML.
    - Fast standalone build & flash (<1s without ESP-IDF CMake re-evaluation):
      - `python tools/gzip_littlefs.py --build`
      - `python tools/gzip_littlefs.py --build --flash COM19`
