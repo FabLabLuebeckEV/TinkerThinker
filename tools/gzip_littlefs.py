@@ -13,9 +13,11 @@ Standalone fast usage (skips ESP-IDF CMake overhead, <1s build):
 import argparse
 import gzip
 import os
+import re
 import shutil
 import subprocess
 import sys
+import zlib
 
 # Force UTF-8 on Windows consoles/pipes so PlatformIO's click.secho never crashes
 # with UnicodeEncodeError (cp1252) when esptool v5 prints Unicode progress bars.
@@ -31,6 +33,34 @@ for _stream in (sys.stdout, sys.stderr):
 GZIP_EXTENSIONS = {".html", ".htm", ".js", ".css", ".ico", ".svg"}
 FS_OFFSET = "0x620000"
 FS_SIZE = 0x180000  # 1572864 bytes
+
+
+# Lokale Skript-/CSS-Einbindungen in HTML: src="/setup.js", href="/styles.css", src="script.js" (optional mit ?v=...)
+ASSET_REF = re.compile(
+    r"""(?P<attr>\b(?:src|href)=["'])(?P<path>/?[A-Za-z0-9_\-./]+\.(?:js|css))(?:\?v=[^"']*)?(?P<quote>["'])"""
+)
+
+
+def add_cache_busting(html: str, html_dir: str, src_dir: str, html_name: str) -> str:
+    """Hängt an jede lokale JS-/CSS-Einbindung ?v=<CRC32 des Inhalts> an.
+
+    Alle Roboter laufen unter derselben Adresse (192.168.4.1). Ältere Firmware lieferte die
+    Dateien mit Last-Modified und ohne Cache-Control aus, das Handy hielt sie dann heuristisch
+    tagelang ohne Rückfrage im Cache. Eine neue Seite konnte so mit einem alten Skript eines
+    anderen Roboters laufen (z. B. "Setup jetzt starten" ohne startMotorWizard). Mit der
+    Inhalts-Version in der URL gehört zu jeder Seite genau ihr Skript.
+    """
+    def repl(m: "re.Match[str]") -> str:
+        path = m.group("path")
+        base = src_dir if path.startswith("/") else html_dir
+        asset = os.path.normpath(os.path.join(base, path.lstrip("/")))
+        if not os.path.isfile(asset):
+            raise FileNotFoundError(f"[gzip_littlefs] {html_name} bindet {path} ein, die Datei fehlt in data/")
+        with open(asset, "rb") as f:
+            version = format(zlib.crc32(f.read()) & 0xFFFFFFFF, "08x")
+        return f"{m.group('attr')}{path}?v={version}{m.group('quote')}"
+
+    return ASSET_REF.sub(repl, html)
 
 
 def prepare_gzip_data_dir(project_dir: str) -> str:
@@ -55,6 +85,9 @@ def prepare_gzip_data_dir(project_dir: str) -> str:
             src_path = os.path.join(root, fname)
             ext = os.path.splitext(fname)[1].lower()
             raw_bytes = open(src_path, "rb").read()
+            if ext in (".html", ".htm"):
+                html = raw_bytes.decode("utf-8")
+                raw_bytes = add_cache_busting(html, root, src_dir, fname).encode("utf-8")
             raw_len = len(raw_bytes)
             total_raw += raw_len
 
